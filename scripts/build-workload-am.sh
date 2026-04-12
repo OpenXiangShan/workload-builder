@@ -9,6 +9,12 @@ AM_SOURCE_DIR="$(realpath "$3")"
 export SRC_DIR="$WORKLOAD_BUILD_DIR/source"
 export PKG_DIR="$WORKLOAD_BUILD_DIR/package"
 export AM_HOME="$WORKLOAD_BUILD_DIR/am"
+export AM_ARCH="${ARCH:-riscv64-xs}"
+export AM_CPPFLAGS="${CPPFLAGS:-}"
+export AM_MAKEARGS="ARCH=$AM_ARCH CROSS_COMPILE=$CROSS_COMPILE"
+if [[ -n "$AM_CPPFLAGS" ]]; then
+    export AM_MAKEARGS="$AM_MAKEARGS CPPFLAGS=$AM_CPPFLAGS"
+fi
 DOWNLOAD_DIR="$WORKLOAD_BUILD_DIR/download"
 
 populate-src-dir() {
@@ -32,6 +38,7 @@ populate-src-dir() {
 
 populate-src-dir
 rm -rf "$PKG_DIR" && mkdir -p "$PKG_DIR"
+rm -rf "$AM_HOME/am/build" # clean am.a for new CPPFLAGS
 bash "$WORKLOAD_DIR/build.sh"
 
 touch "$WORKLOAD_BUILD_DIR"/sentinel

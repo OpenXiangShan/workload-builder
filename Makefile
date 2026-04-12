@@ -72,6 +72,8 @@ build/am-workloads/$(1)/download/sentinel: $$(shell find $$(abspath workloads/am
 build/am-workloads/$(1)/sentinel: $$(shell find $$(abspath workloads/am/$(1))) $(TOOLCHAIN_WRAPPER) build/am-workloads/$(1)/download/sentinel scripts/build-workload-am.sh
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	SYSROOT_DIR="$$(abspath $(BUILDROOT_DIR)/output/staging)" \
+	ARCH="$(ARCH)" \
+	CPPFLAGS="$(CPPFLAGS)" \
 	bash scripts/build-workload-am.sh workloads/am/$(1) build/am-workloads/$(1) nexus-am
 
 am/$(1): build/am-workloads/$(1)/sentinel
