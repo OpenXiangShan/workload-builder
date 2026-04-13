@@ -3,7 +3,7 @@ set -e
 
 build-test() {
     test_dir="$1"
-    make -C "$test_dir" ARCH=riscv64-xs CROSS_COMPILE="$CROSS_COMPILE" -j1
+    make -C "$test_dir" ${AM_MAKEARGS} -j1
     cp "$test_dir"/build/*.bin "$PKG_DIR"/bin/
     cp "$test_dir"/build/*.elf "$PKG_DIR"/elf/
 }
@@ -27,7 +27,7 @@ done
     find -iname '*.S' -exec rm -f {} +
     python3 randtest.py 10000 1
     cd ..
-    make ARCH=riscv64-xs CROSS_COMPILE="$CROSS_COMPILE"
-    mv build/bitmanip-riscv64-xs.bin "$PKG_DIR"/bin/bitmanip.bin
-    mv build/bitmanip-riscv64-xs.elf "$PKG_DIR"/elf/bitmanip.elf
+    make ${AM_MAKEARGS}
+    cp "build/bitmanip-$AM_ARCH.bin" "$PKG_DIR"/bin/bitmanip.bin
+    cp "build/bitmanip-$AM_ARCH.elf" "$PKG_DIR"/elf/bitmanip.elf
 )
