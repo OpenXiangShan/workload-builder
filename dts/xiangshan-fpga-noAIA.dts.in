@@ -1,0 +1,168 @@
+/*
+ * XiangShan FPGA DTS used by the fpga board flow.
+ *
+ * 1. AIA is disabled, so Linux should only see the legacy CLINT + PLIC path.
+ * 2. UART16550 is exposed as the serial console.
+ */
+
+/dts-v1/;
+
+/ {
+	compatible = "freechips,rocketchip-unknown-dev";
+	model = "xiangshan,Kunminghu-dev";
+	#address-cells = <2>;
+	#size-cells = <2>;
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <1000000>;
+
+		cpu0: cpu@0 {
+			compatible = "ICT,xiangshan", "riscv";
+			device_type = "cpu";
+			reg = <0x0>;
+			status = "okay";
+
+			d-cache-block-size = <64>;
+			d-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <48>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <256>;
+			i-cache-size = <65536>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <48>;
+			mmu-type = "riscv,sv48";
+			clock-frequency = <0>;
+			timebase-frequency = <1000000>;
+			tlb-split;
+
+			/*
+			 * Keep the Linux-friendly CPU capability description from the
+			 * workload template while using the FPGA board interrupt/peripheral
+			 * map below.
+			 */
+			riscv,isa = "rv64imafdcvh_smstateen_sscofpmf_sstc_zicntr_zihpm_svpbmt_sdtrig_smcsrind_sscsrind_svade";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions =
+				"i", "m", "a", "f", "d", "c", "v", "h",
+				"sdtrig", "sha", "shcounterenw", "shgatpa",
+				"shlcofideleg", "shtvala", "shvsatpa", "shvstvala",
+				"shvstvecd", "smcsrind", "smdbltrp",
+				"smmpm", "smnpm", "smrnmi", "smstateen",
+				"ss1p13", "ssccptr", "sscofpmf",
+				"sscounterenw", "sscsrind", "ssdbltrp", "ssnpm",
+				"sspm", "ssstateen", "ssstrict", "sstc",
+				"sstvala", "sstvecd", "ssu64xl", "supm",
+				"sv39", "sv48", "svade", "svbare", "svinval",
+				"svnapot", "svpbmt", "za64rs", "zacas", "zawrs",
+				"zba", "zbb", "zbc", "zbkb", "zbkc", "zbkx",
+				"zbs", "zcb", "zcmop", "zfa", "zfh", "zfhmin",
+				"zic64b",
+				"ziccamoa", "ziccif", "zicclsm", "ziccrse",
+				"zicntr", "zicond", "zicsr", "zifencei",
+				"zihintntl", "zihintpause", "zihpm", "zimop",
+				"zkn", "zknd", "zkne", "zknh", "zksed",
+				"zksh", "zkt", "zvbb", "zvfh", "zvfhmin",
+				"zvkt", "zvl128b", "zvl32b", "zvl64b";
+			riscv,cbom-block-size = <0x40>;
+			riscv,cboz-block-size = <0x40>;
+
+			next-level-cache = <&l2_cache>;
+
+			intc_cpu0: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+	};
+
+	l2_cache: l2-cache {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-block-size = <64>;
+		cache-size = <1048576>;
+	};
+
+	memory: memory@80000000 {
+		device_type = "memory";
+		/*
+		 * The release XSTop.dts reports a very large simulation memory span.
+		 * The FPGA DDR bridge exposes a 2 GiB window at 0x80000000.
+		 */
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+
+	soc {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "freechips,rocketchip-unknown-soc", "simple-bus";
+		ranges;
+
+		/*
+		 * This FPGA image boots without AIA. Describe only the CLINT + PLIC
+		 * interrupt topology that the software stack should probe.
+		 */
+		clint: clint@38000000 {
+			compatible = "riscv,clint0";
+			reg = <0x0 0x38000000 0x0 0x10000>;
+			reg-names = "control";
+			interrupts-extended = <&intc_cpu0 3 &intc_cpu0 7>;
+		};
+
+		debug-controller@38020000 {
+			compatible = "sifive,debug-013", "riscv,debug-013";
+			debug-attach = "jtag";
+			reg = <0x0 0x38020000 0x0 0x1000>;
+			reg-names = "control";
+			interrupts-extended = <&intc_cpu0 65535>;
+		};
+
+		PLIC: interrupt-controller@3c000000 {
+			compatible = "riscv,plic0";
+			#interrupt-cells = <1>;
+			interrupt-controller;
+			reg = <0x0 0x3c000000 0x0 0x4000000>;
+			reg-names = "control";
+			interrupts-extended = <&intc_cpu0 11 &intc_cpu0 9>;
+			riscv,max-priority = <7>;
+			riscv,ndev = <66>;
+		};
+
+		/*
+		 * Board-specific FPGA peripheral: the external AXI UART16550 used as
+		 * the Linux console on fpga. Keep the 32-bit MMIO spacing and the
+		 * 50 MHz input clock to match the FPGA wrapper.
+		 */
+		uart0: serial@310b0000 {
+			compatible = "ns16550a";
+			reg = <0x0 0x310b0000 0x0 0x10000>;
+			reg-shift = <0x2>;
+			reg-io-width = <0x4>;
+			clock-frequency = <50000000>;
+			current-speed = <115200>;
+			//interrupt-parent = <&PLIC>;
+			//interrupts = <40>;
+			status = "okay";
+		};
+	};
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		/* Switch Linux console output to the FPGA UART16550. */
+		bootargs = "console=ttyS0,115200 earlycon loglevel=8";
+		stdout-path = "serial0:115200n8";
+		linux,initrd-start = <0x0 INITRAMFS_BEGIN>;
+		linux,initrd-end = <0x0 INITRAMFS_END>;
+
+		opensbi-config {
+			compatible = "opensbi,config";
+			cold-boot-harts = <&cpu0>;
+		};
+	};
+};
