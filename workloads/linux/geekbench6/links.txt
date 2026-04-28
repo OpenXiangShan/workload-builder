@@ -1,0 +1,1 @@
+Geekbench-6.7.0-LinuxRISCVPreview.tar.gz https://cdn.geekbench.com/Geekbench-6.7.0-LinuxRISCVPreview.tar.gz 75b51d464a1bb96eea9921222ee1438572d34f067ef62ad864a644f8434e2df3
