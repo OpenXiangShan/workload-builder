@@ -1,7 +1,5 @@
 all: workloads
 
-DEFAULT_DTB ?= xiangshan
-
 # Download buildroot
 BUILDROOT_DIR := build/buildroot
 $(BUILDROOT_DIR)/Makefile:
@@ -88,19 +86,22 @@ WORKLOADS_AM_SENTINEL += build/am-workloads/$(1)/sentinel
 TARFLAGS += --transform='s|^build/am-workloads/$(1)/package|workloads/am/$(1)|'
 endef
 
-# Define all workloads
-$(eval $(call add_workload_linux,hello))
-$(eval $(call add_workload_linux,rvv-bench))
-$(eval $(call add_workload_linux,coremark))
-$(eval $(call add_workload_linux,coremark-pro))
-$(eval $(call add_workload_linux,kvmtool))
-$(eval $(call add_workload_linux,litmus-tests-riscv))
-$(eval $(call add_workload_am,riscv-tests))
-$(eval $(call add_workload_am,riscv-vector-tests))
-$(eval $(call add_workload_am,cputest))
-$(eval $(call add_workload_am,misc-tests))
-$(eval $(call add_workload_am,hello))
-$(eval $(call add_workload_am,coremark))
+# Auto-register simple workloads. Workloads that need custom targets can place
+# a rules.mk in their own directory and manage their rules there.
+LINUX_WORKLOAD_RULE_DIRS := $(patsubst workloads/linux/%/rules.mk,%,$(wildcard workloads/linux/*/rules.mk))
+AM_WORKLOAD_RULE_DIRS := $(patsubst workloads/am/%/rules.mk,%,$(wildcard workloads/am/*/rules.mk))
+LINUX_WORKLOAD_DIRS := $(patsubst workloads/linux/%/build.sh,%,$(wildcard workloads/linux/*/build.sh))
+AM_WORKLOAD_DIRS := $(patsubst workloads/am/%/build.sh,%,$(wildcard workloads/am/*/build.sh))
+LINUX_GENERIC_WORKLOADS := $(sort $(filter-out $(LINUX_WORKLOAD_RULE_DIRS),$(LINUX_WORKLOAD_DIRS)))
+AM_GENERIC_WORKLOADS := $(sort $(filter-out $(AM_WORKLOAD_RULE_DIRS),$(AM_WORKLOAD_DIRS)))
+
+$(foreach workload,$(LINUX_GENERIC_WORKLOADS),$(eval $(call add_workload_linux,$(workload))))
+$(foreach workload,$(AM_GENERIC_WORKLOADS),$(eval $(call add_workload_am,$(workload))))
+
+# Include workload-specific make rules. A workload can add its own targets by
+# placing rules.mk under its workload directory.
+-include $(wildcard workloads/linux/*/rules.mk)
+-include $(wildcard workloads/am/*/rules.mk)
 
 # Pack all workloads
 build/workloads.tar.zstd: $(WORKLOADS_LINUX) $(WORKLOADS_AM_SENTINEL)
