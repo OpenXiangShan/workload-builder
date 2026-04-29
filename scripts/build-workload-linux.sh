@@ -31,7 +31,7 @@ pack-cpio() {
     local cpio_file="$2"
     rm -f "$cpio_file"
     cd "$root_dir"
-    find . | fakeroot cpio -o -H newc > "$cpio_file"
+    find . | fakeroot cpio -o -H newc > "$cpio_file" 2>/dev/null
 }
 
 populate-src-dir
