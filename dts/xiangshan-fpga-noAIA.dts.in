@@ -154,8 +154,15 @@
 	};
 
 	chosen {
-		/* Switch Linux console output to the FPGA UART16550. */
-		bootargs = "console=ttyS0,115200 earlycon loglevel=8";
+		/*
+		 * On this FPGA DTS the UART16550 interrupt is not wired into Linux
+		 * (`interrupt-parent` / `interrupts` are intentionally absent above).
+		 * `ttyS0` can still print early boot logs via polling/earlycon, but the
+		 * normal console path becomes unreliable once Linux switches away from
+		 * earlycon. When the UART interrupt is absent, use the SBI console
+		 * (`hvc0`) instead.
+		 */
+		bootargs = "console=hvc0 earlycon=sbi loglevel=8";
 		stdout-path = "serial0:115200n8";
 		linux,initrd-start = <0x0 INITRAMFS_BEGIN>;
 		linux,initrd-end = <0x0 INITRAMFS_END>;
