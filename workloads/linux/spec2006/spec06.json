@@ -1,0 +1,2241 @@
+{
+  "astar_biglakes": {
+    "base_name": "astar",
+    "files": [
+      "astar/BigLakes2048.bin",
+      "astar/BigLakes2048.cfg"
+    ],
+    "args": [
+      "BigLakes2048.cfg"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "astar_rivers": {
+    "base_name": "astar",
+    "files": [
+      "astar/rivers.bin",
+      "astar/rivers.cfg"
+    ],
+    "args": [
+      "rivers.cfg"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "bwaves": {
+    "base_name": "bwaves",
+    "files": [
+      "bwaves/bwaves.in"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "bzip2_chicken": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/chicken.jpg"
+    ],
+    "args": [
+      "chicken.jpg",
+      "30"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "bzip2_combined": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/input.combined"
+    ],
+    "args": [
+      "input.combined",
+      "200"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "bzip2_html": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/text.html"
+    ],
+    "args": [
+      "text.html",
+      "280"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "bzip2_liberty": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/liberty.jpg"
+    ],
+    "args": [
+      "liberty.jpg",
+      "30"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "bzip2_program": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/input.program"
+    ],
+    "args": [
+      "input.program",
+      "280"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "bzip2_source": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/input.source"
+    ],
+    "args": [
+      "input.source",
+      "280"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "cactusADM": {
+    "base_name": "cactusADM",
+    "files": [
+      "cactusADM/benchADM.par"
+    ],
+    "args": [
+      "benchADM.par"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "calculix": {
+    "base_name": "calculix",
+    "files": [
+      "calculix/hyperviscoplastic.inp"
+    ],
+    "args": [
+      "-i",
+      "hyperviscoplastic"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "dealII": {
+    "base_name": "dealII",
+    "files": [
+      "dealII/DummyData"
+    ],
+    "args": [
+      "23"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "gamess_cytosine": {
+    "base_name": "gamess",
+    "files": [
+      "gamess/cytosine.2.config",
+      "gamess/cytosine.2.inp"
+    ],
+    "args": [
+      "<",
+      "cytosine.2.config"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "gamess_gradient": {
+    "base_name": "gamess",
+    "files": [
+      "gamess/h2ocu2+.gradient.config",
+      "gamess/h2ocu2+.gradient.inp"
+    ],
+    "args": [
+      "<",
+      "h2ocu2+.gradient.config"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "gamess_triazolium": {
+    "base_name": "gamess",
+    "files": [
+      "gamess/triazolium.config",
+      "gamess/triazolium.inp"
+    ],
+    "args": [
+      "<",
+      "triazolium.config"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "gcc_166": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/166.in"
+    ],
+    "args": [
+      "166.in",
+      "-o",
+      "166.s"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gcc_200": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/200.in"
+    ],
+    "args": [
+      "200.in",
+      "-o",
+      "200.s"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gcc_cpdecl": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/cp-decl.in"
+    ],
+    "args": [
+      "cp-decl.in",
+      "-o",
+      "cp-decl.s"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gcc_expr2": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/expr2.in"
+    ],
+    "args": [
+      "expr2.in",
+      "-o",
+      "expr2.s"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gcc_expr": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/expr.in"
+    ],
+    "args": [
+      "expr.in",
+      "-o",
+      "expr.s"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gcc_g23": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/g23.in"
+    ],
+    "args": [
+      "g23.in",
+      "-o",
+      "g23.s"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gcc_s04": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/s04.in"
+    ],
+    "args": [
+      "s04.in",
+      "-o",
+      "s04.s"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gcc_scilab": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/scilab.in"
+    ],
+    "args": [
+      "scilab.in",
+      "-o",
+      "scilab.s"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gcc_typeck": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/c-typeck.in"
+    ],
+    "args": [
+      "c-typeck.in",
+      "-o",
+      "c-typeck.s"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "GemsFDTD": {
+    "base_name": "GemsFDTD",
+    "files": [
+      "GemsFDTD/ref.in",
+      "GemsFDTD/sphere.pec",
+      "GemsFDTD/yee.dat"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "gobmk_13x13": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/13x13.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "13x13.tst"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gobmk_nngs": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/nngs.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "nngs.tst"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gobmk_score2": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/score2.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "score2.tst"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gobmk_trevorc": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/trevorc.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "trevorc.tst"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gobmk_trevord": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/trevord.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "trevord.tst"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "gromacs": {
+    "base_name": "gromacs",
+    "files": [
+      "gromacs/gromacs.tpr"
+    ],
+    "args": [
+      "-silent",
+      "-deffnm",
+      "gromacs.tpr",
+      "-nice",
+      "0"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "h264ref_foreman.baseline": {
+    "base_name": "h264ref",
+    "files": [
+      "h264ref/foreman_ref_encoder_baseline.cfg",
+      "h264ref/foreman_qcif.yuv"
+    ],
+    "args": [
+      "-d",
+      "foreman_ref_encoder_baseline.cfg"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "h264ref_foreman.main": {
+    "base_name": "h264ref",
+    "files": [
+      "h264ref/foreman_ref_encoder_main.cfg",
+      "h264ref/foreman_qcif.yuv"
+    ],
+    "args": [
+      "-d",
+      "foreman_ref_encoder_main.cfg"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "h264ref_sss": {
+    "base_name": "h264ref",
+    "files": [
+      "h264ref/sss_encoder_main.cfg",
+      "h264ref/sss.yuv"
+    ],
+    "args": [
+      "-d",
+      "sss_encoder_main.cfg"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "hmmer_nph3": {
+    "base_name": "hmmer",
+    "files": [
+      "hmmer/nph3.hmm",
+      "hmmer/swiss41"
+    ],
+    "args": [
+      "nph3.hmm",
+      "swiss41"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "hmmer_retro": {
+    "base_name": "hmmer",
+    "files": [
+      "hmmer/retro.hmm"
+    ],
+    "args": [
+      "--fixed",
+      "0",
+      "--mean",
+      "500",
+      "--num",
+      "500000",
+      "--sd",
+      "350",
+      "--seed",
+      "0",
+      "retro.hmm"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "lbm": {
+    "base_name": "lbm",
+    "files": [
+      "lbm/100_100_130_ldc.of",
+      "lbm/lbm.in"
+    ],
+    "args": [
+      "3000",
+      "reference.dat",
+      "0",
+      "0",
+      "100_100_130_ldc.of"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "leslie3d": {
+    "base_name": "leslie3d",
+    "files": [
+      "leslie3d/leslie3d.in"
+    ],
+    "args": [
+      "<",
+      "leslie3d.in"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "libquantum": {
+    "base_name": "libquantum",
+    "files": [],
+    "args": [
+      "1397",
+      "8"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "mcf": {
+    "base_name": "mcf",
+    "files": [
+      "mcf/inp.in"
+    ],
+    "args": [
+      "inp.in"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "milc": {
+    "base_name": "milc",
+    "files": [
+      "milc/su3imp.in"
+    ],
+    "args": [
+      "<",
+      "su3imp.in"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "namd": {
+    "base_name": "namd",
+    "files": [
+      "namd/namd.input"
+    ],
+    "args": [
+      "--input",
+      "namd.input",
+      "--iterations",
+      "38",
+      "--output",
+      "namd.out"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "omnetpp": {
+    "base_name": "omnetpp",
+    "files": [
+      "omnetpp/omnetpp.ini"
+    ],
+    "args": [
+      "omnetpp.ini"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "perlbench_checkspam": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/cpu2006_mhonarc.rc",
+      "perlbench/checkspam.pl",
+      "perlbench/checkspam.in",
+      "dir lib perlbench/lib",
+      "dir rules perlbench/rules"
+    ],
+    "args": [
+      "-I./lib",
+      "checkspam.pl",
+      "2500",
+      "5",
+      "25",
+      "11",
+      "150",
+      "1",
+      "1",
+      "1",
+      "1"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "perlbench_diffmail": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/cpu2006_mhonarc.rc",
+      "perlbench/diffmail.pl",
+      "perlbench/diffmail.in",
+      "dir lib perlbench/lib",
+      "dir rules perlbench/rules"
+    ],
+    "args": [
+      "-I./lib",
+      "diffmail.pl",
+      "4",
+      "800",
+      "10",
+      "17",
+      "19",
+      "300"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "perlbench_splitmail": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/cpu2006_mhonarc.rc",
+      "perlbench/splitmail.pl",
+      "perlbench/splitmail.in",
+      "dir lib perlbench/lib",
+      "dir rules perlbench/rules"
+    ],
+    "args": [
+      "-I./lib",
+      "splitmail.pl",
+      "1600",
+      "12",
+      "26",
+      "16",
+      "4500"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "povray": {
+    "base_name": "povray",
+    "files": [
+      "dir . povray"
+    ],
+    "args": [
+      "SPEC-benchmark-ref.ini"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "sjeng": {
+    "base_name": "sjeng",
+    "files": [
+      "sjeng/ref.txt"
+    ],
+    "args": [
+      "ref.txt"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "soplex_pds-50": {
+    "base_name": "soplex",
+    "files": [
+      "soplex/pds-50.mps"
+    ],
+    "args": [
+      "-s1",
+      "-e",
+      "-m45000",
+      "pds-50.mps"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "soplex_ref": {
+    "base_name": "soplex",
+    "files": [
+      "soplex/ref.mps"
+    ],
+    "args": [
+      "-m3500",
+      "ref.mps"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "sphinx3": {
+    "base_name": "sphinx3",
+    "files": [
+      "dir . sphinx3"
+    ],
+    "args": [
+      "ctlfile",
+      ".",
+      "args.an4"
+    ],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "tonto": {
+    "base_name": "tonto",
+    "files": [
+      "tonto/stdin"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "wrf": {
+    "base_name": "wrf",
+    "files": [
+      "dir . wrf"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "xalancbmk": {
+    "base_name": "xalancbmk",
+    "files": [
+      "dir . xalancbmk"
+    ],
+    "args": [
+      "-v",
+      "t5.xml",
+      "xalanc.xsl"
+    ],
+    "type": [
+      "int",
+      "ref"
+    ]
+  },
+  "zeusmp": {
+    "base_name": "zeusmp",
+    "files": [
+      "zeusmp/zmp_inp"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "ref"
+    ]
+  },
+  "gamess_exam29": {
+    "base_name": "gamess",
+    "files": [
+      "gamess/exam29.config",
+      "gamess/exam29.inp"
+    ],
+    "args": [
+      "<",
+      "exam29.config"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "perlbench_attrs": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/attrs.pl"
+    ],
+    "args": [
+      "-I.",
+      "-I./lib",
+      "attrs.pl"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "perlbench_gv": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/gv.pl"
+    ],
+    "args": [
+      "-I.",
+      "-I./lib",
+      "gv.pl"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "perlbench_makerand": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/makerand.pl"
+    ],
+    "args": [
+      "-I.",
+      "-I./lib",
+      "makerand.pl"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "perlbench_pack": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/pack.pl",
+      "perlbench/test.pm"
+    ],
+    "args": [
+      "-I.",
+      "-I./lib",
+      "pack.pl"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "perlbench_redef": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/redef.pl"
+    ],
+    "args": [
+      "-I.",
+      "-I./lib",
+      "redef.pl"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "perlbench_ref": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/ref.pl"
+    ],
+    "args": [
+      "-I.",
+      "-I./lib",
+      "ref.pl"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "perlbench_regmesg": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/regmesg.pl"
+    ],
+    "args": [
+      "-I.",
+      "-I./lib",
+      "regmesg.pl"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "perlbench_test": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/test.pl",
+      "perlbench/test.pm",
+      "perlbench/re_tests",
+      "perlbench/append.t",
+      "perlbench/args.t",
+      "perlbench/arith.t",
+      "perlbench/array.t",
+      "perlbench/auto.t",
+      "perlbench/base_cond.t",
+      "perlbench/base_pat.t",
+      "perlbench/base_term.t",
+      "perlbench/bless.t",
+      "perlbench/bop.t",
+      "perlbench/bproto.t",
+      "perlbench/chars.t",
+      "perlbench/chop.t",
+      "perlbench/cmdopt.t",
+      "perlbench/cmp.t",
+      "perlbench/comp_term.t",
+      "perlbench/concat.t",
+      "perlbench/context.t",
+      "perlbench/decl.t",
+      "perlbench/defins.t",
+      "perlbench/delete.t",
+      "perlbench/die.t",
+      "perlbench/do.t",
+      "perlbench/each.t",
+      "perlbench/eval.t",
+      "perlbench/exists_sub.t",
+      "perlbench/exp.t",
+      "perlbench/fh.t",
+      "perlbench/grep.t",
+      "perlbench/hashwarn.t",
+      "perlbench/if.t",
+      "perlbench/inc.t",
+      "perlbench/index.t",
+      "perlbench/int.t",
+      "perlbench/join.t",
+      "perlbench/length.t",
+      "perlbench/lex.t",
+      "perlbench/list.t",
+      "perlbench/loopctl.t",
+      "perlbench/lop.t",
+      "perlbench/method.t",
+      "perlbench/my.t",
+      "perlbench/nothr5005.t",
+      "perlbench/oct.t",
+      "perlbench/op_cond.t",
+      "perlbench/op_pat.t",
+      "perlbench/ord.t",
+      "perlbench/override.t",
+      "perlbench/package.t",
+      "perlbench/pos.t",
+      "perlbench/push.t",
+      "perlbench/quotemeta.t",
+      "perlbench/range.t",
+      "perlbench/recurse.t",
+      "perlbench/regexp.t",
+      "perlbench/regexp_noamp.t",
+      "perlbench/repeat.t",
+      "perlbench/reverse.t",
+      "perlbench/rs.t",
+      "perlbench/sleep.t",
+      "perlbench/sort.t",
+      "perlbench/splice.t",
+      "perlbench/study.t",
+      "perlbench/sub_lval.t",
+      "perlbench/subst.t",
+      "perlbench/subst_amp.t",
+      "perlbench/subst_wamp.t",
+      "perlbench/tr.t",
+      "perlbench/undef.t",
+      "perlbench/unshift.t",
+      "perlbench/vec.t",
+      "perlbench/wantarray.t"
+    ],
+    "args": [
+      "-I.",
+      "-I./lib",
+      "test.pl"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "perlbench_diffmail_train": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/cpu2006_mhonarc.rc",
+      "perlbench/diffmail.pl",
+      "perlbench/diffmail.in",
+      "dir lib perlbench/lib",
+      "dir rules perlbench/rules"
+    ],
+    "args": [
+      "-I./lib",
+      "diffmail.pl",
+      "4",
+      "800",
+      "10",
+      "17",
+      "19",
+      "300"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "perlbench_perfect": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/perfect.pl",
+      "perlbench/perfect.in"
+    ],
+    "args": [
+      "-I./lib",
+      "perfect.pl",
+      "b",
+      "3"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "perlbench_splitmail_train": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/cpu2006_mhonarc.rc",
+      "perlbench/splitmail.pl",
+      "perlbench/splitmail.in",
+      "dir lib perlbench/lib",
+      "dir rules perlbench/rules"
+    ],
+    "args": [
+      "-I./lib",
+      "splitmail.pl",
+      "1600",
+      "12",
+      "26",
+      "16",
+      "4500"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "perlbench_scrabbl": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/scrabbl.pl",
+      "perlbench/scrabbl.in",
+      "perlbench/dictionary"
+    ],
+    "args": [
+      "-I.",
+      "-I./lib",
+      "scrabbl.pl",
+      "<",
+      "scrabbl.in"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "perlbench_suns": {
+    "base_name": "perlbench",
+    "files": [
+      "perlbench/suns.pl",
+      "perlbench/WORDS"
+    ],
+    "args": [
+      "-I.",
+      "-I./lib",
+      "suns.pl"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "bzip2_dryer": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/dryer.jpg"
+    ],
+    "args": [
+      "dryer.jpg",
+      "2"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "bzip2_program_test": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/input.program"
+    ],
+    "args": [
+      "input.program",
+      "5"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "bzip2_byoudoin": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/byoudoin.jpg"
+    ],
+    "args": [
+      "byoudoin.jpg",
+      "5"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "bzip2_program_train": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/input.program"
+    ],
+    "args": [
+      "input.program",
+      "10"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "bzip2_combined_train": {
+    "base_name": "bzip2",
+    "files": [
+      "bzip2/input.combined"
+    ],
+    "args": [
+      "input.combined",
+      "80"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "gcc_cccp": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/cccp.in"
+    ],
+    "args": [
+      "cccp.in",
+      "-o",
+      "cccp.s"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "gcc_integrate": {
+    "base_name": "gcc",
+    "files": [
+      "gcc/integrate.in"
+    ],
+    "args": [
+      "integrate.in",
+      "-o",
+      "integrate.s"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "bwaves_test": {
+    "base_name": "bwaves",
+    "files": [
+      "bwaves/bwaves.in"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "bwaves_train": {
+    "base_name": "bwaves",
+    "files": [
+      "bwaves/bwaves.in"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "gamess_h2ocu2_energy": {
+    "base_name": "gamess",
+    "files": [
+      "gamess/h2ocu2+.energy.config",
+      "gamess/h2ocu2+.energy.inp"
+    ],
+    "args": [
+      "<",
+      "h2ocu2+.energy.config"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "mcf_test": {
+    "base_name": "mcf",
+    "files": [
+      "mcf/inp.in"
+    ],
+    "args": [
+      "inp.in"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "mcf_train": {
+    "base_name": "mcf",
+    "files": [
+      "mcf/inp.in"
+    ],
+    "args": [
+      "inp.in"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "milc_test": {
+    "base_name": "milc",
+    "files": [
+      "milc/su3imp.in"
+    ],
+    "args": [
+      "<",
+      "su3imp.in"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "milc_train": {
+    "base_name": "milc",
+    "files": [
+      "milc/su3imp.in"
+    ],
+    "args": [
+      "<",
+      "su3imp.in"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "zeusmp_test": {
+    "base_name": "zeusmp",
+    "files": [
+      "zeusmp/zmp_inp"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "zeusmp_train": {
+    "base_name": "zeusmp",
+    "files": [
+      "zeusmp/zmp_inp"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "gromacs_test": {
+    "base_name": "gromacs",
+    "files": [
+      "gromacs/gromacs.tpr"
+    ],
+    "args": [
+      "-silent",
+      "-deffnm",
+      "gromacs",
+      "-nice",
+      "0"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "gromacs_train": {
+    "base_name": "gromacs",
+    "files": [
+      "gromacs/gromacs.tpr"
+    ],
+    "args": [
+      "-silent",
+      "-deffnm",
+      "gromacs",
+      "-nice",
+      "0"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "cactusADM_test": {
+    "base_name": "cactusADM",
+    "files": [
+      "cactusADM/benchADM.par"
+    ],
+    "args": [
+      "benchADM.par"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "cactusADM_train": {
+    "base_name": "cactusADM",
+    "files": [
+      "cactusADM/benchADM.par"
+    ],
+    "args": [
+      "benchADM.par"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "leslie3d_test": {
+    "base_name": "leslie3d",
+    "files": [
+      "leslie3d/leslie3d.in"
+    ],
+    "args": [
+      "<",
+      "leslie3d.in"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "leslie3d_train": {
+    "base_name": "leslie3d",
+    "files": [
+      "leslie3d/leslie3d.in"
+    ],
+    "args": [
+      "<",
+      "leslie3d.in"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "namd_test": {
+    "base_name": "namd",
+    "files": [
+      "namd/namd.input"
+    ],
+    "args": [
+      "--input",
+      "namd.input",
+      "--iterations",
+      "1",
+      "--output",
+      "namd.out"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "namd_train": {
+    "base_name": "namd",
+    "files": [
+      "namd/namd.input"
+    ],
+    "args": [
+      "--input",
+      "namd.input",
+      "--iterations",
+      "1",
+      "--output",
+      "namd.out"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "dealII_test": {
+    "base_name": "dealII",
+    "files": [
+      "dealII/DummyData"
+    ],
+    "args": [
+      "8"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "dealII_train": {
+    "base_name": "dealII",
+    "files": [
+      "dealII/DummyData"
+    ],
+    "args": [
+      "10"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "soplex_test": {
+    "base_name": "soplex",
+    "files": [
+      "soplex/test.mps"
+    ],
+    "args": [
+      "-m10000",
+      "test.mps"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "soplex_pds-20": {
+    "base_name": "soplex",
+    "files": [
+      "soplex/pds-20.mps"
+    ],
+    "args": [
+      "-s1",
+      "-e",
+      "-m5000",
+      "pds-20.mps"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "soplex_train": {
+    "base_name": "soplex",
+    "files": [
+      "soplex/train.mps"
+    ],
+    "args": [
+      "-m1200",
+      "train.mps"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "povray_test": {
+    "base_name": "povray",
+    "files": [
+      "povray/SPEC-benchmark-test.ini",
+      "povray/SPEC-benchmark-test.pov"
+    ],
+    "args": [
+      "SPEC-benchmark-test.ini"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "povray_train": {
+    "base_name": "povray",
+    "files": [
+      "povray/SPEC-benchmark-train.ini",
+      "povray/SPEC-benchmark-train.pov"
+    ],
+    "args": [
+      "SPEC-benchmark-train.ini"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "calculix_test": {
+    "base_name": "calculix",
+    "files": [
+      "calculix/beampic.inp"
+    ],
+    "args": [
+      "-i",
+      "beampic"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "calculix_train": {
+    "base_name": "calculix",
+    "files": [
+      "calculix/stairs.inp"
+    ],
+    "args": [
+      "-i",
+      "stairs"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "hmmer_test": {
+    "base_name": "hmmer",
+    "files": [
+      "hmmer/bombesin.hmm"
+    ],
+    "args": [
+      "--fixed",
+      "0",
+      "--mean",
+      "325",
+      "--num",
+      "45000",
+      "--sd",
+      "200",
+      "--seed",
+      "0",
+      "bombesin.hmm"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "hmmer_train": {
+    "base_name": "hmmer",
+    "files": [
+      "hmmer/leng100.hmm"
+    ],
+    "args": [
+      "--fixed",
+      "0",
+      "--mean",
+      "425",
+      "--num",
+      "85000",
+      "--sd",
+      "300",
+      "--seed",
+      "0",
+      "leng100.hmm"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "sjeng_test": {
+    "base_name": "sjeng",
+    "files": [
+      "sjeng/test.txt"
+    ],
+    "args": [
+      "test.txt"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "sjeng_train": {
+    "base_name": "sjeng",
+    "files": [
+      "sjeng/train.txt"
+    ],
+    "args": [
+      "train.txt"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "GemsFDTD_test": {
+    "base_name": "GemsFDTD",
+    "files": [
+      "GemsFDTD/sphere.pec",
+      "GemsFDTD/test.in",
+      "GemsFDTD/yee.dat"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "GemsFDTD_train": {
+    "base_name": "GemsFDTD",
+    "files": [
+      "GemsFDTD/sphere.pec",
+      "GemsFDTD/train.in",
+      "GemsFDTD/yee.dat"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "tonto_test": {
+    "base_name": "tonto",
+    "files": [
+      "tonto/stdin"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "tonto_train": {
+    "base_name": "tonto",
+    "files": [
+      "tonto/stdin"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "lbm_test": {
+    "base_name": "lbm",
+    "files": [
+      "lbm/100_100_130_cf_a.of",
+      "lbm/lbm.in"
+    ],
+    "args": [
+      "20",
+      "reference.dat",
+      "0",
+      "1",
+      "100_100_130_cf_a.of"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "lbm_train": {
+    "base_name": "lbm",
+    "files": [
+      "lbm/100_100_130_cf_b.of",
+      "lbm/lbm.in"
+    ],
+    "args": [
+      "300",
+      "reference.dat",
+      "0",
+      "1",
+      "100_100_130_cf_b.of"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "omnetpp_test": {
+    "base_name": "omnetpp",
+    "files": [
+      "omnetpp/omnetpp.ini"
+    ],
+    "args": [
+      "omnetpp.ini"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "omnetpp_train": {
+    "base_name": "omnetpp",
+    "files": [
+      "omnetpp/omnetpp.ini"
+    ],
+    "args": [
+      "omnetpp.ini"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "astar_lake": {
+    "base_name": "astar",
+    "files": [
+      "astar/lake.bin",
+      "astar/lake.cfg"
+    ],
+    "args": [
+      "lake.cfg"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "astar_biglakes1024": {
+    "base_name": "astar",
+    "files": [
+      "astar/BigLakes1024.bin",
+      "astar/BigLakes1024.cfg"
+    ],
+    "args": [
+      "BigLakes1024.cfg"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "astar_rivers1": {
+    "base_name": "astar",
+    "files": [
+      "astar/rivers.bin",
+      "astar/rivers1.cfg"
+    ],
+    "args": [
+      "rivers1.cfg"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "wrf_test": {
+    "base_name": "wrf",
+    "files": [
+      "dir . wrf"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "wrf_train": {
+    "base_name": "wrf",
+    "files": [
+      "dir . wrf"
+    ],
+    "args": [],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "sphinx3_test": {
+    "base_name": "sphinx3",
+    "files": [
+      "dir . sphinx3"
+    ],
+    "args": [
+      "ctlfile",
+      ".",
+      "args.an4"
+    ],
+    "type": [
+      "fp",
+      "test"
+    ]
+  },
+  "sphinx3_train": {
+    "base_name": "sphinx3",
+    "files": [
+      "dir . sphinx3"
+    ],
+    "args": [
+      "ctlfile",
+      ".",
+      "args.an4"
+    ],
+    "type": [
+      "fp",
+      "train"
+    ]
+  },
+  "xalancbmk_test": {
+    "base_name": "xalancbmk",
+    "files": [
+      "dir . xalancbmk"
+    ],
+    "args": [
+      "-v",
+      "test.xml",
+      "xalanc.xsl"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "xalancbmk_train": {
+    "base_name": "xalancbmk",
+    "files": [
+      "dir . xalancbmk"
+    ],
+    "args": [
+      "-v",
+      "allbooks.xml",
+      "xalanc.xsl"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "h264ref_foreman.test": {
+    "base_name": "h264ref",
+    "files": [
+      "h264ref/foreman_qcif.yuv",
+      "h264ref/foreman_test_encoder_baseline.cfg"
+    ],
+    "args": [
+      "-d",
+      "foreman_test_encoder_baseline.cfg"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "h264ref_foreman.train": {
+    "base_name": "h264ref",
+    "files": [
+      "h264ref/foreman_qcif.yuv",
+      "h264ref/foreman_train_encoder_baseline.cfg"
+    ],
+    "args": [
+      "-d",
+      "foreman_train_encoder_baseline.cfg"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "gobmk_capture": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/capture.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "capture.tst"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "gobmk_connect": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/connect.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "connect.tst"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "gobmk_connect_rot": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/connect_rot.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "connect_rot.tst"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "gobmk_connection": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/connection.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "connection.tst"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "gobmk_connection_rot": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/connection_rot.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "connection_rot.tst"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "gobmk_cutstone": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/cutstone.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "cutstone.tst"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "gobmk_dniwog": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/dniwog.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "dniwog.tst"
+    ],
+    "type": [
+      "int",
+      "test"
+    ]
+  },
+  "gobmk_arb": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/arb.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "arb.tst"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "gobmk_arend": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/arend.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "arend.tst"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "gobmk_arion": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/arion.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "arion.tst"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "gobmk_atari_atari": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/atari_atari.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "atari_atari.tst"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "gobmk_blunder": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/blunder.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "blunder.tst"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "gobmk_buzco": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/buzco.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "buzco.tst"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "gobmk_nicklas2": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/nicklas2.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "nicklas2.tst"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  },
+  "gobmk_nicklas4": {
+    "base_name": "gobmk",
+    "files": [
+      "gobmk/nicklas4.tst",
+      "dir games gobmk/games",
+      "dir golois gobmk/golois"
+    ],
+    "args": [
+      "--quiet",
+      "--mode",
+      "gtp",
+      "<",
+      "nicklas4.tst"
+    ],
+    "type": [
+      "int",
+      "train"
+    ]
+  }
+}
