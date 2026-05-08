@@ -151,7 +151,7 @@ linux/spec2006: spec2006-check-spec-dir
 		echo "   or: make linux/spec2006 BENCH=astar_biglakes SPEC=/path/to/cpu2006 -jN"; \
 		exit 1; \
 	fi
-	@$(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" $(SPEC2006_BUILD_DIR)/$(SPEC2006_CASE)/fw_payload.bin
+	@$(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2006_DEFAULT_DTB)" $(SPEC2006_BUILD_DIR)/$(SPEC2006_CASE)/fw_payload.bin
 
 spec2006-elf: spec2006-check-spec-dir
 	@if [ -z "$(BENCH)" ]; then \
@@ -179,7 +179,7 @@ spec2006-images: spec2006-check-spec-dir
 	i=0; \
 	for case in $(SPEC2006_IMAGE_CASES); do \
 		i=$$((i + 1)); \
-		SPEC2006_PROGRESS_K="$$i" SPEC2006_PROGRESS_N="$$total" $(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" "$(SPEC2006_IMAGE_DIR)/bin/$$case.fw_payload.bin" || exit $$?; \
+		SPEC2006_PROGRESS_K="$$i" SPEC2006_PROGRESS_N="$$total" $(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2006_DEFAULT_DTB)" "$(SPEC2006_IMAGE_DIR)/bin/$$case.fw_payload.bin" || exit $$?; \
 	done
 	@printf '[spec2006 %s/%s] Output written to %s\n' "$(words $(SPEC2006_IMAGE_CASES))" "$(words $(SPEC2006_IMAGE_CASES))" "$(abspath $(SPEC2006_IMAGE_DIR))"
 

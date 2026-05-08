@@ -24,8 +24,19 @@ $(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) br2-external/configs/nemu_defconfig br2-ext
 # Build LibCheckpointAlpha
 GCPT_BUILD_DIR := build/LibCheckpointAlpha
 GCPT_BIN := $(GCPT_BUILD_DIR)/build/gcpt.bin
-$(GCPT_BIN): scripts/build-gcpt.sh $(TOOLCHAIN_WRAPPER)
-	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" bash scripts/build-gcpt.sh bootloader/LibCheckpointAlpha $(GCPT_BUILD_DIR)
+GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan)
+GCPT_DEFAULT_DTS := dts/$(GCPT_DEFAULT_DTB).dts.in
+GCPT_DEFAULT_DTB_STAMP := build/LibCheckpointAlpha-config/dtb.$(shell printf '%s\n' "$(GCPT_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
+GCPT_SOURCES := $(shell find bootloader/LibCheckpointAlpha -path '*/.git' -prune -o -type f -print 2>/dev/null)
+$(GCPT_DEFAULT_DTB_STAMP):
+	mkdir -p "$(@D)"
+	rm -f build/LibCheckpointAlpha-config/dtb.*
+	touch "$@"
+$(GCPT_BIN): scripts/build-gcpt.sh $(TOOLCHAIN_WRAPPER) $(GCPT_SOURCES) $(GCPT_DEFAULT_DTS) $(GCPT_DEFAULT_DTB_STAMP)
+	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
+	DEFAULT_DTB="$(GCPT_DEFAULT_DTB)" \
+	DTS_TEMPLATE_DIR="$(abspath dts)" \
+	bash scripts/build-gcpt.sh bootloader/LibCheckpointAlpha $(GCPT_BUILD_DIR)
 
 # Build OpenSBI
 SBI_BUILD_DIR := build/opensbi
