@@ -10,7 +10,11 @@ SPEC2006_CASE_CONFIG := $(SPEC2006_WORKLOAD_DIR)/spec06.json
 SPEC2006_CFG ?= $(SPEC2006_WORKLOAD_DIR)/riscv_gcc15_base.cfg
 SPEC2006_HELPER := $(SPEC2006_WORKLOAD_DIR)/spec2006-package.py
 SPEC2006_IMAGE_DIR ?= $(SPEC2006_REPO_ROOT)/build/images/spec2006
-SPEC2006_SPEC_ROOT := $(if $(SPEC2006),$(SPEC2006),$(SPEC))
+SPEC2006_SOURCE_SPEC_ISO := $(SPEC2006_ISO)
+SPEC2006_PREPARED_SPEC_ROOT := $(SPEC2006_BUILD_DIR)/spec-src
+SPEC2006_SOURCE_SPEC_HASH := $(shell printf '%s\n' "$(SPEC2006_SOURCE_SPEC_ISO)" | sha256sum | cut -d ' ' -f 1)
+SPEC2006_PREPARE_STAMP := $(SPEC2006_BUILD_DIR)/spec-src.$(SPEC2006_SOURCE_SPEC_HASH).prepared
+SPEC2006_PREPARE_SCRIPT := $(SPEC2006_WORKLOAD_DIR)/prepare-spec-workspace.sh
 SPEC2006_CROSS_COMPILE ?= riscv64-unknown-linux-gnu-
 SPEC2006_COMPILER_ROOT ?=
 SPEC2006_GNU_TOOLCHAIN_ROOT ?=
@@ -40,19 +44,14 @@ SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$
 
 WORKLOAD_DIRS += $(SPEC2006_BUILD_DIR)
 
-spec2006-check-spec-dir:
-	@if [ -z "$(SPEC2006_SPEC_ROOT)" ]; then \
-		echo "SPEC or SPEC2006 is required, for example:"; \
-		echo "  make linux/spec2006 BENCH=astar INPUT=biglakes SPEC=/path/to/cpu2006 -jN"; \
-		echo "  make linux/spec2006 BENCH=astar INPUT=biglakes SPEC2006=/path/to/cpu2006 -jN"; \
+spec2006-check-spec-iso:
+	@if [ -z "$(SPEC2006_SOURCE_SPEC_ISO)" ]; then \
+		echo "SPEC2006_ISO is required, for example:"; \
+		echo "  make linux/spec2006 BENCH=astar INPUT=biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN"; \
 		exit 1; \
 	fi; \
-	if ! [ -d "$(SPEC2006_SPEC_ROOT)" ]; then \
-		echo "SPEC path does not exist or is not a directory: $(SPEC2006_SPEC_ROOT)"; \
-		exit 1; \
-	fi; \
-	if ! [ -x "$(SPEC2006_SPEC_ROOT)/bin/runspec" ]; then \
-		echo "runspec not found under $(SPEC2006_SPEC_ROOT)/bin/runspec"; \
+	if ! [ -f "$(SPEC2006_SOURCE_SPEC_ISO)" ]; then \
+		echo "SPEC ISO path does not exist: $(SPEC2006_SOURCE_SPEC_ISO)"; \
 		exit 1; \
 	fi; \
 	if ! [ -f "$(SPEC2006_CFG)" ]; then \
@@ -68,6 +67,13 @@ spec2006-check-spec-dir:
 		*) echo "SPEC2006_INPUT must be one of: ref, train, test, all"; exit 1 ;; \
 	esac
 
+spec2006-prepare: $(SPEC2006_PREPARE_STAMP)
+
+$(SPEC2006_PREPARE_STAMP): $(SPEC2006_PREPARE_SCRIPT) $(SPEC2006_SOURCE_SPEC_ISO) | spec2006-check-spec-iso
+	@printf '$(SPEC2006_PROGRESS_PREFIX) Preparing SPEC workspace at $(SPEC2006_PREPARED_SPEC_ROOT)\n'
+	@bash "$(SPEC2006_PREPARE_SCRIPT)" "$(SPEC2006_SOURCE_SPEC_ISO)" "$(SPEC2006_PREPARED_SPEC_ROOT)"
+	@touch "$@"
+
 $(SPEC2006_DEFAULT_DTB_STAMP):
 	@mkdir -p "$(@D)"
 	@rm -f "$(SPEC2006_BUILD_DIR)"/dtb.*
@@ -78,7 +84,7 @@ $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel:
 	@mkdir -p $$(@D)
 	@touch $$@
 
-$(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf: spec2006-check-spec-dir $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $$(SPEC2006_CFG)
+$(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf: $(SPEC2006_PREPARE_STAMP) $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $$(SPEC2006_CFG)
 	@mkdir -p "$$(dir $$@)"
 	@WORKLOAD_DIR="$$(abspath $$(SPEC2006_WORKLOAD_DIR))" \
 	WORKLOAD_BUILD_DIR="$$(abspath $(SPEC2006_BUILD_DIR)/$(1))" \
@@ -87,7 +93,7 @@ $(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf: spec2006-check-spec-dir $$(SPEC2006_HEL
 	SPEC2006_PROGRESS_K="$$(SPEC2006_PROGRESS_K)" \
 	SPEC2006_PROGRESS_N="$$(SPEC2006_PROGRESS_N)" \
 	SPEC2006_CASE="$(1)" \
-	SPEC2006="$$(SPEC2006_SPEC_ROOT)" \
+	SPEC2006="$$(SPEC2006_PREPARED_SPEC_ROOT)" \
 	SPEC2006_CASE_CONFIG="$$(abspath $$(SPEC2006_CASE_CONFIG))" \
 	SPEC2006_CFG="$$(abspath $$(SPEC2006_CFG))" \
 	SPEC2006_COMPILER_ROOT="$$(SPEC2006_COMPILER_ROOT)" \
@@ -98,12 +104,12 @@ $(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf: spec2006-check-spec-dir $$(SPEC2006_HEL
 	SPEC2006_ELF_ONLY=1 \
 	bash "$$(abspath $$(SPEC2006_WORKLOAD_DIR))/build.sh"
 
-$(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: spec2006-check-spec-dir $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $$(SPEC2006_CFG) $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel $$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh
+$(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2006_PREPARE_STAMP) $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $$(SPEC2006_CFG) $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel $$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh
 	@CROSS_COMPILE="$$(SPEC2006_CROSS_COMPILE)" \
 	SPEC2006_PROGRESS_K="$$(SPEC2006_PROGRESS_K)" \
 	SPEC2006_PROGRESS_N="$$(SPEC2006_PROGRESS_N)" \
 	SPEC2006_CASE="$(1)" \
-	SPEC2006="$$(SPEC2006_SPEC_ROOT)" \
+	SPEC2006="$$(SPEC2006_PREPARED_SPEC_ROOT)" \
 	SPEC2006_CASE_CONFIG="$$(abspath $$(SPEC2006_CASE_CONFIG))" \
 	SPEC2006_CFG="$$(abspath $$(SPEC2006_CFG))" \
 	SPEC2006_COMPILER_ROOT="$$(SPEC2006_COMPILER_ROOT)" \
@@ -145,23 +151,23 @@ endef
 
 $(foreach case,$(SPEC2006_ALL_CASES),$(eval $(call add_spec2006_case,$(case))))
 
-linux/spec2006: spec2006-check-spec-dir
+linux/spec2006: spec2006-check-spec-iso
 	@if [ -z "$(BENCH)" ]; then \
-		echo "Usage: make linux/spec2006 BENCH=astar INPUT=biglakes SPEC=/path/to/cpu2006 -jN"; \
-		echo "   or: make linux/spec2006 BENCH=astar_biglakes SPEC=/path/to/cpu2006 -jN"; \
+		echo "Usage: make linux/spec2006 BENCH=astar INPUT=biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN"; \
+		echo "   or: make linux/spec2006 BENCH=astar_biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN"; \
 		exit 1; \
 	fi
 	@$(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2006_DEFAULT_DTB)" $(SPEC2006_BUILD_DIR)/$(SPEC2006_CASE)/fw_payload.bin
 
-spec2006-elf: spec2006-check-spec-dir
+spec2006-elf: spec2006-check-spec-iso
 	@if [ -z "$(BENCH)" ]; then \
-		echo "Usage: make spec2006-elf BENCH=astar INPUT=biglakes SPEC=/path/to/cpu2006 -jN"; \
-		echo "   or: make spec2006-elf BENCH=astar_biglakes SPEC=/path/to/cpu2006 -jN"; \
+		echo "Usage: make spec2006-elf BENCH=astar INPUT=biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN"; \
+		echo "   or: make spec2006-elf BENCH=astar_biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN"; \
 		exit 1; \
 	fi
 	@$(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" $(SPEC2006_BUILD_DIR)/$(SPEC2006_CASE)/elf/$(SPEC2006_CASE).elf
 
-spec2006-elfs: spec2006-check-spec-dir
+spec2006-elfs: spec2006-check-spec-iso
 	@if [ -z "$(SPEC2006_SELECTED_CASES)" ]; then \
 		echo "No SPEC2006 cases selected by SPEC2006_INPUT=$(SPEC2006_INPUT)"; \
 		exit 1; \
@@ -170,7 +176,7 @@ spec2006-elfs: spec2006-check-spec-dir
 		$(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" "$(SPEC2006_BUILD_DIR)/$$case/elf/$$case.elf" || exit $$?; \
 	done
 
-spec2006-images: spec2006-check-spec-dir
+spec2006-images: spec2006-check-spec-iso
 	@if [ -z "$(SPEC2006_IMAGE_CASES)" ]; then \
 		echo "No SPEC2006 cases selected by SPEC2006_INPUT=$(SPEC2006_INPUT)"; \
 		exit 1; \
@@ -183,4 +189,4 @@ spec2006-images: spec2006-check-spec-dir
 	done
 	@printf '[spec2006 %s/%s] Output written to %s\n' "$(words $(SPEC2006_IMAGE_CASES))" "$(words $(SPEC2006_IMAGE_CASES))" "$(abspath $(SPEC2006_IMAGE_DIR))"
 
-.PHONY: linux/spec2006 spec2006-check-spec-dir spec2006-elf spec2006-elfs spec2006-images
+.PHONY: linux/spec2006 spec2006-check-spec-iso spec2006-prepare spec2006-elf spec2006-elfs spec2006-images
