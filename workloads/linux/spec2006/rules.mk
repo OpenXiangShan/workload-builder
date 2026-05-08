@@ -15,7 +15,7 @@ SPEC2006_CROSS_COMPILE ?= riscv64-unknown-linux-gnu-
 SPEC2006_COMPILER_ROOT ?=
 SPEC2006_GNU_TOOLCHAIN_ROOT ?=
 SPEC2006_JEMALLOC_ROOT ?=
-SPEC2006_DEFAULT_DTB ?= xiangshan-fpga-noAIA
+SPEC2006_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan-fpga-noAIA)
 SPEC2006_TUNE ?= base
 SPEC2006_JOBS ?= $(shell nproc)
 SPEC2006_INPUT ?= ref
@@ -36,6 +36,7 @@ SPEC2006_SELECTED_CASES := $(shell python3 $(SPEC2006_HELPER) --cases-config $(S
 SPEC2006_IMAGE_CASES := $(SPEC2006_SELECTED_CASES)
 SPEC2006_ELF_TARGETS := $(foreach case,$(SPEC2006_SELECTED_CASES),$(SPEC2006_BUILD_DIR)/$(case)/elf/$(case).elf)
 SPEC2006_DTS_SOURCES := $(shell find $(SPEC2006_DTS_DIR) -type f 2>/dev/null)
+SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$(SPEC2006_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
 
 WORKLOAD_DIRS += $(SPEC2006_BUILD_DIR)
 
@@ -66,6 +67,11 @@ spec2006-check-spec-dir:
 		ref|train|test|all) ;; \
 		*) echo "SPEC2006_INPUT must be one of: ref, train, test, all"; exit 1 ;; \
 	esac
+
+$(SPEC2006_DEFAULT_DTB_STAMP):
+	@mkdir -p "$(@D)"
+	@rm -f "$(SPEC2006_BUILD_DIR)"/dtb.*
+	@touch "$@"
 
 define add_spec2006_case
 $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel:
@@ -107,7 +113,7 @@ $(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: spec2006-check-spec-dir $$(SPEC2006_HELP
 	SPEC2006_JOBS="$$(SPEC2006_JOBS)" \
 	bash "$$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh" "$$(SPEC2006_WORKLOAD_DIR)" "$(SPEC2006_BUILD_DIR)/$(1)"
 
-$(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin: $$(SPEC2006_DTS_SOURCES) $$(SPEC2006_GCPT_BIN) $$(SPEC2006_SCRIPTS_DIR)/build-firmware-linux.sh $(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio $$(SPEC2006_LINUX_IMAGE) $$(SPEC2006_SBI_BIN)
+$(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin: $$(SPEC2006_DTS_SOURCES) $$(SPEC2006_DEFAULT_DTB_STAMP) $$(SPEC2006_GCPT_BIN) $$(SPEC2006_SCRIPTS_DIR)/build-firmware-linux.sh $(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio $$(SPEC2006_LINUX_IMAGE) $$(SPEC2006_SBI_BIN)
 	@printf '$(SPEC2006_PROGRESS_PREFIX) Assembling firmware for $(1)\n'
 	@CROSS_COMPILE="$$(SPEC2006_BUILDROOT_CROSS_COMPILE)" \
 	DTC="$$(SPEC2006_DTC)" \
