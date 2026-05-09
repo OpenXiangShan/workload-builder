@@ -1,35 +1,31 @@
 # SPEC CPU2006 Linux workload
 
 `workloads/linux/spec2006` now builds SPEC CPU2006 workloads with the original
-SPEC tools (`runspec`) against an external SPEC installation.
+SPEC tools (`runspec`) from a prepared workspace installed from a SPEC ISO.
 
 ## Build one case
 
-Either point `SPEC` at the SPEC tree:
+Point `SPEC2006_ISO` at the SPEC ISO:
 
 ```sh
-make linux/spec2006 BENCH=astar INPUT=biglakes SPEC=/path/to/cpu2006 -jN
-```
-
-or pass `SPEC2006` explicitly:
-
-```sh
-make linux/spec2006 BENCH=astar INPUT=biglakes SPEC2006=/path/to/cpu2006 -jN
+make linux/spec2006 BENCH=astar INPUT=biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN
 ```
 
 `BENCH` may also be a full case name from `spec06.json`:
 
 ```sh
-make linux/spec2006 BENCH=astar_biglakes SPEC=/path/to/cpu2006 -jN
+make linux/spec2006 BENCH=astar_biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN
 ```
 
 The build flow is:
 
-1. Generate a build-local SPEC cfg copy under the case build directory.
-2. Inject `output_root` into that cfg so SPEC build artifacts stay under this
-   repository instead of modifying the original SPEC installation.
-3. Run `runspec --action build`.
-4. Export the built SPEC ELF, package the benchmark plus input files into the
+1. Run `make spec2006-prepare SPEC2006_ISO=/path/to/cpu2006.iso` to install a build-local
+   writable SPEC workspace under `build/linux-workloads/spec2006/spec-src`.
+2. Generate a build-local SPEC cfg copy under the case build directory.
+3. Inject `output_root` into that cfg so SPEC build artifacts stay under this
+   repository instead of modifying the prepared SPEC workspace.
+4. Run `runspec --action build` inside the prepared workspace.
+5. Export the built SPEC ELF, package the benchmark plus input files into the
    Linux rootfs, and produce:
 
 ```text
@@ -41,15 +37,15 @@ build/linux-workloads/spec2006/<case>/fw_payload.bin
 Export all selected cases to `build/images/spec2006`:
 
 ```sh
-make spec2006-images SPEC=/path/to/cpu2006 -jN
+make spec2006-images SPEC2006_ISO=/path/to/cpu2006.iso -jN
 ```
 
 By default, export builds only `ref` cases. Select another input set with
 `SPEC2006_INPUT`; use `all` to export every configured case:
 
 ```sh
-make spec2006-images SPEC=/path/to/cpu2006 SPEC2006_INPUT=test -jN
-make spec2006-images SPEC=/path/to/cpu2006 SPEC2006_INPUT=all -jN
+make spec2006-images SPEC2006_ISO=/path/to/cpu2006.iso SPEC2006_INPUT=test -jN
+make spec2006-images SPEC2006_ISO=/path/to/cpu2006.iso SPEC2006_INPUT=all -jN
 ```
 
 Selected SPEC cases are built one by one to avoid concurrent `runspec`
@@ -76,7 +72,7 @@ Override the destination with `SPEC2006_IMAGE_DIR=/path/to/image`.
 Build one case without packaging it into the Linux rootfs:
 
 ```sh
-make spec2006-elf BENCH=astar INPUT=biglakes SPEC=/path/to/cpu2006 -jN
+make spec2006-elf BENCH=astar INPUT=biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN
 ```
 
 This writes:
@@ -88,8 +84,8 @@ build/linux-workloads/spec2006/<case>/elf/<case>.elf
 Build every selected case as ELF only:
 
 ```sh
-make spec2006-elfs SPEC=/path/to/cpu2006 SPEC2006_INPUT=ref -jN
-make spec2006-elfs SPEC=/path/to/cpu2006 SPEC2006_INPUT=all -jN
+make spec2006-elfs SPEC2006_ISO=/path/to/cpu2006.iso SPEC2006_INPUT=ref -jN
+make spec2006-elfs SPEC2006_ISO=/path/to/cpu2006.iso SPEC2006_INPUT=all -jN
 ```
 
 If you only want the standalone ELF build flow, you can run it from this
@@ -97,8 +93,8 @@ directory without the top-level Makefile:
 
 ```sh
 cd workloads/linux/spec2006
-make -f rules.mk spec2006-elf BENCH=astar INPUT=biglakes SPEC=/path/to/cpu2006 -jN
-make -f rules.mk spec2006-elfs SPEC=/path/to/cpu2006 SPEC2006_INPUT=all -jN
+make -f rules.mk spec2006-elf BENCH=astar INPUT=biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN
+make -f rules.mk spec2006-elfs SPEC2006_ISO=/path/to/cpu2006.iso SPEC2006_INPUT=all -jN
 ```
 
 ## Configuration
@@ -113,7 +109,7 @@ Override it with:
 
 ```sh
 make linux/spec2006 BENCH=bzip2_source \
-  SPEC=/path/to/cpu2006 \
+  SPEC2006_ISO=/path/to/cpu2006.iso \
   SPEC2006_CFG=/path/to/other.cfg \
   -jN
 ```
@@ -170,7 +166,14 @@ SPEC2006 builds keep console output concise. Detailed logs are written to:
 
 ## Notes
 
-- The original SPEC tree is used read-only for sources and input data.
+- The original SPEC ISO is used read-only as installation media.
+- `runspec` is never executed against the original ISO contents; it only sees the
+  prepared workspace under `build/linux-workloads/spec2006/spec-src`.
+- The prepared workspace is installed into a writable build directory before
+  any SPEC tools are executed.
+- Installation staging uses a temporary local filesystem; override
+  `SPEC2006_PREPARE_TMPDIR` if `/tmp` is not suitable.
+- `xorriso` is required to extract the SPEC ISO during `spec2006-prepare`.
 - Build logs, copied cfg files, build directories, and built executables are
   redirected into the case-local `runspec-output` directory via `output_root`.
 - The source cfg in this repository is never passed to `runspec` directly;
