@@ -14,7 +14,7 @@
 
         clint@38000000 {
             compatible = "riscv,clint0";
-            interrupts-extended = <0x01 0x03 0x01 0x07>;
+            interrupts-extended = <&CPU0_INTC 0x03 &CPU0_INTC 0x07>;
             reg = <0x00 0x38000000 0x00 0x10000>;
             reg-names = "control";
             clock-frequency-mhz = <0x1f4>;
@@ -73,12 +73,11 @@
             timebase-frequency = <0xf4240>;
             tlb-split;
 
-            interrupt-controller {
+            CPU0_INTC: interrupt-controller {
                 #address-cells = <0x02>;
                 #interrupt-cells = <0x01>;
                 compatible = "riscv,cpu-intc";
                 interrupt-controller;
-                phandle = <0x01>;
             };
         };
     };
