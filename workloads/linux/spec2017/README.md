@@ -66,15 +66,16 @@ build/images/spec2017/
   kernel/<variant>.Image
   elf/<case>.elf
   cmd/<variant>.run.sh
+  rootfs/<variant>.rootfs.cpio
   gcpt/gcpt.elf
   gcpt/gcpt.bin
   cfg/riscv-gcc15.cfg
 ```
 
 When SPEC generates multiple run commands for a case, `spec2017-images` exports
-one firmware image and one `cmd/<variant>.run.sh` per command, plus one shared
-ELF for the base case. Variants are named with the base case, command index,
-and output label, for example:
+one firmware image, one rootfs, and one `cmd/<variant>.run.sh` per command,
+plus one shared ELF for the base case. Variants are named with the base case,
+command index, and output label, for example:
 
 ```text
 perlbench_rate_refrate_00_checkspam.2500.5.25.11.150.1.1.1.1.fw_payload.bin
