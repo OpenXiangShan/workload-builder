@@ -58,10 +58,14 @@ Export reference speed images:
 make spec2017-images SPEC2017_ISO=/path/to/cpu2017.iso MODE=speed -jN
 ```
 
+By default, rate images are exported under `build/images/spec2017rate/` and
+speed images under `build/images/spec2017speed/`. `SPEC2017_IMAGE_MODE=all`
+keeps the combined export under `build/images/spec2017/`.
+
 The export tree is:
 
 ```text
-build/images/spec2017/
+build/images/<mode>/
   bin/<variant>.fw_payload.bin
   kernel/<variant>.Image
   elf/<case>.elf
@@ -71,6 +75,8 @@ build/images/spec2017/
   gcpt/gcpt.bin
   cfg/riscv-gcc15.cfg
 ```
+
+`<mode>` is `spec2017rate` for rate and `spec2017speed` for speed.
 
 When SPEC generates multiple run commands for a case, `spec2017-images` exports
 one firmware image, one rootfs, and one `cmd/<variant>.run.sh` per command,
