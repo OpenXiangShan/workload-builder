@@ -422,10 +422,11 @@ def export_build_log_artifact(build_log, out_dir):
     return exported_log
 
 
-def runcpu_env(spec_dir, compiler_root, gnu_toolchain_root):
+def runcpu_env(spec_dir, cross_compile, compiler_root, gnu_toolchain_root):
     env = os.environ.copy()
     env.update(spec_env(spec_dir))
     env["SPEC"] = str(spec_dir)
+    env["CROSS_COMPILE"] = str(cross_compile)
     env["SPEC2017_COMPILER_ROOT"] = str(compiler_root)
     env["SPEC2017_GNU_TOOLCHAIN_ROOT"] = str(gnu_toolchain_root)
     return env
@@ -463,7 +464,7 @@ def build_elf(spec_dir, bench_dir, spec_cfg, spec_source, out_dir, log_dir, cros
     shared_log_dir.mkdir(parents=True, exist_ok=True)
     build_local_config(spec_cfg, generated_cfg, output_root, jobs)
     status(f"Generated SPEC cfg: {generated_cfg}")
-    env = runcpu_env(spec_dir, compiler_root, gnu_toolchain_root)
+    env = runcpu_env(spec_dir, cross_compile, compiler_root, gnu_toolchain_root)
     cmd = [
         str(spec_dir / "bin" / "runcpu"),
         "--action",
@@ -508,9 +509,237 @@ def select_run_dir(output_root, bench_dir, tune, workload):
     return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
-def prepare_run_dir(spec_dir, bench_dir, workload, generated_output_root, spec_cfg, tune, log_dir, compiler_root, gnu_toolchain_root):
+def bench_dir_for_run_dir(run_dir):
+    return run_dir.parent.parent.name
+
+
+def is_x264_bench(bench_dir):
+    return bench_dir in {"525.x264_r", "625.x264_s"}
+
+
+def x264_source_root(spec_dir):
+    return spec_dir / "benchspec" / "CPU" / "525.x264_r"
+
+
+def x264_stage_root(spec_dir):
+    return spec_dir.parent / "_host-tools" / "x264-inputgen"
+
+
+def x264_data_workload(workload):
+    return "refrate" if workload == "refspeed" else workload
+
+
+def parse_qw_sources(object_pm, key):
+    text = object_pm.read_text(encoding="utf-8", errors="replace")
+    match = re.search(rf"'{re.escape(key)}'\s*=>\s*\[qw\((.*?)\)\]", text, re.S)
+    if match is None:
+        raise RuntimeError(f"could not locate source list for {key} in {object_pm}")
+    return tuple(token for token in match.group(1).split() if token)
+
+
+def find_host_c_compiler():
+    for candidate in ("gcc", "cc"):
+        found = shutil.which(candidate)
+        if found:
+            return Path(found).resolve()
+    raise RuntimeError("host gcc/cc is required to prepare x264 input data on the host")
+
+
+def build_x264_host_inputgen(spec_dir, log_dir):
+    source_root = x264_source_root(spec_dir)
+    object_pm = source_root / "Spec" / "object.pm"
+    src_root = source_root / "src"
+    build_root = x264_stage_root(spec_dir)
+    obj_root = build_root / "obj"
+    exe_path = build_root / "ldecod-host"
+    meta_path = build_root / "build-meta.json"
+    build_log = log_dir / "x264-host-build.log"
+    compiler = find_host_c_compiler()
+    sources = parse_qw_sources(object_pm, "ldecod_r")
+    include_dirs = (
+        src_root / "ldecod_src" / "inc",
+        src_root / "x264_src",
+        src_root / "x264_src" / "extras",
+        src_root / "x264_src" / "common",
+    )
+    cflags = [
+        "-std=c99",
+        "-O2",
+        "-fcommon",
+        "-fno-strict-aliasing",
+        "-Wno-implicit-int",
+        "-Wno-int-conversion",
+        "-Wno-incompatible-pointer-types",
+        "-Wno-implicit-function-declaration",
+        "-DSPEC",
+        "-DSPEC_LINUX",
+        "-DSPEC_LINUX_X64",
+        "-DSPEC_AUTO_SUPPRESS_OPENMP",
+        "-DSPEC_AUTO_BYTEORDER=0x12345678",
+        *(f"-I{path}" for path in include_dirs),
+    ]
+    metadata = {
+        "compiler": str(compiler),
+        "cflags": cflags,
+        "sources": {src: file_sha256(src_root / src) for src in sources},
+    }
+    if exe_path.is_file() and meta_path.is_file():
+        try:
+            if load_json(meta_path) == metadata:
+                status(f"Reusing host-side x264 input generator: {exe_path}")
+                return exe_path
+        except Exception:
+            pass
+    if build_root.exists():
+        shutil.rmtree(build_root)
+    obj_root.mkdir(parents=True, exist_ok=True)
+    status(f"Building host-side x264 input generator: {exe_path}")
+    objects = []
+    for src in sources:
+        src_path = src_root / src
+        obj_path = obj_root / Path(src).with_suffix(".o")
+        obj_path.parent.mkdir(parents=True, exist_ok=True)
+        run(
+            [str(compiler), *cflags, "-c", str(src_path), "-o", str(obj_path)],
+            log_path=build_log,
+        )
+        objects.append(obj_path)
+    run(
+        [str(compiler), *(str(obj) for obj in objects), "-lm", "-o", str(exe_path)],
+        log_path=build_log,
+        summary=f"Linking host-side x264 input generator (log: {build_log})",
+    )
+    write_json(meta_path, metadata)
+    return exe_path
+
+
+def x264_input_controls(spec_dir, workload=None):
+    data_root = x264_source_root(spec_dir) / "data"
+    if not data_root.is_dir():
+        raise RuntimeError(f"x264 data directory not found under {data_root}")
+    if workload is not None:
+        control = data_root / x264_data_workload(workload) / "input" / "control"
+        if not control.is_file():
+            raise RuntimeError(f"x264 control file not found for workload {workload}: {control}")
+        return [control]
+    controls = sorted(data_root.glob("*/input/control"))
+    if not controls:
+        raise RuntimeError(f"no x264 control files found under {data_root}")
+    return controls
+
+
+def parse_x264_control(control_path):
+    fields = control_path.read_text(encoding="utf-8", errors="replace").split()
+    if len(fields) < 9:
+        raise RuntimeError(f"unexpected x264 control format in {control_path}")
+    return fields[0], fields[1]
+
+
+def x264_workload_for_run_dir(run_dir):
+    match = re.search(r"run_[^_]+_(test|train|refrate|refspeed)_", run_dir.name)
+    if match is None:
+        raise RuntimeError(f"cannot determine x264 workload from run directory name: {run_dir.name}")
+    return match.group(1)
+
+
+def x264_staged_output_path(spec_dir, control_path):
+    _, output_name = parse_x264_control(control_path)
+    workload = control_path.parent.parent.name
+    return x264_stage_root(spec_dir) / "generated" / workload / output_name
+
+
+def prepare_x264_input_data(spec_dir, log_dir, workload):
+    decoder = build_x264_host_inputgen(spec_dir, log_dir)
+    prep_log = log_dir / "x264-host-inputgen.log"
+    stage_root = x264_stage_root(spec_dir) / "work"
+    prepared = False
+    for control_path in x264_input_controls(spec_dir, workload):
+        input_name, output_name = parse_x264_control(control_path)
+        input_dir = control_path.parent
+        input_path = input_dir / input_name
+        staged_output_path = x264_staged_output_path(spec_dir, control_path)
+        staged_output_path.parent.mkdir(parents=True, exist_ok=True)
+        for extra_name in ("dataDec.txt", "log.dec", output_name):
+            extra_path = input_dir / extra_name
+            if extra_path.exists():
+                extra_path.unlink()
+        if not input_path.is_file():
+            raise RuntimeError(f"x264 input bitstream not found: {input_path}")
+        if staged_output_path.is_file() and staged_output_path.stat().st_size > 0 and staged_output_path.stat().st_mtime_ns >= input_path.stat().st_mtime_ns:
+            continue
+        stage_dir = stage_root / input_dir.parent.name
+        if stage_dir.exists():
+            shutil.rmtree(stage_dir)
+        stage_dir.mkdir(parents=True, exist_ok=True)
+        run(
+            [str(decoder), "-i", str(input_path), "-o", str(staged_output_path)],
+            cwd=stage_dir,
+            env=os.environ.copy(),
+            log_path=prep_log,
+            summary=f"Preparing host-side x264 input data in {input_dir} (log: {prep_log})",
+        )
+        prepared = True
+    if not prepared:
+        status(f"Reusing prepared host-side x264 input data under {x264_stage_root(spec_dir) / 'generated'}")
+
+
+def populate_x264_run_dir(spec_dir, run_dir):
+    workload = x264_workload_for_run_dir(run_dir)
+    input_dir = x264_source_root(spec_dir) / "data" / x264_data_workload(workload) / "input"
+    control_path = input_dir / "control"
+    staged_output = x264_staged_output_path(spec_dir, control_path)
+    if not staged_output.is_file():
+        raise RuntimeError(f"prepared x264 input data not found: {staged_output}")
+    run_dir.mkdir(parents=True, exist_ok=True)
+    for path in sorted(input_dir.iterdir()):
+        if not path.is_file():
+            continue
+        shutil.copy2(path, run_dir / path.name)
+    shutil.copy2(staged_output, run_dir / staged_output.name)
+    exe_dir = run_dir.parent.parent / "exe"
+    if not exe_dir.is_dir():
+        raise RuntimeError(f"x264 executable directory not found: {exe_dir}")
+    copied = False
+    for exe_path in sorted(exe_dir.iterdir()):
+        if not exe_path.is_file() or not exe_path.name.startswith("x264_"):
+            continue
+        shutil.copy2(exe_path, run_dir / exe_path.name)
+        copied = True
+    if not copied:
+        raise RuntimeError(f"x264 executable not found in {exe_dir}")
+    status(f"Populated x264 run directory {run_dir.name} with host-prepared inputs for {workload}")
+
+def render_specinvoke_commands(spec_dir, run_dir, cmd_file, log_path):
+    if not cmd_file.is_file():
+        raise RuntimeError(f"{cmd_file.name} not found in run directory: {run_dir}")
+    env = os.environ.copy()
+    env.update(spec_env(spec_dir))
+    output = run(
+        [str(spec_dir / "bin" / "specinvoke"), "-nn", str(cmd_file)],
+        cwd=run_dir,
+        env=env,
+        log_path=log_path,
+        summary=f"Rendering {cmd_file.name} to shell (log: {log_path})",
+        capture=True,
+    )
+    commands = []
+    for line in output.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("specinvoke exit:"):
+            continue
+        if stripped.startswith("export ") or stripped.startswith("unset ") or stripped.startswith("cd "):
+            continue
+        if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", stripped):
+            continue
+        commands.append(stripped)
+    return commands
+
+
+def prepare_run_dir(spec_dir, bench_dir, workload, generated_output_root, spec_cfg, tune, log_dir, cross_compile, compiler_root, gnu_toolchain_root):
     setup_log = log_dir / "runsetup.log"
-    env = runcpu_env(spec_dir, compiler_root, gnu_toolchain_root)
+    env = runcpu_env(spec_dir, cross_compile, compiler_root, gnu_toolchain_root)
+    if is_x264_bench(bench_dir):
+        prepare_x264_input_data(spec_dir, log_dir, workload)
     cmd = [
         str(spec_dir / "bin" / "runcpu"),
         "--action",
@@ -529,7 +758,65 @@ def prepare_run_dir(spec_dir, bench_dir, workload, generated_output_root, spec_c
         bench_dir,
     ]
     run(cmd, cwd=spec_dir, env=env, log_path=setup_log, summary=f"Preparing run directory for {bench_dir}/{workload} (log: {setup_log})")
-    return select_run_dir(generated_output_root, bench_dir, tune, workload)
+    run_dir = select_run_dir(generated_output_root, bench_dir, tune, workload)
+    if is_x264_bench(bench_dir):
+        populate_x264_run_dir(spec_dir, run_dir)
+        if not (run_dir / "speccmds.cmd").is_file():
+            status(f"x264 run directory prepared without speccmds.cmd; using synthesized x264 command list for {run_dir.name}")
+    return run_dir
+
+
+def x264_control_path(spec_dir, run_dir):
+    candidates = [run_dir / "control"]
+    try:
+        workload = x264_workload_for_run_dir(run_dir)
+        candidates.append(x264_source_root(spec_dir) / "data" / x264_data_workload(workload) / "input" / "control")
+    except RuntimeError:
+        pass
+    candidates.append(x264_source_root(spec_dir) / "data" / "refrate" / "input" / "control")
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise RuntimeError(f"control file not found for x264 run directory: {run_dir}")
+
+
+def x264_specinvoke_commands(spec_dir, run_dir):
+    control_path = x264_control_path(spec_dir, run_dir)
+    fields = control_path.read_text(encoding="utf-8", errors="replace").split()
+    if len(fields) < 9:
+        raise RuntimeError(f"unexpected x264 control format in {control_path}")
+    _, yuv_output, _, new_x264, size, seek_val, frames, frames2, yuvdump, *_ = fields
+    candidates = sorted(path for path in run_dir.iterdir() if path.is_file() and path.name.startswith("x264_"))
+    if not candidates:
+        raise RuntimeError(f"x264 executable not found in run directory: {run_dir}")
+    x264_exe = candidates[0].name
+    exe_ref = f"../{run_dir.name}/{x264_exe}"
+
+    def format_command(args, stdout_name, stderr_name):
+        parts = [exe_ref, *[shlex.quote(arg) for arg in args], ">", stdout_name, "2>>", stderr_name]
+        return " ".join(parts)
+
+    def padded_range_name(end_value, start_value="0", suffix=""):
+        width = len(str(int(end_value)))
+        return f"run_{int(start_value):0{width}d}-{end_value}_{x264_exe}_x264{suffix}"
+
+    dumpyuv_args = ["--dumpyuv", yuvdump] if yuvdump != "" else []
+    io_args = ["-o", new_x264, yuv_output, size]
+    commands = []
+    if int(frames2) != 0:
+        filebase = padded_range_name(frames)
+        pass1_args = ["--pass", "1", "--stats", "x264_stats.log", "--bitrate", "1000", "--frames", frames, *io_args]
+        commands.append(format_command(pass1_args, f"{filebase}_pass1.out", f"{filebase}_pass1.err"))
+        pass2_args = ["--pass", "2", "--stats", "x264_stats.log", "--bitrate", "1000", *dumpyuv_args, "--frames", frames, *io_args]
+        commands.append(format_command(pass2_args, f"{filebase}_pass2.out", f"{filebase}_pass2.err"))
+        filebase = padded_range_name(frames2, start_value=seek_val)
+        extra_args = ["--seek", seek_val, *dumpyuv_args, "--frames", frames2, *io_args]
+        commands.append(format_command(extra_args, f"{filebase}.out", f"{filebase}.err"))
+    else:
+        filebase = padded_range_name(frames)
+        args = [*dumpyuv_args, "--frames", frames, *io_args]
+        commands.append(format_command(args, f"{filebase}.out", f"{filebase}.err"))
+    return commands
 
 
 def copy_tree_contents(src, dst):
@@ -550,29 +837,16 @@ def copy_tree_contents(src, dst):
 
 def shell_from_specinvoke(spec_dir, run_dir, log_dir):
     cmd_file = run_dir / "speccmds.cmd"
-    if not cmd_file.is_file():
-        raise RuntimeError(f"speccmds.cmd not found in run directory: {run_dir}")
     log_path = log_dir / "specinvoke-dryrun.log"
-    env = os.environ.copy()
-    env.update(spec_env(spec_dir))
-    output = run(
-        [str(spec_dir / "bin" / "specinvoke"), "-nn", str(cmd_file)],
-        cwd=run_dir,
-        env=env,
-        log_path=log_path,
-        summary=f"Rendering speccmds.cmd to shell (log: {log_path})",
-        capture=True,
-    )
+    if cmd_file.is_file():
+        output = render_specinvoke_commands(spec_dir, run_dir, cmd_file, log_path)
+    elif is_x264_bench(bench_dir_for_run_dir(run_dir)):
+        output = x264_specinvoke_commands(spec_dir, run_dir)
+    else:
+        raise RuntimeError(f"speccmds.cmd not found in run directory: {run_dir}")
     commands = []
     run_dir_ref = f"../{run_dir.name}/"
-    for line in output.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or stripped.startswith("specinvoke exit:"):
-            continue
-        if stripped.startswith("export ") or stripped.startswith("unset ") or stripped.startswith("cd "):
-            continue
-        if re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", stripped):
-            continue
+    for line in output:
         line = line.replace(run_dir_ref, "./")
         line = line.replace(str(run_dir) + "/", "./")
         line = line.replace(str(run_dir), "/spec")
@@ -752,6 +1026,7 @@ def package_case(args):
         shared_build_dir_for(out_dir, case["bench_dir"], args.tune) / "runcpu-config" / spec_cfg.name,
         args.tune,
         log_dir,
+        cross_compile,
         compiler_root,
         gnu_toolchain_root,
     )
