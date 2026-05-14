@@ -137,7 +137,7 @@ resolve_jemalloc_host() {
 }
 
 prepare_jemalloc() {
-  local base_dir source_dir prefix host log_file
+  local base_dir source_dir prefix host log_file rc
   base_dir="$(realpath -m "$(dirname "$WORKLOAD_BUILD_DIR")/jemalloc")"
   source_dir="$base_dir/source"
   prefix="$(resolve_jemalloc_root)"
@@ -169,26 +169,31 @@ prepare_jemalloc() {
   status "Preparing jemalloc (log: $log_file)"
   : > "$log_file"
 
-  if ! {
+  rc=0
+  set +e
+  (
+    set -euo pipefail
     echo "# jemalloc repo: $SPEC2006_JEMALLOC_REPO"
     echo "# jemalloc commit: $SPEC2006_JEMALLOC_COMMIT"
     echo "# install prefix: $prefix"
     echo "# configure host: $host"
     prepare_git_checkout "$SPEC2006_JEMALLOC_REPO" "$SPEC2006_JEMALLOC_COMMIT" "$source_dir"
 
-    (
-      cd "$source_dir"
-      CC="${CROSS_COMPILE}gcc" \
-      CXX="${CROSS_COMPILE}g++" \
-      AR="${CROSS_COMPILE}ar" \
-      LD="${CROSS_COMPILE}ld" \
-      RANLIB="${CROSS_COMPILE}ranlib" \
-      STRIP="${CROSS_COMPILE}strip" \
-      ./autogen.sh --prefix="$prefix" --host="$host"
-      make -j"$SPEC2006_JOBS"
-      make install
-    )
-  } >>"$log_file" 2>&1; then
+    cd "$source_dir"
+    CC="${CROSS_COMPILE}gcc" \
+    CXX="${CROSS_COMPILE}g++" \
+    AR="${CROSS_COMPILE}ar" \
+    LD="${CROSS_COMPILE}ld" \
+    RANLIB="${CROSS_COMPILE}ranlib" \
+    STRIP="${CROSS_COMPILE}strip" \
+    ./autogen.sh --prefix="$prefix" --host="$host"
+    make -j"$SPEC2006_JOBS"
+    make install
+  ) >>"$log_file" 2>&1
+  rc=$?
+  set -e
+
+  if [ "$rc" -ne 0 ]; then
     echo "$(spec2006_progress_prefix) jemalloc build failed; see $log_file" >&2
     show_log_tail "$log_file"
     return 1
