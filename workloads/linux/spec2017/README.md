@@ -90,6 +90,8 @@ perlbench_rate_refrate_00_checkspam.2500.5.25.11.150.1.1.1.1.fw_payload.bin
 Useful selectors:
 
 ```sh
+make spec2017-images BENCH=mcf MODE=rate INPUT=test SPEC2017_ISO=/path/to/cpu2017.iso -jN
+make spec2017-images BENCH=mcf MODE=speed INPUT=test SPEC2017_ISO=/path/to/cpu2017.iso -jN
 make spec2017-images SPEC2017_ISO=/path/to/cpu2017.iso SPEC2017_IMAGE_INPUT=test -jN
 make spec2017-images SPEC2017_ISO=/path/to/cpu2017.iso SPEC2017_IMAGE_INPUT=all -jN
 make spec2017-images SPEC2017_ISO=/path/to/cpu2017.iso SPEC2017_IMAGE_MODE=rate -jN

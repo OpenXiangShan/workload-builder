@@ -48,6 +48,13 @@ make spec2006-images SPEC2006_ISO=/path/to/cpu2006.iso SPEC2006_INPUT=test -jN
 make spec2006-images SPEC2006_ISO=/path/to/cpu2006.iso SPEC2006_INPUT=all -jN
 ```
 
+Export a single configured case with `BENCH`:
+
+```sh
+make spec2006-images BENCH=mcf SPEC2006_ISO=/path/to/cpu2006.iso -jN
+make spec2006-images BENCH=astar_biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN
+```
+
 Selected SPEC cases are built one by one to avoid concurrent `runspec`
 instances contending on shared temporary state inside the SPEC tool tree.
 
@@ -57,13 +64,20 @@ The export directory is organized as:
 build/images/spec2006/
   bin/<case>.fw_payload.bin
   kernel/<case>.Image
+  rootfs/<case>.rootfs.cpio
   elf/<case>.elf
+  cmd/<case>.run.sh
   gcpt/gcpt.elf
   gcpt/gcpt.bin
   cfg/<spec-cfg-name>
+  logs/build_elf/<case>.log
+  stamps/<case>.images.stamp
 ```
 
 `gcpt/` and `cfg/` are copied once per export tree, not once per case.
+
+Re-running `make spec2006-images` rebuilds the export tree so the directory
+layout and contents stay complete and consistent.
 
 Override the destination with `SPEC2006_IMAGE_DIR=/path/to/image`.
 
