@@ -166,6 +166,33 @@ def copy_tree_contents(src, dst):
             shutil.copy2(item, target)
 
 
+def inspect_elf_binary(path):
+    with open(path, "rb") as f:
+        ident = f.read(16)
+
+    if len(ident) < 6 or ident[:4] != b"\x7fELF":
+        raise RuntimeError(f"not an ELF binary: {path}")
+
+    elf_class = ident[4]
+    elf_data = ident[5]
+
+    if elf_class == 1:
+        bits = 32
+    elif elf_class == 2:
+        bits = 64
+    else:
+        raise RuntimeError(f"unsupported ELF class {elf_class} in {path}")
+
+    if elf_data == 1:
+        endian = "le"
+    elif elf_data == 2:
+        endian = "be"
+    else:
+        raise RuntimeError(f"unsupported ELF data encoding {elf_data} in {path}")
+
+    return bits, endian
+
+
 def stage_inputs(spec_dir, bench_dir, base_name, input_set, stage_root):
     bench_data = spec_dir / "benchspec" / "CPU2006" / bench_dir / "data"
     if stage_root.exists():
@@ -200,6 +227,85 @@ def install_case_files(case, stage_root, spec_root):
             shutil.copy2(src, spec_root / src.name)
         else:
             raise RuntimeError(f"unsupported SPEC file entry: {entry}")
+
+
+def copy_flat_directory(src_dir, dst_dir):
+    if not src_dir.is_dir():
+        return False
+
+    copied = False
+    for item in src_dir.iterdir():
+        if not item.is_file():
+            continue
+        shutil.copy2(item, dst_dir / item.name)
+        copied = True
+    return copied
+
+
+def read_spec_cfg_numeric_option(spec_cfg, option_name):
+    value = None
+    for line in spec_cfg.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if "=" not in stripped:
+            continue
+        key, raw_value = stripped.split("=", 1)
+        if key.strip() != option_name:
+            continue
+        try:
+            value = int(raw_value.strip().split()[0])
+        except ValueError:
+            continue
+    return value
+
+
+def prepare_sphinx3_runtime(spec_root, target_endian):
+    raw_roots = sorted(
+        path.name[: -len(".be.raw")]
+        for path in spec_root.iterdir()
+        if path.is_file() and path.name.endswith(".be.raw")
+    )
+    if not raw_roots:
+        raise RuntimeError(f"sphinx3 input set is missing .be.raw files under {spec_root}")
+
+    ctlfile = spec_root / "ctlfile"
+    with open(ctlfile, "w", encoding="utf-8") as f:
+        for stem in raw_roots:
+            src = spec_root / f"{stem}.{target_endian}.raw"
+            if not src.is_file():
+                raise RuntimeError(f"sphinx3 input file missing for {target_endian}: {src}")
+            dst = spec_root / f"{stem}.raw"
+            shutil.copy2(src, dst)
+            f.write(f"{stem} {src.stat().st_size}\n")
+
+
+def resolve_wrf_header_dir(spec_cfg):
+    header_size = read_spec_cfg_numeric_option(spec_cfg, "wrf_data_header_size")
+    if header_size is not None and ((4 < header_size < 32) or header_size > 32):
+        return "64"
+    return "32"
+
+
+def prepare_wrf_runtime(spec_root, spec_cfg, target_endian):
+    endian_dir = spec_root / target_endian
+    if not endian_dir.is_dir():
+        raise RuntimeError(f"wrf input set is missing endian directory: {endian_dir}")
+
+    copy_flat_directory(endian_dir, spec_root)
+
+    header_dir = endian_dir / resolve_wrf_header_dir(spec_cfg)
+    if header_dir.is_dir():
+        copy_flat_directory(header_dir, spec_root)
+
+
+def apply_benchmark_post_setup(bench_dir, spec_root, elf, spec_cfg):
+    _, target_endian = inspect_elf_binary(elf)
+
+    if bench_dir == "481.wrf":
+        prepare_wrf_runtime(spec_root, spec_cfg, target_endian)
+    elif bench_dir == "482.sphinx3":
+        prepare_sphinx3_runtime(spec_root, target_endian)
 
 
 def shell_command(binary_name, args):
@@ -510,6 +616,7 @@ def package_case(args):
 
     status(f"Packaging rootfs for {args.case}")
     install_case_files(case, stage_root, pkg_dir / "spec")
+    apply_benchmark_post_setup(bench_dir, pkg_dir / "spec", elf, spec_cfg)
     install_runtime_binary(elf, base_name, pkg_dir)
     write_runtime_files(pkg_dir, args.case, base_name, case.get("args", []))
 
