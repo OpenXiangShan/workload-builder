@@ -93,8 +93,7 @@ for dts_template in "$DTS_TEMPLATE_DIR"/*.dts.in ; do
     build-dtb "$dts_template"
 done
 
-# Assemble the image
-# Using `xiangshan.dtb` as the default device tree unless DEFAULT_DTB is set.
+# Assemble the image using the selected DTB basename and optional memory profile.
 if [ -n "$DTB_MEMORY_PROFILE" ]; then
     DEFAULT_DTB_BASE="$DEFAULT_DTB-mem$DTB_MEMORY_PROFILE"
 else
