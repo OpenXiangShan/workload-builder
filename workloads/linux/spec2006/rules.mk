@@ -37,10 +37,11 @@ SPEC2006_DTC ?= $(SPEC2006_BUILDROOT_DIR)/output/host/bin/dtc
 SPEC2006_CASE := $(if $(INPUT),$(BENCH)_$(INPUT),$(BENCH))
 SPEC2006_ALL_CASES := $(shell python3 $(SPEC2006_HELPER) --cases-config $(SPEC2006_CASE_CONFIG) --list-cases 2>/dev/null)
 SPEC2006_SELECTED_CASES := $(shell python3 $(SPEC2006_HELPER) --cases-config $(SPEC2006_CASE_CONFIG) --list-cases --input-set $(SPEC2006_INPUT) 2>/dev/null)
-SPEC2006_IMAGE_CASES := $(SPEC2006_SELECTED_CASES)
+SPEC2006_IMAGE_CASES := $(if $(BENCH),$(SPEC2006_CASE),$(SPEC2006_SELECTED_CASES))
 SPEC2006_ELF_TARGETS := $(foreach case,$(SPEC2006_SELECTED_CASES),$(SPEC2006_BUILD_DIR)/$(case)/elf/$(case).elf)
 SPEC2006_DTS_SOURCES := $(shell find $(SPEC2006_DTS_DIR) -type f 2>/dev/null)
 SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$(SPEC2006_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
+spec2006_case_image_stamp = $(SPEC2006_IMAGE_DIR)/stamps/$(1).images.stamp
 
 WORKLOAD_DIRS += $(SPEC2006_BUILD_DIR)
 
@@ -132,9 +133,9 @@ linux/$(1): $(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin
 
 WORKLOAD_PHONY_TARGETS += linux/$(1)
 
-$(SPEC2006_IMAGE_DIR)/bin/$(1).fw_payload.bin: $(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin $(SPEC2006_LINUX_IMAGE)
+$(call spec2006_case_image_stamp,$(1)): $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin $(SPEC2006_GCPT_ELF) $(SPEC2006_GCPT_BIN) $(SPEC2006_LINUX_IMAGE) | spec2006-check-spec-iso
 	@printf '$(SPEC2006_PROGRESS_PREFIX) Exporting $(1) artifacts to $(SPEC2006_IMAGE_DIR)\n'
-	@mkdir -p "$(SPEC2006_IMAGE_DIR)/bin" "$(SPEC2006_IMAGE_DIR)/kernel" "$(SPEC2006_IMAGE_DIR)/elf" "$(SPEC2006_IMAGE_DIR)/cfg" "$(SPEC2006_IMAGE_DIR)/gcpt"
+	@mkdir -p "$(SPEC2006_IMAGE_DIR)/bin" "$(SPEC2006_IMAGE_DIR)/kernel" "$(SPEC2006_IMAGE_DIR)/rootfs" "$(SPEC2006_IMAGE_DIR)/elf" "$(SPEC2006_IMAGE_DIR)/cmd" "$(SPEC2006_IMAGE_DIR)/cfg" "$(SPEC2006_IMAGE_DIR)/gcpt" "$(SPEC2006_IMAGE_DIR)/logs/build_elf" "$(SPEC2006_IMAGE_DIR)/stamps"
 	@if [ ! -f "$(SPEC2006_IMAGE_DIR)/cfg/$(notdir $(SPEC2006_CFG))" ]; then \
 		printf '$(SPEC2006_PROGRESS_PREFIX) Exporting spec2006 cfg to $(SPEC2006_IMAGE_DIR)/cfg\n'; \
 		cp "$(SPEC2006_CFG)" "$(SPEC2006_IMAGE_DIR)/cfg/$(notdir $(SPEC2006_CFG))"; \
@@ -144,9 +145,13 @@ $(SPEC2006_IMAGE_DIR)/bin/$(1).fw_payload.bin: $(SPEC2006_BUILD_DIR)/$(1)/fw_pay
 		cp "$(SPEC2006_GCPT_ELF)" "$(SPEC2006_IMAGE_DIR)/gcpt/gcpt.elf"; \
 		cp "$(SPEC2006_GCPT_BIN)" "$(SPEC2006_IMAGE_DIR)/gcpt/gcpt.bin"; \
 	fi
-	@cp $(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf $(SPEC2006_IMAGE_DIR)/elf/$(1).elf
-	@cp $(SPEC2006_LINUX_IMAGE) $(SPEC2006_IMAGE_DIR)/kernel/$(1).Image
-	@cp $(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin $(SPEC2006_IMAGE_DIR)/bin/$(1).fw_payload.bin
+	@cp "$(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf" "$(SPEC2006_IMAGE_DIR)/elf/$(1).elf"
+	@cp "$(SPEC2006_BUILD_DIR)/$(1)/logs/build_elf/build.log" "$(SPEC2006_IMAGE_DIR)/logs/build_elf/$(1).log"
+	@cp "$(SPEC2006_LINUX_IMAGE)" "$(SPEC2006_IMAGE_DIR)/kernel/$(1).Image"
+	@cp "$(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio" "$(SPEC2006_IMAGE_DIR)/rootfs/$(1).rootfs.cpio"
+	@cp "$(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin" "$(SPEC2006_IMAGE_DIR)/bin/$(1).fw_payload.bin"
+	@cp "$(SPEC2006_BUILD_DIR)/$(1)/package/spec/run.sh" "$(SPEC2006_IMAGE_DIR)/cmd/$(1).run.sh"
+	@touch "$$@"
 endef
 
 $(foreach case,$(SPEC2006_ALL_CASES),$(eval $(call add_spec2006_case,$(case))))
@@ -177,15 +182,20 @@ spec2006-elfs: spec2006-check-spec-iso
 	done
 
 spec2006-images: spec2006-check-spec-iso
-	@if [ -z "$(SPEC2006_IMAGE_CASES)" ]; then \
+	@if [ -n "$(BENCH)" ] && [ -z "$(filter $(SPEC2006_CASE),$(SPEC2006_ALL_CASES))" ]; then \
+		echo "Unknown SPEC2006 case for BENCH=$(BENCH) INPUT=$(INPUT)"; \
+		exit 1; \
+	fi; \
+	if [ -z "$(SPEC2006_IMAGE_CASES)" ]; then \
 		echo "No SPEC2006 cases selected by SPEC2006_INPUT=$(SPEC2006_INPUT)"; \
 		exit 1; \
 	fi; \
+	rm -rf "$(SPEC2006_IMAGE_DIR)/bin" "$(SPEC2006_IMAGE_DIR)/kernel" "$(SPEC2006_IMAGE_DIR)/rootfs" "$(SPEC2006_IMAGE_DIR)/elf" "$(SPEC2006_IMAGE_DIR)/cmd" "$(SPEC2006_IMAGE_DIR)/cfg" "$(SPEC2006_IMAGE_DIR)/gcpt" "$(SPEC2006_IMAGE_DIR)/logs" "$(SPEC2006_IMAGE_DIR)/stamps"; \
 	total="$(words $(SPEC2006_IMAGE_CASES))"; \
 	i=0; \
 	for case in $(SPEC2006_IMAGE_CASES); do \
 		i=$$((i + 1)); \
-		SPEC2006_PROGRESS_K="$$i" SPEC2006_PROGRESS_N="$$total" $(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2006_DEFAULT_DTB)" "$(SPEC2006_IMAGE_DIR)/bin/$$case.fw_payload.bin" || exit $$?; \
+		SPEC2006_PROGRESS_K="$$i" SPEC2006_PROGRESS_N="$$total" $(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2006_DEFAULT_DTB)" "$(call spec2006_case_image_stamp,$$case)" || exit $$?; \
 	done
 	@printf '[spec2006 %s/%s] Output written to %s\n' "$(words $(SPEC2006_IMAGE_CASES))" "$(words $(SPEC2006_IMAGE_CASES))" "$(abspath $(SPEC2006_IMAGE_DIR))"
 

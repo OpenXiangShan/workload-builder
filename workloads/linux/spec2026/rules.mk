@@ -8,6 +8,7 @@ SPEC2026_DTS_DIR := $(SPEC2026_REPO_ROOT)/dts
 SPEC2026_BUILD_DIR ?= $(SPEC2026_REPO_ROOT)/build/linux-workloads/spec2026
 SPEC2026_CFG ?= $(SPEC2026_WORKLOAD_DIR)/riscv_gcc15_base.cfg
 SPEC2026_HELPER := $(SPEC2026_WORKLOAD_DIR)/spec2026-package.py
+SPEC2026_IMAGE_DIR ?= $(SPEC2026_REPO_ROOT)/build/images/$(if $(filter rate,$(SPEC2026_IMAGE_MODE)),spec2026rate,$(if $(filter speed,$(SPEC2026_IMAGE_MODE)),spec2026speed,spec2026))
 SPEC2026_IMAGE_RATE_DIR ?= $(SPEC2026_REPO_ROOT)/build/images/spec2026rate
 SPEC2026_IMAGE_SPEED_DIR ?= $(SPEC2026_REPO_ROOT)/build/images/spec2026speed
 SPEC2026_SOURCE_SPEC_ISO := $(SPEC2026_ISO)
@@ -42,15 +43,17 @@ SPEC2026_RATE_DTB_MIN_MEMORY_BYTES ?= 8589934592
 SPEC2026_SPEED_DTB_MIN_MEMORY_BYTES ?= 68719476736
 SPEC2026_ALL_CASES := $(shell python3 $(SPEC2026_HELPER) --list-cases --mode all 2>/dev/null)
 SPEC2026_SELECTED_CASES := $(shell python3 $(SPEC2026_HELPER) --list-cases --input-set $(SPEC2026_INPUT) --mode $(SPEC2026_MODE) 2>/dev/null)
-SPEC2026_IMAGE_CASES := $(shell python3 $(SPEC2026_HELPER) --list-cases --input-set $(SPEC2026_IMAGE_INPUT) --mode $(SPEC2026_IMAGE_MODE) 2>/dev/null)
+SPEC2026_IMAGE_CASES := $(if $(BENCH),$(BENCH),$(shell python3 $(SPEC2026_HELPER) --list-cases --input-set $(SPEC2026_IMAGE_INPUT) --mode $(SPEC2026_IMAGE_MODE) 2>/dev/null))
 SPEC2026_DTS_SOURCES := $(shell find $(SPEC2026_DTS_DIR) -type f 2>/dev/null)
+SPEC2026_CFG_HASH := $(shell if [ -f "$(abspath $(SPEC2026_CFG))" ]; then sha256sum "$(abspath $(SPEC2026_CFG))" | cut -d ' ' -f 1; else printf 'missing'; fi)
+SPEC2026_BUILD_VARS_HASH := $(shell printf '%s\n' '$(SPEC2026_INPUT)' '$(SPEC2026_TUNE)' '$(SPEC2026_JOBS)' '$(SPEC2026_CROSS_COMPILE)' | sha256sum | cut -d ' ' -f 1)
 
 spec2026_case_dtb_memory = $(if $(SPEC2026_DTB_MEMORY),$(SPEC2026_DTB_MEMORY),$(if $(filter %_s,$(1)),$(SPEC2026_SPEED_DTB_MEMORY),$(SPEC2026_RATE_DTB_MEMORY)))
 spec2026_case_dtb_profile = $(if $(SPEC2026_EXPLICIT_DEFAULT_DTB),,$(call spec2026_case_dtb_memory,$(1)))
 spec2026_case_dtb_name = $(SPEC2026_DEFAULT_DTB)$(if $(call spec2026_case_dtb_profile,$(1)),-mem$(call spec2026_case_dtb_profile,$(1)))
 spec2026_case_dtb_tag = $(subst /,_,$(call spec2026_case_dtb_name,$(1)))
 spec2026_case_dtb_min_memory_bytes = $(if $(filter %_s,$(1)),$(SPEC2026_SPEED_DTB_MIN_MEMORY_BYTES),$(SPEC2026_RATE_DTB_MIN_MEMORY_BYTES))
-spec2026_case_image_dir = $(if $(filter %_s,$(1)),$(SPEC2026_IMAGE_SPEED_DIR),$(SPEC2026_IMAGE_RATE_DIR))
+spec2026_case_image_dir = $(SPEC2026_IMAGE_DIR)
 spec2026_case_image_stamp = $(call spec2026_case_image_dir,$(1))/stamps/$(1).images.stamp
 
 WORKLOAD_DIRS += $(SPEC2026_BUILD_DIR)
@@ -100,6 +103,14 @@ $(SPEC2026_BUILD_DIR)/$(1)/download/sentinel:
 	@mkdir -p "$$(@D)"
 	@touch "$$@"
 
+$(SPEC2026_BUILD_DIR)/$(1)/cfg.$(SPEC2026_CFG_HASH).stamp: | spec2026-check-spec-iso
+	@mkdir -p "$$(@D)"
+	@printf '%s\n' "cfg=$(abspath $(SPEC2026_CFG))" > "$$@"
+
+$(SPEC2026_BUILD_DIR)/$(1)/build-vars.$(SPEC2026_BUILD_VARS_HASH).stamp:
+	@mkdir -p "$$(@D)"
+	@printf '%s\n' "input=$(SPEC2026_INPUT)" "tune=$(SPEC2026_TUNE)" "jobs=$(SPEC2026_JOBS)" "cross_compile=$(SPEC2026_CROSS_COMPILE)" > "$$@"
+
 $(SPEC2026_BUILD_DIR)/$(1)/firmware/dtb-$(call spec2026_case_dtb_tag,$(1)).stamp: spec2026-force
 	@mkdir -p "$$(@D)"
 	@printf '%s\n' \
@@ -109,7 +120,7 @@ $(SPEC2026_BUILD_DIR)/$(1)/firmware/dtb-$(call spec2026_case_dtb_tag,$(1)).stamp
 		"min_memory_bytes=$(call spec2026_case_dtb_min_memory_bytes,$(1))" > "$$@.tmp"
 	@if [ -f "$$@" ] && cmp -s "$$@.tmp" "$$@"; then rm "$$@.tmp"; else mv "$$@.tmp" "$$@"; fi
 
-$(SPEC2026_BUILD_DIR)/$(1)/elf/$(1).elf: $(SPEC2026_PREPARE_STAMP) $$(SPEC2026_HELPER) $$(SPEC2026_WORKLOAD_DIR)/build.sh $$(SPEC2026_CFG)
+$(SPEC2026_BUILD_DIR)/$(1)/elf/$(1).elf: $(SPEC2026_PREPARE_STAMP) $(SPEC2026_BUILD_DIR)/$(1)/cfg.$(SPEC2026_CFG_HASH).stamp $(SPEC2026_BUILD_DIR)/$(1)/build-vars.$(SPEC2026_BUILD_VARS_HASH).stamp $$(SPEC2026_HELPER) $$(SPEC2026_WORKLOAD_DIR)/build.sh
 	@mkdir -p "$$(dir $$@)"
 	@WORKLOAD_DIR="$$(abspath $$(SPEC2026_WORKLOAD_DIR))" \
 	WORKLOAD_BUILD_DIR="$$(abspath $(SPEC2026_BUILD_DIR)/$(1))" \
@@ -125,7 +136,7 @@ $(SPEC2026_BUILD_DIR)/$(1)/elf/$(1).elf: $(SPEC2026_PREPARE_STAMP) $$(SPEC2026_H
 	SPEC2026_ELF_ONLY=1 \
 	bash "$$(abspath $$(SPEC2026_WORKLOAD_DIR))/build.sh"
 
-$(SPEC2026_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2026_PREPARE_STAMP) $$(SPEC2026_HELPER) $$(SPEC2026_WORKLOAD_DIR)/build.sh $$(SPEC2026_CFG) $(SPEC2026_BUILD_DIR)/$(1)/download/sentinel $$(SPEC2026_SCRIPTS_DIR)/build-workload-linux.sh
+$(SPEC2026_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2026_PREPARE_STAMP) $(SPEC2026_BUILD_DIR)/$(1)/cfg.$(SPEC2026_CFG_HASH).stamp $(SPEC2026_BUILD_DIR)/$(1)/build-vars.$(SPEC2026_BUILD_VARS_HASH).stamp $$(SPEC2026_HELPER) $$(SPEC2026_WORKLOAD_DIR)/build.sh $(SPEC2026_BUILD_DIR)/$(1)/download/sentinel $$(SPEC2026_SCRIPTS_DIR)/build-workload-linux.sh
 	@CROSS_COMPILE="$$(SPEC2026_CROSS_COMPILE)" \
 	SPEC2026_PROGRESS_K="$$(SPEC2026_PROGRESS_K)" \
 	SPEC2026_PROGRESS_N="$$(SPEC2026_PROGRESS_N)" \
@@ -193,28 +204,21 @@ spec2026-elfs: spec2026-check-spec-iso
 	done
 
 spec2026-images: spec2026-check-spec-iso
-	@if [ -z "$(SPEC2026_IMAGE_CASES)" ]; then \
+	@if [ -n "$(BENCH)" ] && [ -z "$(filter $(BENCH),$(SPEC2026_ALL_CASES))" ]; then \
+		echo "Unknown SPEC2026 case BENCH=$(BENCH)"; \
+		exit 1; \
+	fi; \
+	if [ -z "$(SPEC2026_IMAGE_CASES)" ]; then \
 		echo "No SPEC2026 cases selected by SPEC2026_IMAGE_INPUT=$(SPEC2026_IMAGE_INPUT), SPEC2026_IMAGE_MODE=$(SPEC2026_IMAGE_MODE)"; \
 		exit 1; \
 	fi; \
+	rm -rf "$(SPEC2026_IMAGE_DIR)/bin" "$(SPEC2026_IMAGE_DIR)/kernel" "$(SPEC2026_IMAGE_DIR)/rootfs" "$(SPEC2026_IMAGE_DIR)/elf" "$(SPEC2026_IMAGE_DIR)/cmd" "$(SPEC2026_IMAGE_DIR)/cfg" "$(SPEC2026_IMAGE_DIR)/gcpt" "$(SPEC2026_IMAGE_DIR)/logs" "$(SPEC2026_IMAGE_DIR)/stamps"; \
 	total="$(words $(SPEC2026_IMAGE_CASES))"; \
 	i=0; \
 	for case in $(SPEC2026_IMAGE_CASES); do \
 		i=$$((i + 1)); \
-		case "$$case" in \
-			*_s) image_dir="$(SPEC2026_IMAGE_SPEED_DIR)" ;; \
-			*) image_dir="$(SPEC2026_IMAGE_RATE_DIR)" ;; \
-		esac; \
-		stamp="$$image_dir/stamps/$$case.images.stamp"; \
-		if [ -f "$$stamp" ] && [ -f "$$image_dir/bin/$$case.fw_payload.bin" ] && [ -f "$$image_dir/kernel/$$case.Image" ] && [ -f "$$image_dir/rootfs/$$case.rootfs.cpio" ] && [ -f "$$image_dir/elf/$$case.elf" ] && [ -f "$$image_dir/cmd/$$case.run.sh" ] && [ -f "$$image_dir/cfg/$(notdir $(SPEC2026_CFG))" ] && [ -f "$$image_dir/gcpt/gcpt.elf" ] && [ -f "$$image_dir/gcpt/gcpt.bin" ] && [ -f "$$image_dir/logs/build_elf/$$case.log" ]; then \
-			printf '[spec2026 %s/%s] Reusing exported images for %s\n' "$$i" "$$total" "$$case"; \
-			continue; \
-		fi; \
-		if [ -f "$$stamp" ]; then \
-			rm -f "$$stamp"; \
-		fi; \
-		SPEC2026_PROGRESS_K="$$i" SPEC2026_PROGRESS_N="$$total" $(MAKE) --no-print-directory -f "$(SPEC2026_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2026_DEFAULT_DTB)" "$$stamp" || exit $$?; \
+		SPEC2026_INPUT="$(SPEC2026_IMAGE_INPUT)" SPEC2026_PROGRESS_K="$$i" SPEC2026_PROGRESS_N="$$total" $(MAKE) --no-print-directory -f "$(SPEC2026_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2026_DEFAULT_DTB)" "$(call spec2026_case_image_stamp,$$case)" || exit $$?; \
 	done
-	@printf '[spec2026 %s/%s] Output written to %s and %s\n' "$(words $(SPEC2026_IMAGE_CASES))" "$(words $(SPEC2026_IMAGE_CASES))" "$(abspath $(SPEC2026_IMAGE_RATE_DIR))" "$(abspath $(SPEC2026_IMAGE_SPEED_DIR))"
+	@printf '[spec2026 %s/%s] Output written to %s\n' "$(words $(SPEC2026_IMAGE_CASES))" "$(words $(SPEC2026_IMAGE_CASES))" "$(abspath $(SPEC2026_IMAGE_DIR))"
 
 .PHONY: linux/spec2026 spec2026-check-spec-iso spec2026-prepare spec2026-elf spec2026-elfs spec2026-images spec2026-force

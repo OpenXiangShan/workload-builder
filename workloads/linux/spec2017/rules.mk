@@ -56,7 +56,7 @@ SPEC2017_BUILD_VARS_HASH := $(shell printf '%s\n' '$(SPEC2017_PROFILING)' '$(SPE
 SPEC2017_CASE := $(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --resolve-case --bench '$(BENCH)' --input-set '$(SPEC2017_INPUT)' --mode '$(SPEC2017_MODE)' 2>/dev/null)
 SPEC2017_ALL_CASES := $(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --list-cases --input-set all --mode all 2>/dev/null)
 SPEC2017_SELECTED_CASES := $(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --list-cases --input-set $(SPEC2017_INPUT) --mode $(SPEC2017_MODE) 2>/dev/null)
-SPEC2017_IMAGE_CASES := $(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --list-cases --input-set $(SPEC2017_IMAGE_INPUT) --mode $(SPEC2017_IMAGE_MODE) 2>/dev/null)
+SPEC2017_IMAGE_CASES := $(if $(BENCH),$(SPEC2017_CASE),$(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --list-cases --input-set $(SPEC2017_IMAGE_INPUT) --mode $(SPEC2017_IMAGE_MODE) 2>/dev/null))
 SPEC2017_DTS_SOURCES := $(shell find $(SPEC2017_DTS_DIR) -type f 2>/dev/null)
 
 WORKLOAD_DIRS += $(SPEC2017_BUILD_DIR)
@@ -246,7 +246,7 @@ linux/spec2017: spec2017-check-spec-config
 		echo "Cannot resolve SPEC2017 case from BENCH=$(BENCH), MODE=$(SPEC2017_MODE), INPUT=$(SPEC2017_INPUT)"; \
 		exit 1; \
 	fi
-	@$(MAKE) --no-print-directory -f "$(SPEC2017_RECURSE_MAKEFILE)" $(SPEC2017_BUILD_DIR)/$(SPEC2017_CASE)/fw_payload.bin
+	@$(MAKE) --no-print-directory -f "$(SPEC2017_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2017_DEFAULT_DTB)" $(SPEC2017_BUILD_DIR)/$(SPEC2017_CASE)/fw_payload.bin
 
 spec2017-elf: spec2017-check-spec-config
 	@if [ -z "$(BENCH)" ]; then \
@@ -272,7 +272,11 @@ spec2017-elfs: spec2017-check-spec-config
 	done
 
 spec2017-images: spec2017-check-spec-config
-	@if [ -z "$(SPEC2017_IMAGE_CASES)" ]; then \
+	@if [ -n "$(BENCH)" ] && [ -z "$(SPEC2017_CASE)" ]; then \
+		echo "Cannot resolve SPEC2017 case from BENCH=$(BENCH), MODE=$(SPEC2017_MODE), INPUT=$(SPEC2017_INPUT)"; \
+		exit 1; \
+	fi; \
+	if [ -z "$(SPEC2017_IMAGE_CASES)" ]; then \
 		echo "No SPEC2017 cases selected by SPEC2017_IMAGE_INPUT=$(SPEC2017_IMAGE_INPUT) SPEC2017_IMAGE_MODE=$(SPEC2017_IMAGE_MODE)"; \
 		exit 1; \
 		fi; \
@@ -281,7 +285,7 @@ spec2017-images: spec2017-check-spec-config
 	i=0; \
 	for case in $(SPEC2017_IMAGE_CASES); do \
 		i=$$((i + 1)); \
-		SPEC2017_PROGRESS_K="$$i" SPEC2017_PROGRESS_N="$$total" $(MAKE) --no-print-directory -f "$(SPEC2017_RECURSE_MAKEFILE)" "$(SPEC2017_IMAGE_DIR)/stamps/$$case.images.stamp" || exit $$?; \
+		SPEC2017_PROGRESS_K="$$i" SPEC2017_PROGRESS_N="$$total" $(MAKE) --no-print-directory -f "$(SPEC2017_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2017_DEFAULT_DTB)" "$(SPEC2017_IMAGE_DIR)/stamps/$$case.images.stamp" || exit $$?; \
 	done
 	@printf '[spec2017 %s/%s] Output written to %s\n' "$(words $(SPEC2017_IMAGE_CASES))" "$(words $(SPEC2017_IMAGE_CASES))" "$(abspath $(SPEC2017_IMAGE_DIR))"
 

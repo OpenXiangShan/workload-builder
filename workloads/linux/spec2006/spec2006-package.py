@@ -373,6 +373,16 @@ def export_elf_artifact(elf, case_name, out_dir):
     return exported_elf
 
 
+def export_build_log_artifact(build_log, out_dir):
+    if not build_log.is_file():
+        return None
+    log_dir = out_dir / "logs" / "build_elf"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    exported_log = log_dir / build_log.name
+    shutil.copy2(build_log, exported_log)
+    return exported_log
+
+
 def install_runtime_binary(elf, binary_name, pkg_dir):
     spec_root = pkg_dir / "spec"
     shutil.copy2(elf, spec_root / binary_name)
@@ -499,6 +509,7 @@ def build_elf(spec_dir, bench_dir, spec_cfg, out_dir, log_dir, cross_compile, tu
                 elf = None
             if elf is not None:
                 status(f"Reusing {bench_dir} build from {shared_dir}")
+                export_build_log_artifact(build_log, out_dir)
                 return elf, build_log
 
     if output_root.exists():
@@ -547,6 +558,7 @@ def build_elf(spec_dir, bench_dir, spec_cfg, out_dir, log_dir, cross_compile, tu
         detail = explain_missing_elf(output_root, bench_dir, tune)
         raise RuntimeError(str(exc) + detail) from exc
     write_json(metadata_path, metadata)
+    export_build_log_artifact(build_log, out_dir)
     return elf, build_log
 
 
