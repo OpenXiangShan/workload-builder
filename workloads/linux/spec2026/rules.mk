@@ -35,7 +35,7 @@ SPEC2026_SBI_BIN ?= $(if $(SBI_BIN),$(SBI_BIN),$(SPEC2026_SBI_BUILD_DIR)/build/p
 SPEC2026_BUILDROOT_CROSS_COMPILE ?= $(SPEC2026_BUILDROOT_DIR)/output/host/bin/riscv64-linux-
 SPEC2026_DTC ?= $(SPEC2026_BUILDROOT_DIR)/output/host/bin/dtc
 SPEC2026_EXPLICIT_DEFAULT_DTB := $(if $(filter undefined,$(origin DEFAULT_DTB)),,1)
-SPEC2026_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan-fpga-noAIA)
+SPEC2026_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan-fpga-noAIA-novec)
 SPEC2026_RATE_DTB_MEMORY ?= 8g
 SPEC2026_SPEED_DTB_MEMORY ?= 64g
 SPEC2026_DTB_MEMORY ?=
@@ -50,7 +50,7 @@ SPEC2026_BUILD_VARS_HASH := $(shell printf '%s\n' '$(SPEC2026_INPUT)' '$(SPEC202
 
 spec2026_case_dtb_memory = $(if $(SPEC2026_DTB_MEMORY),$(SPEC2026_DTB_MEMORY),$(if $(filter %_s,$(1)),$(SPEC2026_SPEED_DTB_MEMORY),$(SPEC2026_RATE_DTB_MEMORY)))
 spec2026_case_dtb_profile = $(if $(SPEC2026_EXPLICIT_DEFAULT_DTB),,$(call spec2026_case_dtb_memory,$(1)))
-spec2026_case_dtb_name = $(SPEC2026_DEFAULT_DTB)$(if $(call spec2026_case_dtb_profile,$(1)),-mem$(call spec2026_case_dtb_profile,$(1)))
+spec2026_case_dtb_name = $(if $(call spec2026_case_dtb_profile,$(1)),$(if $(filter %-novec,$(SPEC2026_DEFAULT_DTB)),$(patsubst %-novec,%,$(SPEC2026_DEFAULT_DTB))-mem$(call spec2026_case_dtb_profile,$(1))-novec,$(SPEC2026_DEFAULT_DTB)-mem$(call spec2026_case_dtb_profile,$(1))),$(SPEC2026_DEFAULT_DTB))
 spec2026_case_dtb_tag = $(subst /,_,$(call spec2026_case_dtb_name,$(1)))
 spec2026_case_dtb_min_memory_bytes = $(if $(filter %_s,$(1)),$(SPEC2026_SPEED_DTB_MIN_MEMORY_BYTES),$(SPEC2026_RATE_DTB_MIN_MEMORY_BYTES))
 spec2026_case_image_dir = $(SPEC2026_IMAGE_DIR)

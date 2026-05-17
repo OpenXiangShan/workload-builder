@@ -93,12 +93,23 @@ for dts_template in "$DTS_TEMPLATE_DIR"/*.dts.in ; do
     build-dtb "$dts_template"
 done
 
+resolve_default_dtb_base() {
+    local default_dtb="$1"
+    local memory_profile="$2"
+
+    if [ -z "$memory_profile" ]; then
+        printf '%s\n' "$default_dtb"
+        return
+    fi
+    if [[ "$default_dtb" == *-novec ]]; then
+        printf '%s\n' "${default_dtb%-novec}-mem${memory_profile}-novec"
+        return
+    fi
+    printf '%s\n' "${default_dtb}-mem${memory_profile}"
+}
+
 # Assemble the image using the selected DTB basename and optional memory profile.
-if [ -n "$DTB_MEMORY_PROFILE" ]; then
-    DEFAULT_DTB_BASE="$DEFAULT_DTB-mem$DTB_MEMORY_PROFILE"
-else
-    DEFAULT_DTB_BASE="$DEFAULT_DTB"
-fi
+DEFAULT_DTB_BASE="$(resolve_default_dtb_base "$DEFAULT_DTB" "$DTB_MEMORY_PROFILE")"
 DEFAULT_DTB_FILE="$WORKLOAD_BUILD_DIR/dt/$DEFAULT_DTB_BASE.dtb"
 DEFAULT_DTS_FILE="$WORKLOAD_BUILD_DIR/dt/$DEFAULT_DTB_BASE.dts"
 if ! [ -f "$DEFAULT_DTB_FILE" ]; then

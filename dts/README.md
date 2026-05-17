@@ -14,3 +14,7 @@ These parameters are replaced with the corresponding values when building the wo
 - `xiangshan.dts.in`: This device tree template is for the `riscv64-xs_defconfig` NEMU configuration.
 - `yanqihu.dts.in`: This device tree template is for the `riscv64-yanqihu_defconfig` NEMU configuration.
 - `nutshell.dts.in`: This device tree template is for the `riscv64-nutshell_defconfig` NEMU configuration.
+- `xiangshan-fpga-noAIA-novec.dts.in`: Base XiangShan FPGA DTS without vector extensions.
+- `xiangshan-fpga-noAIA-mem8g-novec.dts.in`: XiangShan FPGA DTS without vector extensions, with an 8 GiB memory profile.
+- `xiangshan-fpga-noAIA-mem24g-novec.dts.in`: XiangShan FPGA DTS without vector extensions, with a 24 GiB memory profile.
+- `xiangshan-fpga-noAIA-mem64g-novec.dts.in`: XiangShan FPGA DTS without vector extensions, with a 64 GiB memory profile.

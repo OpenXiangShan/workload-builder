@@ -55,6 +55,16 @@ make spec2006-images BENCH=mcf SPEC2006_ISO=/path/to/cpu2006.iso -jN
 make spec2006-images BENCH=astar_biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN
 ```
 
+By default, SPEC2006 firmware images embed
+`dts/xiangshan-fpga-noAIA-novec.dts.in`. Override that baseline with
+`DEFAULT_DTB` if you need another DTS template:
+
+```sh
+make linux/spec2006 BENCH=astar INPUT=biglakes \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-novec \
+  SPEC2006_ISO=/path/to/cpu2006.iso -jN
+```
+
 Selected SPEC cases are built one by one to avoid concurrent `runspec`
 instances contending on shared temporary state inside the SPEC tool tree.
 

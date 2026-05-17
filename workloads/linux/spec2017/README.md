@@ -118,7 +118,7 @@ PROFILING=0 make spec2017-images SPEC2017_ISO=/path/to/cpu2017.iso -jN
 
 The final `nemu-trap <status>` is always emitted.
 
-The repository provides static `xiangshan-fpga-noAIA` DTS templates for the
+The repository provides static `xiangshan-fpga-noAIA-novec` DTS templates for the
 SPEC2017 memory profiles used by default. The embedded DTB is selected per
 case:
 
@@ -144,10 +144,10 @@ the selected DTS memory is large enough for the case:
 
 ```sh
 make linux/spec2017 BENCH=x264 MODE=rate INPUT=ref \
-  DEFAULT_DTB=xiangshan-fpga-noAIA-mem8g \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-mem8g-novec \
   SPEC2017_ISO=/path/to/cpu2017.iso -jN
 make linux/spec2017 BENCH=x264 MODE=speed INPUT=ref \
-  DEFAULT_DTB=xiangshan-fpga-noAIA-mem24g \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-mem24g-novec \
   SPEC2017_ISO=/path/to/cpu2017.iso -jN
 ```
 
@@ -156,8 +156,8 @@ The minimum checked size is 8 GiB for rate cases and 24 GiB for speed cases.
 The source templates live in:
 
 ```text
-dts/xiangshan-fpga-noAIA-mem8g.dts.in
-dts/xiangshan-fpga-noAIA-mem24g.dts.in
+dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in
+dts/xiangshan-fpga-noAIA-mem24g-novec.dts.in
 ```
 
 They are compiled into each case's `dt/` directory during firmware assembly.

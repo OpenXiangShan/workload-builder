@@ -71,5 +71,43 @@ make spec2026-images SPEC2026_ISO=/path/to/cpu2026-1.0.1.iso SPEC2026_IMAGE_MODE
 `SPEC2026_IMAGE_MODE=all` exports both rate and speed images into the same
 combined tree that `SPEC2026_IMAGE_DIR` points to.
 
+The repository provides static `xiangshan-fpga-noAIA-novec` DTS templates for
+the SPEC2026 memory profiles used by default. The embedded DTB is selected per
+case:
+
+```text
+rate  -> 8g
+speed -> 64g
+```
+
+Override the selected profile with the available DTS profiles:
+
+```sh
+make spec2026-images SPEC2026_ISO=/path/to/cpu2026-1.0.1.iso SPEC2026_DTB_MEMORY=8g -jN
+make spec2026-images SPEC2026_ISO=/path/to/cpu2026-1.0.1.iso SPEC2026_RATE_DTB_MEMORY=8g SPEC2026_SPEED_DTB_MEMORY=64g -jN
+```
+
+Alternatively, pass a specific DTB basename with `DEFAULT_DTB`. In that mode
+the profile suffix is not added automatically, and the firmware script checks
+that the selected DTS memory is large enough for the case:
+
+```sh
+make linux/spec2026 BENCH=706.stockfish_r MODE=rate \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-mem8g-novec \
+  SPEC2026_ISO=/path/to/cpu2026-1.0.1.iso -jN
+make linux/spec2026 BENCH=800.pot3d_s MODE=speed \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-mem64g-novec \
+  SPEC2026_ISO=/path/to/cpu2026-1.0.1.iso -jN
+```
+
+The minimum checked size is 8 GiB for rate cases and 64 GiB for speed cases.
+
+The source templates live in:
+
+```text
+dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in
+dts/xiangshan-fpga-noAIA-mem64g-novec.dts.in
+```
+
 Re-running `make spec2026-images` rebuilds the export tree so the directory
 layout and contents stay complete and consistent.
