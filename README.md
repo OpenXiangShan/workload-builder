@@ -57,6 +57,8 @@ For Linux workloads, the image assumes that execution begins at `0x80000000`, an
 
 Multiple device trees are built for each workload, each corresponds to a specific NEMU configuration. The device tree files are placed under the `dt` directory in the build output directory of that workload. The "default" device tree built into the image is `dt/xiangshan.dtb`. To replace the device tree, the following command can be used:
 
+For DTS files used with gcpt, the beginning of RAM must be reserved with a `reserved-memory` node so Linux does not allocate or map the gcpt checkpoint buffer. The XiangShan FPGA DTS templates reserve 1 MiB at `0x80000000` for this purpose.
+
 ```shell
 dd conv=notrunc bs=1024 seek=1536 if=dt/some_device.dtb of=fw_payload.bin
 ```
