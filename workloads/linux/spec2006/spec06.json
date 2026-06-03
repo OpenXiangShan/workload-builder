@@ -827,7 +827,11 @@
     "args": [
       "-v",
       "t5.xml",
-      "xalanc.xsl"
+      "xalanc.xsl",
+      ">",
+      "out.log",
+      "2>",
+      "err.log"
     ],
     "type": [
       "int",
