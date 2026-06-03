@@ -310,24 +310,22 @@ def apply_benchmark_post_setup(bench_dir, spec_root, elf, spec_cfg):
 
 def shell_command(binary_name, args):
     before_redirect = []
-    stdin_file = None
+    redirects = []
     iterator = iter(args)
     for arg in iterator:
-        if arg == "<":
+        if arg in ("<", ">", ">>", "2>", "2>>"):
             try:
-                stdin_file = next(iterator)
+                redirect_file = next(iterator)
             except StopIteration as exc:
-                raise RuntimeError("input redirection without file") from exc
-            rest = list(iterator)
-            if rest:
-                raise RuntimeError(f"unsupported arguments after input redirection: {rest}")
-            break
+                raise RuntimeError(f"{arg} redirection without file") from exc
+            redirects.append(f"{arg} {shlex.quote(redirect_file)}")
+            continue
         before_redirect.append(arg)
 
     words = ["./" + binary_name] + before_redirect
     cmd = " ".join(shlex.quote(x) for x in words)
-    if stdin_file is not None:
-        cmd += " < " + shlex.quote(stdin_file)
+    if redirects:
+        cmd += " " + " ".join(redirects)
     return cmd
 
 
