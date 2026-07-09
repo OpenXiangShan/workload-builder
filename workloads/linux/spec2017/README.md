@@ -167,13 +167,13 @@ They are compiled into each case's `dt/` directory during firmware assembly.
 By default, rate cases use:
 
 ```text
-workloads/linux/spec2017/riscv-gcc15.cfg
+workloads/linux/spec2017/configs/riscv-gcc15.cfg
 ```
 
 Speed cases use:
 
 ```text
-workloads/linux/spec2017/riscv-gcc15.cfg
+workloads/linux/spec2017/configs/riscv-gcc15.cfg
 ```
 
 Override both modes with `SPEC2017_CFG=/path/to/config.cfg`, or override the
