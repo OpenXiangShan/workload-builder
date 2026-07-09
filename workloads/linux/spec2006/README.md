@@ -126,7 +126,7 @@ make -f rules.mk spec2006-elfs SPEC2006_ISO=/path/to/cpu2006.iso SPEC2006_INPUT=
 The default SPEC cfg is:
 
 ```text
-workloads/linux/spec2006/riscv_gcc15_base.cfg
+workloads/linux/spec2006/configs/riscv_gcc15_base.cfg
 ```
 
 Override it with:
