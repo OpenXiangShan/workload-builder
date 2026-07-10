@@ -22,3 +22,6 @@
 [submodule "workloads/linux/kvmtool/source/dtc"]
 	path = workloads/linux/kvmtool/source/dtc
 	url = https://git.kernel.org/pub/scm/utils/dtc/dtc.git
+[submodule "workloads/linux/gapbs/source"]
+	path = workloads/linux/gapbs/source
+	url = https://github.com/sbeamer/gapbs.git
