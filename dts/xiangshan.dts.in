@@ -35,8 +35,8 @@
     };
     chosen {
         bootargs = "console=hvc0 earlycon=sbi";
-        linux,initrd-start = <0x0 INITRAMFS_BEGIN>;
-        linux,initrd-end = <0x0 INITRAMFS_END>;
+        linux,initrd-start = <INITRAMFS_BEGIN_HI INITRAMFS_BEGIN_LO>;
+        linux,initrd-end = <INITRAMFS_END_HI INITRAMFS_END_LO>;
     };
     L11: memory@80000000 {
         device_type = "memory";
