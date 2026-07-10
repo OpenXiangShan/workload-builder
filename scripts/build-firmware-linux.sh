@@ -22,8 +22,14 @@ KERNEL_SIZE=$(stat -c%s "$KERNEL_IMAGE")
 KERNEL_SIZE_MB=$(( (KERNEL_SIZE + MEGABYTE - 1) / MEGABYTE ))
 INITRAMFS_OFFSET_MB=$(( KERNEL_OFFSET_MB + KERNEL_SIZE_MB ))
 INITRAMFS_SIZE=$(stat -c%s "$CPIO_ARCHIVE")
-INITRAMFS_BEGIN_HEX=$(printf "0x%x" $(( MEM_BEGIN + INITRAMFS_OFFSET_MB*MEGABYTE )))
-INITRAMFS_END_HEX=$(printf "0x%x" $(( INITRAMFS_BEGIN_HEX + INITRAMFS_SIZE )))
+INITRAMFS_BEGIN_ADDR=$(( MEM_BEGIN + INITRAMFS_OFFSET_MB*MEGABYTE ))
+INITRAMFS_END_ADDR=$(( INITRAMFS_BEGIN_ADDR + INITRAMFS_SIZE ))
+INITRAMFS_BEGIN_HEX=$(printf "0x%x" "$INITRAMFS_BEGIN_ADDR")
+INITRAMFS_END_HEX=$(printf "0x%x" "$INITRAMFS_END_ADDR")
+INITRAMFS_BEGIN_HI=$(printf "0x%x" $(( INITRAMFS_BEGIN_ADDR >> 32 )))
+INITRAMFS_BEGIN_LO=$(printf "0x%x" $(( INITRAMFS_BEGIN_ADDR & 0xffffffff )))
+INITRAMFS_END_HI=$(printf "0x%x" $(( INITRAMFS_END_ADDR >> 32 )))
+INITRAMFS_END_LO=$(printf "0x%x" $(( INITRAMFS_END_ADDR & 0xffffffff )))
 
 # Build device tree files
 DTC="${DTC:-dtc}"
@@ -84,7 +90,11 @@ build-dtb() {
     local dts_file="$dt_dir/$dts_base.dts"
     local dtb_file="$dt_dir/$dts_base.dtb"
     mkdir -p "$dt_dir"
-    sed -e "s/INITRAMFS_BEGIN/$INITRAMFS_BEGIN_HEX/g" \
+    sed -e "s/INITRAMFS_BEGIN_HI/$INITRAMFS_BEGIN_HI/g" \
+        -e "s/INITRAMFS_BEGIN_LO/$INITRAMFS_BEGIN_LO/g" \
+        -e "s/INITRAMFS_END_HI/$INITRAMFS_END_HI/g" \
+        -e "s/INITRAMFS_END_LO/$INITRAMFS_END_LO/g" \
+        -e "s/INITRAMFS_BEGIN/$INITRAMFS_BEGIN_HEX/g" \
         -e "s/INITRAMFS_END/$INITRAMFS_END_HEX/g" \
         "$dts_template" > "$dts_file"
     "$DTC" -I dts -O dtb -o "$dtb_file" "$dts_file"
