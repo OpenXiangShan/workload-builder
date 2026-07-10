@@ -3,20 +3,37 @@
 NEMU SimPoint checkpoint images for the
 [GAP Benchmark Suite](https://github.com/sbeamer/gapbs). Each workload is one
 `kernel × graph` pair: a static, single-threaded GAPBS kernel that loads a
-pre-serialized reference graph and runs a single trial. There are 18 cases —
+pre-serialized reference graph and runs one or more trials. There are 18 cases —
 the cartesian product of six kernels and three graphs.
 
 | kernel | graph file    | arguments |
 |--------|---------------|-----------|
-| bfs    | `<graph>.sg`  | `-n 1` |
-| sssp   | `<graph>.wsg` | `-d <delta> -n 1` (road `50000`; twitter/web `2`) |
+| bfs    | `<graph>.sg`  | `-n <trials>` |
+| sssp   | `<graph>.wsg` | `-d <delta> -n <trials>` (delta: road `50000`; twitter/web `2`) |
 | pr     | `<graph>.sg`  | `-i 1000 -t 1e-4 -n 1` |
 | cc     | `<graph>.sg`  | `-n 1` |
-| bc     | `<graph>.sg`  | `-i 1 -n 1` |
+| bc     | `<graph>.sg`  | `-i 1 -n <trials>` |
 | tc     | `<graph>U.sg` | `-n 1` |
 
 Graphs: `road`, `twitter`, `web`. Cases are named `<kernel>_<graph>`
 (e.g. `bfs_road`, `sssp_web`).
+
+## Trials
+
+`bfs`, `sssp`, and `bc` pick a new random source each trial, so more trials
+sample more sources. Their trial count is sized per case (`num_trials` in
+`gapbs-package.py`) so every such case runs for roughly the same time — cheap
+cases get many trials, expensive ones get few:
+
+| kernel | road | twitter | web |
+|--------|-----:|--------:|----:|
+| bfs    |   33 |      13 |   2 |
+| sssp   |   39 |       2 |   1 |
+| bc     |   26 |       2 |   1 |
+
+`pr`, `cc`, and `tc` are source-independent — every trial is identical work, so
+they stay at a single trial regardless. Raise or lower `TARGET_TRIAL_SECONDS`
+to rebalance.
 
 ## Building
 

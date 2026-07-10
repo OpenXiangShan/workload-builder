@@ -10,17 +10,40 @@ SUFFIX = {"bfs": ".sg", "pr": ".sg", "cc": ".sg", "bc": ".sg",
           "sssp": ".wsg", "tc": "U.sg"}
 SSSP_DELTA = {"road": "50000", "twitter": "2", "web": "2"}
 
+# Only bfs/sssp/bc pick a new random source per trial, so only they gain from
+# more trials; pr/cc/tc repeat identical work and stay at a single trial.
+SOURCE_DEPENDENT = {"bfs", "sssp", "bc"}
+
+# Measured single-trial guest runtime (seconds) from the n=1 checkpoint run:
+# (graph-load "Read Time", one-kernel "Trial Time"). Trials are sized so each
+# source-dependent case runs for roughly TARGET_TRIAL_SECONDS, balancing runtime
+# across cases; adjust the target to trade source coverage against cost.
+_TRIAL_CALIB = {
+    ("bfs",  "road"): (16, 24),  ("bfs",  "twitter"): (251, 43),  ("bfs",  "web"): (316, 298),
+    ("sssp", "road"): (23, 20),  ("sssp", "twitter"): (474, 170), ("sssp", "web"): (609, 207),
+    ("bc",   "road"): (16, 30),  ("bc",   "twitter"): (251, 301), ("bc",   "web"): (316, 358),
+}
+TARGET_TRIAL_SECONDS = 800
+MAX_TRIALS = 64
+
+def num_trials(kernel, graph):
+    if kernel not in SOURCE_DEPENDENT:
+        return 1
+    read, trial = _TRIAL_CALIB[(kernel, graph)]
+    return max(1, min(MAX_TRIALS, round((TARGET_TRIAL_SECONDS - read) / trial)))
+
 # initramfs newc cpio caps each file at 4 GiB (2**32); split any graph at/above it.
 SPLIT_THRESHOLD = 4 * 1024**3
 PART_SIZE = "3G"   # each part is well under the 4 GiB cpio limit
 
 def kernel_args(kernel, graph):
-    if kernel == "bfs":  return ["-n", "1"]
-    if kernel == "cc":   return ["-n", "1"]
-    if kernel == "pr":   return ["-i", "1000", "-t", "1e-4", "-n", "1"]
-    if kernel == "bc":   return ["-i", "1", "-n", "1"]
-    if kernel == "sssp": return ["-d", SSSP_DELTA[graph], "-n", "1"]
-    if kernel == "tc":   return ["-n", "1"]
+    n = str(num_trials(kernel, graph))
+    if kernel == "bfs":  return ["-n", n]
+    if kernel == "cc":   return ["-n", n]
+    if kernel == "pr":   return ["-i", "1000", "-t", "1e-4", "-n", n]
+    if kernel == "bc":   return ["-i", "1", "-n", n]
+    if kernel == "sssp": return ["-d", SSSP_DELTA[graph], "-n", n]
+    if kernel == "tc":   return ["-n", n]
     raise RuntimeError(f"unknown kernel {kernel}")
 
 def all_cases():
