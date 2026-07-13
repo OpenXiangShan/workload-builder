@@ -40,6 +40,7 @@ SPEC2006_SELECTED_CASES := $(shell python3 $(SPEC2006_HELPER) --cases-config $(S
 SPEC2006_IMAGE_CASES := $(if $(BENCH),$(SPEC2006_CASE),$(SPEC2006_SELECTED_CASES))
 SPEC2006_ELF_TARGETS := $(foreach case,$(SPEC2006_SELECTED_CASES),$(SPEC2006_BUILD_DIR)/$(case)/elf/$(case).elf)
 SPEC2006_DTS_SOURCES := $(shell find $(SPEC2006_DTS_DIR) -type f 2>/dev/null)
+SPEC2006_CFG_HASH := $(shell if [ -f "$(abspath $(SPEC2006_CFG))" ]; then sha256sum "$(abspath $(SPEC2006_CFG))" | cut -d ' ' -f 1; else printf 'missing'; fi)
 SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$(SPEC2006_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
 spec2006_case_image_stamp = $(SPEC2006_IMAGE_DIR)/stamps/$(1).images.stamp
 
@@ -80,12 +81,21 @@ $(SPEC2006_DEFAULT_DTB_STAMP):
 	@rm -f "$(SPEC2006_BUILD_DIR)"/dtb.*
 	@touch "$@"
 
+spec2006-force:
+
 define add_spec2006_case
 $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel:
 	@mkdir -p $$(@D)
 	@touch $$@
 
-$(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf: $(SPEC2006_PREPARE_STAMP) $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $$(SPEC2006_CFG)
+$(SPEC2006_BUILD_DIR)/$(1)/cfg.stamp: spec2006-force
+	@mkdir -p "$$(@D)"
+	@printf '%s\n' \
+		"cfg=$$(abspath $$(SPEC2006_CFG))" \
+		"hash=$$(SPEC2006_CFG_HASH)" > "$$@.tmp"
+	@if [ -f "$$@" ] && cmp -s "$$@.tmp" "$$@"; then rm "$$@.tmp"; else mv "$$@.tmp" "$$@"; fi
+
+$(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUILD_DIR)/$(1)/cfg.stamp $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG)
 	@mkdir -p "$$(dir $$@)"
 	@WORKLOAD_DIR="$$(abspath $$(SPEC2006_WORKLOAD_DIR))" \
 	WORKLOAD_BUILD_DIR="$$(abspath $(SPEC2006_BUILD_DIR)/$(1))" \
@@ -105,7 +115,7 @@ $(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf: $(SPEC2006_PREPARE_STAMP) $$(SPEC2006_H
 	SPEC2006_ELF_ONLY=1 \
 	bash "$$(abspath $$(SPEC2006_WORKLOAD_DIR))/build.sh"
 
-$(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2006_PREPARE_STAMP) $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $$(SPEC2006_CFG) $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel $$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh
+$(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUILD_DIR)/$(1)/cfg.stamp $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel $$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh
 	@CROSS_COMPILE="$$(SPEC2006_CROSS_COMPILE)" \
 	SPEC2006_PROGRESS_K="$$(SPEC2006_PROGRESS_K)" \
 	SPEC2006_PROGRESS_N="$$(SPEC2006_PROGRESS_N)" \
@@ -199,4 +209,4 @@ spec2006-images: spec2006-check-spec-iso
 	done
 	@printf '[spec2006 %s/%s] Output written to %s\n' "$(words $(SPEC2006_IMAGE_CASES))" "$(words $(SPEC2006_IMAGE_CASES))" "$(abspath $(SPEC2006_IMAGE_DIR))"
 
-.PHONY: linux/spec2006 spec2006-check-spec-iso spec2006-prepare spec2006-elf spec2006-elfs spec2006-images
+.PHONY: linux/spec2006 spec2006-check-spec-iso spec2006-force spec2006-prepare spec2006-elf spec2006-elfs spec2006-images
