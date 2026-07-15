@@ -24,6 +24,21 @@ You can also build a single workload with:
 - `make linux/workload_name` for a Linux workload.
 - `make am/workload_name` for an AM workload.
 
+SPEC Linux workloads can also build multi-hart rootfs images:
+
+```shell
+make linux/spec2006 BENCH=astar INPUT=biglakes \
+  SPEC2006_ISO=/path/to/cpu2006.iso \
+  MULTIHART=1 HARTS=2 -jN
+```
+
+`MULTIHART=1` creates per-hart workload directories, runs
+`/spec_common/before_workload` before each benchmark copy, runs
+`/spec_common/after_workload` after each copy returns, and selects
+`xiangshan-fpga-noAIA-<HARTS>hart-mem8g` as the default DTB when `DEFAULT_DTB`
+is not set. Its matching template must exist in `dts/`; the build fails rather
+than generating a missing multi-hart DTS.
+
 ## Workload Compatibility
 
 Not all workloads can run on all NEMU configurations. The only workload supported by `riscv64-nutshell_defconfig` is `linux/hello`, since all other workloads require hardware floating point, which is not supported by nutshell. RVV related workloads require the vector ISA extension, and hypervisor related workloads require the hypervisor ISA extension.

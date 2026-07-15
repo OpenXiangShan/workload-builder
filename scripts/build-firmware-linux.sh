@@ -99,9 +99,6 @@ build-dtb() {
         "$dts_template" > "$dts_file"
     "$DTC" -I dts -O dtb -o "$dtb_file" "$dts_file"
 }
-for dts_template in "$DTS_TEMPLATE_DIR"/*.dts.in ; do
-    build-dtb "$dts_template"
-done
 
 resolve_default_dtb_base() {
     local default_dtb="$1"
@@ -120,6 +117,16 @@ resolve_default_dtb_base() {
 
 # Assemble the image using the selected DTB basename and optional memory profile.
 DEFAULT_DTB_BASE="$(resolve_default_dtb_base "$DEFAULT_DTB" "$DTB_MEMORY_PROFILE")"
+DEFAULT_DTB_TEMPLATE="$DTS_TEMPLATE_DIR/$DEFAULT_DTB_BASE.dts.in"
+if ! [ -f "$DEFAULT_DTB_TEMPLATE" ]; then
+    echo "Default device tree template not found in dts directory: $DEFAULT_DTB_TEMPLATE" >&2
+    exit 1
+fi
+
+for dts_template in "$DTS_TEMPLATE_DIR"/*.dts.in ; do
+    build-dtb "$dts_template"
+done
+
 DEFAULT_DTB_FILE="$WORKLOAD_BUILD_DIR/dt/$DEFAULT_DTB_BASE.dtb"
 DEFAULT_DTS_FILE="$WORKLOAD_BUILD_DIR/dt/$DEFAULT_DTB_BASE.dts"
 if ! [ -f "$DEFAULT_DTB_FILE" ]; then

@@ -1,0 +1,194 @@
+/*
+ * XiangShan FPGA DTS used by the fpga board flow.
+ *
+ * 1. AIA is disabled, so Linux should only see the legacy CLINT + PLIC path.
+ * 2. QEMU/NEMU UARTLITE is exposed as the serial console.
+ */
+
+/dts-v1/;
+
+/ {
+	compatible = "freechips,rocketchip-unknown-dev";
+	model = "xiangshan,Kunminghu-dev";
+	#address-cells = <2>;
+	#size-cells = <2>;
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <1000000>;
+
+		cpu0: cpu@0 {
+			compatible = "ICT,xiangshan", "riscv";
+			device_type = "cpu";
+			reg = <0x0>;
+			status = "okay";
+
+			d-cache-block-size = <64>;
+			d-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <48>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <256>;
+			i-cache-size = <65536>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <48>;
+			mmu-type = "riscv,sv48";
+			clock-frequency = <0>;
+			timebase-frequency = <1000000>;
+			tlb-split;
+
+			/*
+			 * Keep the Linux-friendly CPU capability description from the
+			 * workload template while using the FPGA board interrupt/peripheral
+			 * map below.
+			 */
+			riscv,isa = "rv64imafdc";
+			riscv,cbom-block-size = <0x40>;
+			riscv,cboz-block-size = <0x40>;
+
+			next-level-cache = <&l2_cache>;
+
+			intc_cpu0: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+
+		cpu1: cpu@1 {
+			compatible = "ICT,xiangshan", "riscv";
+			device_type = "cpu";
+			reg = <0x1>;
+			status = "okay";
+
+			d-cache-block-size = <64>;
+			d-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <48>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <256>;
+			i-cache-size = <65536>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <48>;
+			mmu-type = "riscv,sv48";
+			clock-frequency = <0>;
+			timebase-frequency = <1000000>;
+			tlb-split;
+
+			/*
+			 * Keep the Linux-friendly CPU capability description from the
+			 * workload template while using the FPGA board interrupt/peripheral
+			 * map below.
+			 */
+			riscv,isa = "rv64imafdc";
+			riscv,cbom-block-size = <0x40>;
+			riscv,cboz-block-size = <0x40>;
+
+			next-level-cache = <&l2_cache>;
+
+			intc_cpu1: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+	};
+
+	l2_cache: l2-cache {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-block-size = <64>;
+		cache-size = <1048576>;
+	};
+
+	memory: memory@80000000 {
+		device_type = "memory";
+		/*
+		 * Static 8 GiB memory profile for SPEC rate workloads and other
+		 * large initramfs images that need more than the default footprint.
+		 */
+		reg = <0x0 0x80000000 0x2 0x00000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		reserved0: buffer@0 {
+			no-map;
+			reg = <0x0 0x80000000 0x0 0x100000>;
+		};
+	};
+
+	soc {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "freechips,rocketchip-unknown-soc", "simple-bus";
+		ranges;
+
+		/*
+		 * This FPGA image boots without AIA. Describe only the CLINT + PLIC
+		 * interrupt topology that the software stack should probe.
+		 */
+		clint: clint@38000000 {
+			compatible = "riscv,clint0";
+			reg = <0x0 0x38000000 0x0 0x10000>;
+			reg-names = "control";
+			interrupts-extended = <&intc_cpu0 3 &intc_cpu0 7 &intc_cpu1 3 &intc_cpu1 7>;
+		};
+
+		debug-controller@38020000 {
+			compatible = "sifive,debug-013", "riscv,debug-013";
+			debug-attach = "jtag";
+			reg = <0x0 0x38020000 0x0 0x1000>;
+			reg-names = "control";
+			interrupts-extended = <&intc_cpu0 65535 &intc_cpu1 65535>;
+		};
+
+		PLIC: interrupt-controller@3c000000 {
+			compatible = "riscv,plic0";
+			#interrupt-cells = <1>;
+			interrupt-controller;
+			reg = <0x0 0x3c000000 0x0 0x4000000>;
+			reg-names = "control";
+			interrupts-extended = <&intc_cpu0 11 &intc_cpu0 9 &intc_cpu1 11 &intc_cpu1 9>;
+			riscv,max-priority = <7>;
+			riscv,ndev = <64>;
+		};
+
+		/*
+		 * QEMU/NEMU exposes UARTLITE at 0x40600000.
+		 */
+		uart0: serial@40600000 {
+			compatible = "xlnx,xps-uartlite-1.00.a";
+			interrupt-parent = <&PLIC>;
+			interrupts = <3>;
+			current-speed = <115200>;
+			reg = <0x0 0x40600000 0x0 0x1000>;
+			reg-names = "control";
+			status = "okay";
+		};
+	};
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		/*
+		 * Keep the SBI console as the primary console under QEMU/NEMU.
+		 */
+		bootargs = "console=hvc0 earlycon=sbi loglevel=8";
+		stdout-path = "serial0:115200n8";
+		linux,initrd-start = <INITRAMFS_BEGIN_HI INITRAMFS_BEGIN_LO>;
+		linux,initrd-end = <INITRAMFS_END_HI INITRAMFS_END_LO>;
+
+		opensbi-config {
+			compatible = "opensbi,config";
+			cold-boot-harts = <&cpu0>;
+		};
+	};
+};

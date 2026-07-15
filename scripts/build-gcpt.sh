@@ -34,10 +34,17 @@ extract_clint_mmio() {
     ' "$dts_template"
 }
 
-if [ -z "${CLINT_MMIO:-}" ] && [ -n "${DTS_TEMPLATE_DIR:-}" ]; then
+if [ -n "${DTS_TEMPLATE_DIR:-}" ]; then
     DTS_TEMPLATE_DIR="$(realpath "$DTS_TEMPLATE_DIR")"
     DEFAULT_DTB="${DEFAULT_DTB:-xiangshan}"
-    CLINT_MMIO="$(extract_clint_mmio "$DTS_TEMPLATE_DIR" "$DEFAULT_DTB" || true)"
+    DEFAULT_DTS_TEMPLATE="$DTS_TEMPLATE_DIR/$DEFAULT_DTB.dts.in"
+    if ! [ -f "$DEFAULT_DTS_TEMPLATE" ]; then
+        echo "Default DTS template not found: $DEFAULT_DTS_TEMPLATE" >&2
+        exit 1
+    fi
+    if [ -z "${CLINT_MMIO:-}" ]; then
+        CLINT_MMIO="$(extract_clint_mmio "$DTS_TEMPLATE_DIR" "$DEFAULT_DTB" || true)"
+    fi
 fi
 
 if [ -n "${CLINT_MMIO:-}" ]; then

@@ -1,5 +1,10 @@
 all: workloads
 
+MULTIHART ?= 0
+HARTS ?= 2
+LINUX_MULTIHART_DEFAULT_DTB := xiangshan-fpga-noAIA-$(HARTS)hart-mem8g
+LINUX_DEFAULT_DTB := $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(MULTIHART)),$(LINUX_MULTIHART_DEFAULT_DTB),))
+
 # Download buildroot
 BUILDROOT_DIR := build/buildroot
 $(BUILDROOT_DIR)/Makefile:
@@ -24,15 +29,15 @@ $(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) br2-external/configs/nemu_defconfig br2-ext
 # Build LibCheckpointAlpha
 GCPT_BUILD_DIR := build/LibCheckpointAlpha
 GCPT_BIN := $(GCPT_BUILD_DIR)/build/gcpt.bin
-GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan)
-GCPT_DEFAULT_DTS := dts/$(GCPT_DEFAULT_DTB).dts.in
+GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(MULTIHART)),$(LINUX_MULTIHART_DEFAULT_DTB),xiangshan))
 GCPT_DEFAULT_DTB_STAMP := build/LibCheckpointAlpha-config/dtb.$(shell printf '%s\n' "$(GCPT_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
 GCPT_SOURCES := $(shell find bootloader/LibCheckpointAlpha -path '*/.git' -prune -o -type f -print 2>/dev/null)
+GCPT_DTS_SOURCES := $(shell find dts -type f 2>/dev/null)
 $(GCPT_DEFAULT_DTB_STAMP):
 	mkdir -p "$(@D)"
 	rm -f build/LibCheckpointAlpha-config/dtb.*
 	touch "$@"
-$(GCPT_BIN): scripts/build-gcpt.sh $(TOOLCHAIN_WRAPPER) $(GCPT_SOURCES) $(GCPT_DEFAULT_DTS) $(GCPT_DEFAULT_DTB_STAMP)
+$(GCPT_BIN): scripts/build-gcpt.sh $(TOOLCHAIN_WRAPPER) $(GCPT_SOURCES) $(GCPT_DTS_SOURCES) $(GCPT_DEFAULT_DTB_STAMP)
 	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	DEFAULT_DTB="$(GCPT_DEFAULT_DTB)" \
 	DTS_TEMPLATE_DIR="$(abspath dts)" \
@@ -51,17 +56,19 @@ build/linux-workloads/$(1)/download/sentinel: $$(shell find $$(abspath workloads
 	bash scripts/download-files.sh workloads/linux/$(1) build/linux-workloads/$(1)/download
 
 # Build and pack workload
-build/linux-workloads/$(1)/rootfs.cpio: $$(shell find $$(abspath workloads/linux/$(1))) $(TOOLCHAIN_WRAPPER) build/linux-workloads/$(1)/download/sentinel scripts/build-workload-linux.sh
+build/linux-workloads/$(1)/rootfs.cpio: $$(shell find $$(abspath workloads/linux/$(1))) $(TOOLCHAIN_WRAPPER) build/linux-workloads/$(1)/download/sentinel scripts/build-workload-linux.sh scripts/package-multihart-rootfs.py workloads/linux/common/before_workload.c workloads/linux/common/after_workload.c
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	SYSROOT_DIR="$$(abspath $(BUILDROOT_DIR)/output/staging)" \
 	BUILDROOT_DIR="$$(abspath $(BUILDROOT_DIR))" \
+	MULTIHART="$$(MULTIHART)" \
+	HARTS="$$(HARTS)" \
 	bash scripts/build-workload-linux.sh workloads/linux/$(1) build/linux-workloads/$(1)
 
 # Build all-in-one firmware
 build/linux-workloads/$(1)/fw_payload.bin: $$(shell find $$(abspath dts)) $(GCPT_BIN) dts/xiangshan.dts.in scripts/build-sbi.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) build/opensbi/build/platform/generic/firmware/fw_jump.bin
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	DTC="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/dtc" \
-	DEFAULT_DTB="$(DEFAULT_DTB)" \
+	DEFAULT_DTB="$(LINUX_DEFAULT_DTB)" \
 	bash scripts/build-firmware-linux.sh $(GCPT_BIN) build/opensbi dts $(LINUX_IMAGE) build/linux-workloads/$(1)
 
 linux/$(1): build/linux-workloads/$(1)/fw_payload.bin
