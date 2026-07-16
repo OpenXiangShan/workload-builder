@@ -27,13 +27,13 @@ $(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) br2-external/configs/nemu_defconfig br2-ext
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external)
 
 # Build GCPT. Single-core firmware keeps LibCheckpointAlpha; LibCheckpoint is
-# used only for the QEMU dual-core checkpoint format.
+# used for the QEMU multi-hart checkpoint format.
 GCPT_IMPLEMENTATION := $(if $(filter 1,$(MULTIHART)),libcheckpoint,alpha)
 GCPT_SOURCE_DIR := $(if $(filter 1,$(MULTIHART)),bootloader/LibCheckpoint,bootloader/LibCheckpointAlpha)
 GCPT_BUILD_DIR := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint,build/LibCheckpointAlpha)
 GCPT_BIN := $(GCPT_BUILD_DIR)/build/gcpt.bin
 GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(MULTIHART)),$(LINUX_MULTIHART_DEFAULT_DTB),xiangshan))
-GCPT_CONFIGURE_MODE := $(if $(filter 1,$(MULTIHART)),$(if $(filter 2,$(HARTS)),dual_core,$(error LibCheckpoint supports only HARTS=2 when MULTIHART=1)),normal)
+GCPT_CONFIGURE_MODE := $(if $(filter 1,$(MULTIHART)),dual_core,normal)
 GCPT_CONFIG_STAMP := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.$(GCPT_CONFIGURE_MODE),build/LibCheckpointAlpha-config/dtb.$(shell printf '%s\n' "$(GCPT_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1))
 GCPT_SOURCES := $(if $(filter 1,$(MULTIHART)),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -path '*/tests' -prune -o -type f -print 2>/dev/null),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -type f -print 2>/dev/null))
 GCPT_DTS_SOURCES := $(if $(filter 1,$(MULTIHART)),,$(shell find dts -type f 2>/dev/null))

@@ -40,8 +40,8 @@ is not set. Its matching template must exist in `dts/`; the build fails rather
 than generating a missing multi-hart DTS.
 
 Single-core firmware uses LibCheckpointAlpha. Multi-core firmware uses
-LibCheckpoint, which currently supports QEMU dual-core checkpoints only, so
-`MULTIHART=1` requires `HARTS=2`.
+LibCheckpoint to restore QEMU multi-hart checkpoints. Set `HARTS` to match
+the checkpoint and the selected device-tree template.
 
 ## Workload Compatibility
 
