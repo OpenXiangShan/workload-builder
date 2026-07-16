@@ -4,6 +4,8 @@ set -e
 GCPT_SOURCE_DIR="$(realpath "$1")"
 GCPT_BUILD_DIR="$(realpath "$2")"
 BUILD_DIR="$(dirname "$GCPT_BUILD_DIR")"
+GCPT_IMPLEMENTATION="${GCPT_IMPLEMENTATION:-alpha}"
+GCPT_CONFIGURE_MODE="${GCPT_CONFIGURE_MODE:-normal}"
 
 extract_clint_mmio() {
     local dts_template_dir="$1"
@@ -34,27 +36,36 @@ extract_clint_mmio() {
     ' "$dts_template"
 }
 
-if [ -n "${DTS_TEMPLATE_DIR:-}" ]; then
-    DTS_TEMPLATE_DIR="$(realpath "$DTS_TEMPLATE_DIR")"
-    DEFAULT_DTB="${DEFAULT_DTB:-xiangshan}"
-    DEFAULT_DTS_TEMPLATE="$DTS_TEMPLATE_DIR/$DEFAULT_DTB.dts.in"
-    if ! [ -f "$DEFAULT_DTS_TEMPLATE" ]; then
-        echo "Default DTS template not found: $DEFAULT_DTS_TEMPLATE" >&2
-        exit 1
-    fi
-    if [ -z "${CLINT_MMIO:-}" ]; then
-        CLINT_MMIO="$(extract_clint_mmio "$DTS_TEMPLATE_DIR" "$DEFAULT_DTB" || true)"
-    fi
-fi
-
-if [ -n "${CLINT_MMIO:-}" ]; then
-    export CFLAGS="${CFLAGS:-} -DCONFIG_CLINT_MMIO=$CLINT_MMIO"
-fi
-
-# prepare OpenSBI source
 mkdir -p "$BUILD_DIR"
 rm -rf "$GCPT_BUILD_DIR"
 cp -r "$GCPT_SOURCE_DIR" "$GCPT_BUILD_DIR"
 
-# Build OpenSBI
-make -C "$GCPT_BUILD_DIR"
+case "$GCPT_IMPLEMENTATION" in
+    alpha)
+        DTS_TEMPLATE_DIR="$(realpath "${DTS_TEMPLATE_DIR:?DTS_TEMPLATE_DIR is required for LibCheckpointAlpha}")"
+        DEFAULT_DTB="${DEFAULT_DTB:-xiangshan}"
+        CLINT_MMIO="${CLINT_MMIO:-$(extract_clint_mmio "$DTS_TEMPLATE_DIR" "$DEFAULT_DTB")}"
+        export CFLAGS="${CFLAGS:-} -DCONFIG_CLINT_MMIO=$CLINT_MMIO"
+        make -C "$GCPT_BUILD_DIR"
+        ;;
+    libcheckpoint)
+        case "$GCPT_CONFIGURE_MODE" in
+            normal|dual_core) ;;
+            *)
+                echo "Unsupported LibCheckpoint configure mode: $GCPT_CONFIGURE_MODE" >&2
+                exit 1
+                ;;
+        esac
+        (
+            cd "$GCPT_BUILD_DIR"
+            bash ./configure "--mode=$GCPT_CONFIGURE_MODE"
+            # LibCheckpoint is freestanding, while the Buildroot toolchain
+            # defaults to stack protection and PIE.
+            CFLAGS="${CFLAGS:-} -fno-stack-protector -fno-PIE" make LDFLAGS="-no-pie"
+        )
+        ;;
+    *)
+        echo "Unsupported GCPT implementation: $GCPT_IMPLEMENTATION" >&2
+        exit 1
+        ;;
+esac

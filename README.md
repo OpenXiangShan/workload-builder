@@ -39,6 +39,10 @@ make linux/spec2006 BENCH=astar INPUT=biglakes \
 is not set. Its matching template must exist in `dts/`; the build fails rather
 than generating a missing multi-hart DTS.
 
+Single-core firmware uses LibCheckpointAlpha. Multi-core firmware uses
+LibCheckpoint, which currently supports QEMU dual-core checkpoints only, so
+`MULTIHART=1` requires `HARTS=2`.
+
 ## Workload Compatibility
 
 Not all workloads can run on all NEMU configurations. The only workload supported by `riscv64-nutshell_defconfig` is `linux/hello`, since all other workloads require hardware floating point, which is not supported by nutshell. RVV related workloads require the vector ISA extension, and hypervisor related workloads require the hypervisor ISA extension.
@@ -64,7 +68,7 @@ For Linux workloads, the image assumes that execution begins at `0x80000000`, an
 
 | Offset  | Content                       |
 |---------|-------------------------------|
-| 0.0 MiB | LibCheckpointAlpha            |
+| 0.0 MiB | LibCheckpointAlpha (single-core) / LibCheckpoint (multi-core) |
 | 1.0 MiB | OpenSBI                       |
 | 1.5 MiB | device tree                   |
 | 2.0 MiB | Linux kernel                  |

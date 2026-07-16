@@ -26,22 +26,28 @@ $(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) br2-external/configs/nemu_defconfig br2-ext
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) nemu_defconfig
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external)
 
-# Build LibCheckpointAlpha
-GCPT_BUILD_DIR := build/LibCheckpointAlpha
+# Build GCPT. Single-core firmware keeps LibCheckpointAlpha; LibCheckpoint is
+# used only for the QEMU dual-core checkpoint format.
+GCPT_IMPLEMENTATION := $(if $(filter 1,$(MULTIHART)),libcheckpoint,alpha)
+GCPT_SOURCE_DIR := $(if $(filter 1,$(MULTIHART)),bootloader/LibCheckpoint,bootloader/LibCheckpointAlpha)
+GCPT_BUILD_DIR := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint,build/LibCheckpointAlpha)
 GCPT_BIN := $(GCPT_BUILD_DIR)/build/gcpt.bin
 GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(MULTIHART)),$(LINUX_MULTIHART_DEFAULT_DTB),xiangshan))
-GCPT_DEFAULT_DTB_STAMP := build/LibCheckpointAlpha-config/dtb.$(shell printf '%s\n' "$(GCPT_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
-GCPT_SOURCES := $(shell find bootloader/LibCheckpointAlpha -path '*/.git' -prune -o -type f -print 2>/dev/null)
-GCPT_DTS_SOURCES := $(shell find dts -type f 2>/dev/null)
-$(GCPT_DEFAULT_DTB_STAMP):
+GCPT_CONFIGURE_MODE := $(if $(filter 1,$(MULTIHART)),$(if $(filter 2,$(HARTS)),dual_core,$(error LibCheckpoint supports only HARTS=2 when MULTIHART=1)),normal)
+GCPT_CONFIG_STAMP := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.$(GCPT_CONFIGURE_MODE),build/LibCheckpointAlpha-config/dtb.$(shell printf '%s\n' "$(GCPT_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1))
+GCPT_SOURCES := $(if $(filter 1,$(MULTIHART)),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -path '*/tests' -prune -o -type f -print 2>/dev/null),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -type f -print 2>/dev/null))
+GCPT_DTS_SOURCES := $(if $(filter 1,$(MULTIHART)),,$(shell find dts -type f 2>/dev/null))
+$(GCPT_CONFIG_STAMP):
 	mkdir -p "$(@D)"
-	rm -f build/LibCheckpointAlpha-config/dtb.*
+	rm -f $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.*,build/LibCheckpointAlpha-config/dtb.*)
 	touch "$@"
-$(GCPT_BIN): scripts/build-gcpt.sh $(TOOLCHAIN_WRAPPER) $(GCPT_SOURCES) $(GCPT_DTS_SOURCES) $(GCPT_DEFAULT_DTB_STAMP)
+$(GCPT_BIN): scripts/build-gcpt.sh $(TOOLCHAIN_WRAPPER) $(GCPT_SOURCES) $(GCPT_DTS_SOURCES) $(GCPT_CONFIG_STAMP)
 	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
+	GCPT_IMPLEMENTATION="$(GCPT_IMPLEMENTATION)" \
+	GCPT_CONFIGURE_MODE="$(GCPT_CONFIGURE_MODE)" \
 	DEFAULT_DTB="$(GCPT_DEFAULT_DTB)" \
 	DTS_TEMPLATE_DIR="$(abspath dts)" \
-	bash scripts/build-gcpt.sh bootloader/LibCheckpointAlpha $(GCPT_BUILD_DIR)
+	bash scripts/build-gcpt.sh $(GCPT_SOURCE_DIR) $(GCPT_BUILD_DIR)
 
 # Build OpenSBI
 SBI_BUILD_DIR := build/opensbi

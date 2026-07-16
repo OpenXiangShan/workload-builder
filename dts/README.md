@@ -44,3 +44,6 @@ UARTLITE and PLIC settings. It normalizes every generated CPU to
 
 The build does not invoke this generator automatically. Run it and review the
 result before building with the corresponding `HARTS` value.
+
+The generator can create other topologies, but multi-core firmware uses
+LibCheckpoint, whose QEMU restorer currently supports only `HARTS=2`.

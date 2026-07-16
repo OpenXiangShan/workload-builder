@@ -67,7 +67,8 @@ make linux/spec2006 BENCH=astar INPUT=biglakes \
 
 ## Build a multi-hart workload
 
-Add `MULTIHART=1` and set `HARTS` to the number of guest harts:
+Add `MULTIHART=1 HARTS=2`. The current LibCheckpoint QEMU restorer supports
+exactly two guest harts:
 
 ```sh
 make linux/spec2006 BENCH=astar INPUT=biglakes \
