@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import argparse
 import shutil
-import stat
 from pathlib import Path
 
 
@@ -21,11 +20,6 @@ def copy_spec_tree(src, dst):
     shutil.copytree(src, dst, symlinks=True)
 
 
-def make_executable(path):
-    mode = path.stat().st_mode
-    path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-
-
 def write_task_script(spec_dir, hart):
     task = spec_dir / "task.sh"
     task.write_text(
@@ -33,12 +27,13 @@ def write_task_script(spec_dir, hart):
             [
                 "#!/bin/sh",
                 "set -e",
-                "/spec_common/before_workload",
+                "/bin/nemu-trap 256",
+                "/bin/nemu-trap 257",
                 "set +e",
                 f'SPEC_ROOT="/spec{hart}" /bin/sh "/spec{hart}/run.sh"',
                 "status=$?",
                 "set -e",
-                "/spec_common/after_workload",
+                "/bin/nemu-trap 258",
                 "exit $status",
                 "",
             ]
@@ -89,26 +84,17 @@ def write_launcher(pkg_dir, harts):
     launcher.chmod(0o755)
 
 
-def transform(pkg_dir, harts, before_workload, after_workload):
+def transform(pkg_dir, harts):
     pkg_dir = pkg_dir.resolve()
     spec = pkg_dir / "spec"
     if not spec.is_dir():
         raise RuntimeError(f"single-hart /spec tree is missing under {pkg_dir}")
     if not (spec / "run.sh").is_file():
         raise RuntimeError(f"single-hart run.sh is missing under {spec}")
-    if not before_workload.is_file():
-        raise RuntimeError(f"before_workload does not exist: {before_workload}")
-    if not after_workload.is_file():
-        raise RuntimeError(f"after_workload does not exist: {after_workload}")
-
     common = pkg_dir / "spec_common"
     if common.exists():
         shutil.rmtree(common)
     common.mkdir(parents=True)
-    shutil.copy2(before_workload, common / "before_workload")
-    make_executable(common / "before_workload")
-    shutil.copy2(after_workload, common / "after_workload")
-    make_executable(common / "after_workload")
 
     source = pkg_dir / ".spec_multihart_source"
     if source.exists():
@@ -133,10 +119,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pkg-dir", required=True, type=Path)
     parser.add_argument("--harts", required=True, type=positive_harts)
-    parser.add_argument("--before-workload", required=True, type=Path)
-    parser.add_argument("--after-workload", required=True, type=Path)
     args = parser.parse_args()
-    transform(args.pkg_dir, args.harts, args.before_workload.resolve(), args.after_workload.resolve())
+    transform(args.pkg_dir, args.harts)
 
 
 if __name__ == "__main__":

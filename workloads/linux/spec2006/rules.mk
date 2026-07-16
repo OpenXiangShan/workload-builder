@@ -123,7 +123,7 @@ $(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BU
 	SPEC2006_ELF_ONLY=1 \
 	bash "$$(abspath $$(SPEC2006_WORKLOAD_DIR))/build.sh"
 
-$(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUILD_DIR)/$(1)/cfg.stamp $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel $(SPEC2006_BUILD_DIR)/$(1)/build-vars.$(SPEC2006_BUILD_VARS_HASH).stamp $$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh $$(SPEC2006_SCRIPTS_DIR)/package-multihart-rootfs.py $$(SPEC2006_REPO_ROOT)/workloads/linux/common/before_workload.c $$(SPEC2006_REPO_ROOT)/workloads/linux/common/after_workload.c
+$(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUILD_DIR)/$(1)/cfg.stamp $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel $(SPEC2006_BUILD_DIR)/$(1)/build-vars.$(SPEC2006_BUILD_VARS_HASH).stamp $$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh $$(SPEC2006_SCRIPTS_DIR)/package-multihart-rootfs.py
 	@CROSS_COMPILE="$$(SPEC2006_CROSS_COMPILE)" \
 	SPEC2006_PROGRESS_K="$$(SPEC2006_PROGRESS_K)" \
 	SPEC2006_PROGRESS_N="$$(SPEC2006_PROGRESS_N)" \

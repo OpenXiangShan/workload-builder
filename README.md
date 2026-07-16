@@ -32,9 +32,9 @@ make linux/spec2006 BENCH=astar INPUT=biglakes \
   MULTIHART=1 HARTS=2 -jN
 ```
 
-`MULTIHART=1` creates per-hart workload directories, runs
-`/spec_common/before_workload` before each benchmark copy, runs
-`/spec_common/after_workload` after each copy returns, and selects
+`MULTIHART=1` creates per-hart workload directories, uses `/bin/nemu-trap` to
+send codes 256 and 257 before each benchmark copy and code 258 after it
+returns, and selects
 `xiangshan-fpga-noAIA-<HARTS>hart-mem8g` as the default DTB when `DEFAULT_DTB`
 is not set. Its matching template must exist in `dts/`; the build fails rather
 than generating a missing multi-hart DTS.

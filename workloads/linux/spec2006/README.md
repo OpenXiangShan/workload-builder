@@ -79,8 +79,6 @@ make linux/spec2006 BENCH=astar INPUT=biglakes \
 The package step creates one SPEC tree per hart:
 
 ```text
-/spec_common/before_workload
-/spec_common/after_workload
 /spec_common/launch_multihart.sh
 /spec0/task.sh
 /spec1/task.sh
@@ -88,9 +86,10 @@ The package step creates one SPEC tree per hart:
 /spec<N-1>/task.sh
 ```
 
-Each `task.sh` runs `/spec_common/before_workload`, starts that hart's copy of
-the benchmark with `SPEC_ROOT=/specX`, then runs `/spec_common/after_workload`.
-The launcher uses `taskset -c X` for CPU binding.
+Each `task.sh` uses `/bin/nemu-trap 256` and `/bin/nemu-trap 257` before
+starting that hart's benchmark copy with `SPEC_ROOT=/specX`, then uses
+`/bin/nemu-trap 258` after it returns. The launcher uses `taskset -c X` for
+CPU binding.
 
 When `DEFAULT_DTB` is omitted, `MULTIHART=1` selects:
 

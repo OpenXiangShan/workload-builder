@@ -62,7 +62,7 @@ build/linux-workloads/$(1)/download/sentinel: $$(shell find $$(abspath workloads
 	bash scripts/download-files.sh workloads/linux/$(1) build/linux-workloads/$(1)/download
 
 # Build and pack workload
-build/linux-workloads/$(1)/rootfs.cpio: $$(shell find $$(abspath workloads/linux/$(1))) $(TOOLCHAIN_WRAPPER) build/linux-workloads/$(1)/download/sentinel scripts/build-workload-linux.sh scripts/package-multihart-rootfs.py workloads/linux/common/before_workload.c workloads/linux/common/after_workload.c
+build/linux-workloads/$(1)/rootfs.cpio: $$(shell find $$(abspath workloads/linux/$(1))) $(TOOLCHAIN_WRAPPER) build/linux-workloads/$(1)/download/sentinel scripts/build-workload-linux.sh scripts/package-multihart-rootfs.py
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	SYSROOT_DIR="$$(abspath $(BUILDROOT_DIR)/output/staging)" \
 	BUILDROOT_DIR="$$(abspath $(BUILDROOT_DIR))" \
