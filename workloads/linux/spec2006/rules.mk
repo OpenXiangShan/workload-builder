@@ -19,7 +19,10 @@ SPEC2006_CROSS_COMPILE ?= riscv64-unknown-linux-gnu-
 SPEC2006_COMPILER_ROOT ?=
 SPEC2006_GNU_TOOLCHAIN_ROOT ?=
 SPEC2006_JEMALLOC_ROOT ?=
-SPEC2006_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan-fpga-noAIA-novec)
+SPEC2006_MULTIHART ?= $(MULTIHART)
+SPEC2006_HARTS ?= $(if $(HARTS),$(HARTS),2)
+SPEC2006_MULTIHART_DEFAULT_DTB := xiangshan-fpga-noAIA-$(SPEC2006_HARTS)hart-mem8g
+SPEC2006_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(SPEC2006_MULTIHART)),$(SPEC2006_MULTIHART_DEFAULT_DTB),xiangshan-fpga-noAIA-novec))
 SPEC2006_TUNE ?= base
 SPEC2006_JOBS ?= $(shell nproc)
 SPEC2006_INPUT ?= ref
@@ -28,8 +31,8 @@ SPEC2006_PROGRESS_N ?= 1
 SPEC2006_PROGRESS_PREFIX := [spec2006 $(SPEC2006_PROGRESS_K)/$(SPEC2006_PROGRESS_N)]
 SPEC2006_BUILDROOT_DIR ?= $(if $(BUILDROOT_DIR),$(BUILDROOT_DIR),$(SPEC2006_REPO_ROOT)/build/buildroot)
 SPEC2006_LINUX_IMAGE ?= $(if $(LINUX_IMAGE),$(LINUX_IMAGE),$(SPEC2006_BUILDROOT_DIR)/output/images/Image)
-SPEC2006_GCPT_ELF ?= $(if $(GCPT_ELF),$(GCPT_ELF),$(SPEC2006_REPO_ROOT)/build/LibCheckpointAlpha/build/gcpt)
-SPEC2006_GCPT_BIN ?= $(if $(GCPT_BIN),$(GCPT_BIN),$(SPEC2006_REPO_ROOT)/build/LibCheckpointAlpha/build/gcpt.bin)
+SPEC2006_GCPT_ELF ?= $(if $(GCPT_ELF),$(GCPT_ELF),$(SPEC2006_REPO_ROOT)/build/$(if $(filter 1,$(MULTIHART)),LibCheckpoint,LibCheckpointAlpha)/build/gcpt)
+SPEC2006_GCPT_BIN ?= $(if $(GCPT_BIN),$(GCPT_BIN),$(SPEC2006_REPO_ROOT)/build/$(if $(filter 1,$(MULTIHART)),LibCheckpoint,LibCheckpointAlpha)/build/gcpt.bin)
 SPEC2006_SBI_BUILD_DIR ?= $(if $(SBI_BUILD_DIR),$(SBI_BUILD_DIR),$(SPEC2006_REPO_ROOT)/build/opensbi)
 SPEC2006_SBI_BIN ?= $(if $(SBI_BIN),$(SBI_BIN),$(SPEC2006_SBI_BUILD_DIR)/build/platform/generic/firmware/fw_jump.bin)
 SPEC2006_BUILDROOT_CROSS_COMPILE ?= $(SPEC2006_BUILDROOT_DIR)/output/host/bin/riscv64-linux-
@@ -42,6 +45,7 @@ SPEC2006_ELF_TARGETS := $(foreach case,$(SPEC2006_SELECTED_CASES),$(SPEC2006_BUI
 SPEC2006_DTS_SOURCES := $(shell find $(SPEC2006_DTS_DIR) -type f 2>/dev/null)
 SPEC2006_CFG_HASH := $(shell if [ -f "$(abspath $(SPEC2006_CFG))" ]; then sha256sum "$(abspath $(SPEC2006_CFG))" | cut -d ' ' -f 1; else printf 'missing'; fi)
 SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$(SPEC2006_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
+SPEC2006_BUILD_VARS_HASH := $(shell printf '%s\n' '$(SPEC2006_INPUT)' '$(SPEC2006_TUNE)' '$(SPEC2006_JOBS)' '$(SPEC2006_CROSS_COMPILE)' 'multihart=$(SPEC2006_MULTIHART)' 'harts=$(SPEC2006_HARTS)' | sha256sum | cut -d ' ' -f 1)
 spec2006_case_image_stamp = $(SPEC2006_IMAGE_DIR)/stamps/$(1).images.stamp
 
 WORKLOAD_DIRS += $(SPEC2006_BUILD_DIR)
@@ -88,6 +92,10 @@ $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel:
 	@mkdir -p $$(@D)
 	@touch $$@
 
+$(SPEC2006_BUILD_DIR)/$(1)/build-vars.$(SPEC2006_BUILD_VARS_HASH).stamp:
+	@mkdir -p "$$(@D)"
+	@printf '%s\n' "input=$(SPEC2006_INPUT)" "tune=$(SPEC2006_TUNE)" "jobs=$(SPEC2006_JOBS)" "cross_compile=$(SPEC2006_CROSS_COMPILE)" "multihart=$(SPEC2006_MULTIHART)" "harts=$(SPEC2006_HARTS)" > "$$@"
+
 $(SPEC2006_BUILD_DIR)/$(1)/cfg.stamp: spec2006-force
 	@mkdir -p "$$(@D)"
 	@printf '%s\n' \
@@ -115,7 +123,7 @@ $(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BU
 	SPEC2006_ELF_ONLY=1 \
 	bash "$$(abspath $$(SPEC2006_WORKLOAD_DIR))/build.sh"
 
-$(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUILD_DIR)/$(1)/cfg.stamp $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel $$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh
+$(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUILD_DIR)/$(1)/cfg.stamp $$(SPEC2006_HELPER) $$(SPEC2006_WORKLOAD_DIR)/build.sh $$(SPEC2006_CASE_CONFIG) $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel $(SPEC2006_BUILD_DIR)/$(1)/build-vars.$(SPEC2006_BUILD_VARS_HASH).stamp $$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh $$(SPEC2006_SCRIPTS_DIR)/package-multihart-rootfs.py
 	@CROSS_COMPILE="$$(SPEC2006_CROSS_COMPILE)" \
 	SPEC2006_PROGRESS_K="$$(SPEC2006_PROGRESS_K)" \
 	SPEC2006_PROGRESS_N="$$(SPEC2006_PROGRESS_N)" \
@@ -128,6 +136,8 @@ $(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUI
 	SPEC2006_JEMALLOC_ROOT="$$(SPEC2006_JEMALLOC_ROOT)" \
 	SPEC2006_TUNE="$$(SPEC2006_TUNE)" \
 	SPEC2006_JOBS="$$(SPEC2006_JOBS)" \
+	MULTIHART="$$(SPEC2006_MULTIHART)" \
+	HARTS="$$(SPEC2006_HARTS)" \
 	bash "$$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh" "$$(SPEC2006_WORKLOAD_DIR)" "$(SPEC2006_BUILD_DIR)/$(1)"
 
 $(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin: $$(SPEC2006_DTS_SOURCES) $$(SPEC2006_DEFAULT_DTB_STAMP) $$(SPEC2006_GCPT_BIN) $$(SPEC2006_SCRIPTS_DIR)/build-firmware-linux.sh $(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio $$(SPEC2006_LINUX_IMAGE) $$(SPEC2006_SBI_BIN)
@@ -160,7 +170,11 @@ $(call spec2006_case_image_stamp,$(1)): $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUI
 	@cp "$(SPEC2006_LINUX_IMAGE)" "$(SPEC2006_IMAGE_DIR)/kernel/$(1).Image"
 	@cp "$(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio" "$(SPEC2006_IMAGE_DIR)/rootfs/$(1).rootfs.cpio"
 	@cp "$(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin" "$(SPEC2006_IMAGE_DIR)/bin/$(1).fw_payload.bin"
-	@cp "$(SPEC2006_BUILD_DIR)/$(1)/package/spec/run.sh" "$(SPEC2006_IMAGE_DIR)/cmd/$(1).run.sh"
+	@if [ -f "$(SPEC2006_BUILD_DIR)/$(1)/package/spec/run.sh" ]; then \
+		cp "$(SPEC2006_BUILD_DIR)/$(1)/package/spec/run.sh" "$(SPEC2006_IMAGE_DIR)/cmd/$(1).run.sh"; \
+	else \
+		cp "$(SPEC2006_BUILD_DIR)/$(1)/package/spec_common/launch_multihart.sh" "$(SPEC2006_IMAGE_DIR)/cmd/$(1).run.sh"; \
+	fi
 	@touch "$$@"
 endef
 

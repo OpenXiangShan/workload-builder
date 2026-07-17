@@ -25,3 +25,6 @@
 [submodule "workloads/linux/gapbs/source"]
 	path = workloads/linux/gapbs/source
 	url = https://github.com/sbeamer/gapbs.git
+[submodule "bootloader/LibCheckpoint"]
+	path = bootloader/LibCheckpoint
+	url = https://github.com/OpenXiangShan/LibCheckpoint.git

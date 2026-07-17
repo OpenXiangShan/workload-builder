@@ -8,6 +8,7 @@ WORKLOAD_BUILD_DIR="$(realpath "$2")"
 export SRC_DIR="$WORKLOAD_BUILD_DIR/source"
 export PKG_DIR="$WORKLOAD_BUILD_DIR/package"
 DOWNLOAD_DIR="$WORKLOAD_BUILD_DIR/download"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 populate-src-dir() {
     mkdir -p "$WORKLOAD_BUILD_DIR"
@@ -34,7 +35,18 @@ pack-cpio() {
     find . | fakeroot cpio -o -H newc > "$cpio_file" 2>/dev/null
 }
 
+apply-multihart-package() {
+    local harts
+    harts="${HARTS:-2}"
+    python3 "$SCRIPT_DIR/package-multihart-rootfs.py" \
+        --pkg-dir "$PKG_DIR" \
+        --harts "$harts"
+}
+
 populate-src-dir
 rm -rf "$PKG_DIR" && mkdir -p "$PKG_DIR"
 bash "$WORKLOAD_DIR/build.sh"
+if [[ "${MULTIHART:-0}" == "1" ]]; then
+    apply-multihart-package
+fi
 pack-cpio "$PKG_DIR" "$WORKLOAD_BUILD_DIR/rootfs.cpio"
