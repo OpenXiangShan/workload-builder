@@ -14,14 +14,25 @@ def positive_harts(value):
     return harts
 
 
-def copy_spec_tree(src, dst):
+def workload_name(value):
+    path = Path(value)
+    if not value or value in (".", "..") or path.name != value:
+        raise argparse.ArgumentTypeError("workload name must be a single directory name")
+    return value
+
+
+def copy_workload_tree(src, dst):
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(src, dst, symlinks=True)
 
 
-def write_task_script(spec_dir, hart):
-    task = spec_dir / "task.sh"
+def write_task_script(workload_dir, workload, hart):
+    task = workload_dir / "task.sh"
+    workload_path = f"/{workload}{hart}"
+    command = f'/bin/sh "{workload_path}/run.sh"'
+    if workload == "spec":
+        command = f'SPEC_ROOT="{workload_path}" {command}'
     task.write_text(
         "\n".join(
             [
@@ -30,7 +41,7 @@ def write_task_script(spec_dir, hart):
                 "/bin/nemu-trap 256",
                 "/bin/nemu-trap 257",
                 "set +e",
-                f'SPEC_ROOT="/spec{hart}" /bin/sh "/spec{hart}/run.sh"',
+                command,
                 "status=$?",
                 "set -e",
                 "/bin/nemu-trap 258",
@@ -43,7 +54,7 @@ def write_task_script(spec_dir, hart):
     task.chmod(0o755)
 
 
-def write_launcher(pkg_dir, harts):
+def write_launcher(pkg_dir, harts, workload):
     lines = [
         "#!/bin/sh",
         "",
@@ -64,7 +75,7 @@ def write_launcher(pkg_dir, harts):
         "set +e",
     ]
     for hart in range(harts):
-        lines.append(f"run_taskset {hart} /spec{hart}/task.sh &")
+        lines.append(f"run_taskset {hart} /{workload}{hart}/task.sh &")
         lines.append(f"pid{hart}=$!")
     lines.append("status=0")
     for hart in range(harts):
@@ -77,50 +88,53 @@ def write_launcher(pkg_dir, harts):
     lines.append("exit $status")
     lines.append("")
 
-    common = pkg_dir / "spec_common"
+    common = pkg_dir / f"{workload}_common"
     common.mkdir(parents=True, exist_ok=True)
     launcher = common / "launch_multihart.sh"
     launcher.write_text("\n".join(lines), encoding="utf-8")
     launcher.chmod(0o755)
 
 
-def transform(pkg_dir, harts):
+def transform(pkg_dir, harts, workload):
     pkg_dir = pkg_dir.resolve()
-    spec = pkg_dir / "spec"
-    if not spec.is_dir():
-        raise RuntimeError(f"single-hart /spec tree is missing under {pkg_dir}")
-    if not (spec / "run.sh").is_file():
-        raise RuntimeError(f"single-hart run.sh is missing under {spec}")
-    common = pkg_dir / "spec_common"
+    workload_dir = pkg_dir / workload
+    if not workload_dir.is_dir():
+        raise RuntimeError(f"single-hart /{workload} tree is missing under {pkg_dir}")
+    if not (workload_dir / "run.sh").is_file():
+        raise RuntimeError(f"single-hart run.sh is missing under {workload_dir}")
+    common = pkg_dir / f"{workload}_common"
     if common.exists():
         shutil.rmtree(common)
     common.mkdir(parents=True)
 
-    source = pkg_dir / ".spec_multihart_source"
+    source = pkg_dir / f".{workload}_multihart_source"
     if source.exists():
         shutil.rmtree(source)
-    shutil.copytree(spec, source, symlinks=True)
+    shutil.copytree(workload_dir, source, symlinks=True)
     try:
         for hart in range(harts):
-            spec_dir = pkg_dir / f"spec{hart}"
-            copy_spec_tree(source, spec_dir)
-            write_task_script(spec_dir, hart)
-        shutil.rmtree(spec)
+            hart_dir = pkg_dir / f"{workload}{hart}"
+            copy_workload_tree(source, hart_dir)
+            write_task_script(hart_dir, workload, hart)
+        shutil.rmtree(workload_dir)
     finally:
         shutil.rmtree(source)
 
-    write_launcher(pkg_dir, harts)
+    write_launcher(pkg_dir, harts, workload)
     etc = pkg_dir / "etc"
     etc.mkdir(parents=True, exist_ok=True)
-    (etc / "inittab").write_text("::once:/bin/sh /spec_common/launch_multihart.sh\n", encoding="utf-8")
+    (etc / "inittab").write_text(
+        f"::once:/bin/sh /{workload}_common/launch_multihart.sh\n", encoding="utf-8"
+    )
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--pkg-dir", required=True, type=Path)
     parser.add_argument("--harts", required=True, type=positive_harts)
+    parser.add_argument("--workload-name", default="spec", type=workload_name)
     args = parser.parse_args()
-    transform(args.pkg_dir, args.harts)
+    transform(args.pkg_dir, args.harts, args.workload_name)
 
 
 if __name__ == "__main__":
