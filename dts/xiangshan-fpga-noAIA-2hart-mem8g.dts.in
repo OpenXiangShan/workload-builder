@@ -121,6 +121,12 @@
 			no-map;
 			reg = <0x0 0x80000000 0x0 0x100000>;
 		};
+
+		/* Keep the 131 MiB QEMU checkpoint window out of Linux memory. */
+		checkpoint: checkpoint@80300000 {
+			no-map;
+			reg = <0x0 0x80300000 0x0 0x08300000>;
+		};
 	};
 
 	soc {

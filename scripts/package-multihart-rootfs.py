@@ -4,13 +4,16 @@ import shutil
 from pathlib import Path
 
 
+MAX_HARTS = 128
+
+
 def positive_harts(value):
     try:
         harts = int(value, 0)
     except ValueError as exc:
         raise argparse.ArgumentTypeError("HARTS must be an integer") from exc
-    if harts < 2:
-        raise argparse.ArgumentTypeError("HARTS must be at least 2")
+    if not 2 <= harts <= MAX_HARTS:
+        raise argparse.ArgumentTypeError(f"HARTS must be in the range 2..{MAX_HARTS}")
     return harts
 
 

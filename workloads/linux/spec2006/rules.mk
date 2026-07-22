@@ -21,8 +21,12 @@ SPEC2006_GNU_TOOLCHAIN_ROOT ?=
 SPEC2006_JEMALLOC_ROOT ?=
 SPEC2006_MULTIHART ?= $(MULTIHART)
 SPEC2006_HARTS ?= $(if $(HARTS),$(HARTS),2)
-SPEC2006_MULTIHART_DEFAULT_DTB := xiangshan-fpga-noAIA-$(SPEC2006_HARTS)hart-mem8g
-SPEC2006_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(SPEC2006_MULTIHART)),$(SPEC2006_MULTIHART_DEFAULT_DTB),xiangshan-fpga-noAIA-novec))
+SPEC2006_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(SPEC2006_MULTIHART)),,xiangshan-fpga-noAIA-novec))
+ifeq ($(filter 1,$(SPEC2006_MULTIHART)),1)
+ifeq ($(strip $(SPEC2006_DEFAULT_DTB)),)
+$(error DEFAULT_DTB or SPEC2006_DEFAULT_DTB must be specified when MULTIHART=1; use the complete DTS basename without .dts.in)
+endif
+endif
 SPEC2006_TUNE ?= base
 SPEC2006_JOBS ?= $(shell nproc)
 SPEC2006_INPUT ?= ref
@@ -31,9 +35,9 @@ SPEC2006_PROGRESS_N ?= 1
 SPEC2006_PROGRESS_PREFIX := [spec2006 $(SPEC2006_PROGRESS_K)/$(SPEC2006_PROGRESS_N)]
 SPEC2006_BUILDROOT_DIR ?= $(if $(BUILDROOT_DIR),$(BUILDROOT_DIR),$(SPEC2006_REPO_ROOT)/build/buildroot)
 SPEC2006_LINUX_IMAGE ?= $(if $(LINUX_IMAGE),$(LINUX_IMAGE),$(SPEC2006_BUILDROOT_DIR)/output/images/Image)
-SPEC2006_GCPT_ELF ?= $(if $(GCPT_ELF),$(GCPT_ELF),$(SPEC2006_REPO_ROOT)/build/$(if $(filter 1,$(MULTIHART)),LibCheckpoint,LibCheckpointAlpha)/build/gcpt)
-SPEC2006_GCPT_BIN ?= $(if $(GCPT_BIN),$(GCPT_BIN),$(SPEC2006_REPO_ROOT)/build/$(if $(filter 1,$(MULTIHART)),LibCheckpoint,LibCheckpointAlpha)/build/gcpt.bin)
-SPEC2006_SBI_BUILD_DIR ?= $(if $(SBI_BUILD_DIR),$(SBI_BUILD_DIR),$(SPEC2006_REPO_ROOT)/build/opensbi)
+SPEC2006_GCPT_ELF ?= $(if $(GCPT_ELF),$(GCPT_ELF),$(SPEC2006_REPO_ROOT)/build/$(if $(filter 1,$(SPEC2006_MULTIHART)),LibCheckpoint,LibCheckpointAlpha)/build/gcpt)
+SPEC2006_GCPT_BIN ?= $(if $(GCPT_BIN),$(GCPT_BIN),$(SPEC2006_REPO_ROOT)/build/$(if $(filter 1,$(SPEC2006_MULTIHART)),LibCheckpoint,LibCheckpointAlpha)/build/gcpt.bin)
+SPEC2006_SBI_BUILD_DIR ?= $(if $(SBI_BUILD_DIR),$(SBI_BUILD_DIR),$(SPEC2006_REPO_ROOT)/build/$(if $(filter 1,$(SPEC2006_MULTIHART)),opensbi-multihart,opensbi))
 SPEC2006_SBI_BIN ?= $(if $(SBI_BIN),$(SBI_BIN),$(SPEC2006_SBI_BUILD_DIR)/build/platform/generic/firmware/fw_jump.bin)
 SPEC2006_BUILDROOT_CROSS_COMPILE ?= $(SPEC2006_BUILDROOT_DIR)/output/host/bin/riscv64-linux-
 SPEC2006_DTC ?= $(SPEC2006_BUILDROOT_DIR)/output/host/bin/dtc
@@ -145,6 +149,8 @@ $(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin: $$(SPEC2006_DTS_SOURCES) $$(SPEC2006_
 	@CROSS_COMPILE="$$(SPEC2006_BUILDROOT_CROSS_COMPILE)" \
 	DTC="$$(SPEC2006_DTC)" \
 	DEFAULT_DTB="$$(SPEC2006_DEFAULT_DTB)" \
+	MULTIHART="$$(SPEC2006_MULTIHART)" \
+	HARTS="$$(SPEC2006_HARTS)" \
 	SPEC2006_PROGRESS_K="$$(SPEC2006_PROGRESS_K)" \
 	SPEC2006_PROGRESS_N="$$(SPEC2006_PROGRESS_N)" \
 	bash "$$(SPEC2006_SCRIPTS_DIR)/build-firmware-linux.sh" "$$(SPEC2006_GCPT_BIN)" "$$(SPEC2006_SBI_BUILD_DIR)" "$$(SPEC2006_DTS_DIR)" "$$(SPEC2006_LINUX_IMAGE)" "$(SPEC2006_BUILD_DIR)/$(1)"

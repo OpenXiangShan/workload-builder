@@ -29,19 +29,21 @@ SPEC Linux workloads can also build multi-hart rootfs images:
 ```shell
 make linux/spec2006 BENCH=astar INPUT=biglakes \
   SPEC2006_ISO=/path/to/cpu2006.iso \
-  MULTIHART=1 HARTS=2 -jN
+  MULTIHART=1 HARTS=2 \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g -jN
 ```
 
 `MULTIHART=1` creates per-hart workload directories, uses `/bin/nemu-trap` to
 send codes 256 and 257 before each benchmark copy and code 258 after it
-returns, and selects
-`xiangshan-fpga-noAIA-<HARTS>hart-mem8g` as the default DTB when `DEFAULT_DTB`
-is not set. Its matching template must exist in `dts/`; the build fails rather
-than generating a missing multi-hart DTS.
+returns, and requires `DEFAULT_DTB` to be set to the complete DTS basename.
+Its matching template must exist in `dts/`; the build fails rather than
+guessing a memory profile or generating a missing multi-hart DTS.
 
 Single-core firmware uses LibCheckpointAlpha. Multi-core firmware uses
 LibCheckpoint to restore QEMU multi-hart checkpoints. Set `HARTS` to match
-the checkpoint and the selected device-tree template.
+the checkpoint and the selected device-tree template; supported multi-hart
+counts are 2 through 128. All multi-hart images reserve the 131 MiB checkpoint
+window `[0x80300000, 0x88600000)` and load Linux at `0x88600000`.
 
 ## Workload Compatibility
 
@@ -64,15 +66,31 @@ To create a compressed tarball containing all built workloads, run `make tarball
 
 ### Linux Workloads
 
-For Linux workloads, the image assumes that execution begins at `0x80000000`, and the image is loaded into a continuous memory starting from that address. The image contains the following content:
+For Linux workloads, the image assumes that execution begins at `0x80000000`, and the image is loaded into a continuous memory starting from that address. A single-core image contains:
 
 | Offset  | Content                       |
 |---------|-------------------------------|
-| 0.0 MiB | LibCheckpointAlpha (single-core) / LibCheckpoint (multi-core) |
+| 0.0 MiB | LibCheckpointAlpha            |
 | 1.0 MiB | OpenSBI                       |
 | 1.5 MiB | device tree                   |
 | 2.0 MiB | Linux kernel                  |
 | --      | initramfs containing workload |
+
+A multi-hart image uses the fixed QEMU checkpoint layout:
+
+| Physical address range | Size | Content |
+|------------------------|------|---------|
+| `0x80000000–0x800fffff` | 1 MiB | LibCheckpoint recovery program |
+| `0x80100000–0x802fffff` | 2 MiB | OpenSBI, with the DTB at `0x80200000` |
+| `0x80300000–0x885fffff` | 131 MiB | Checkpoint state window (`no-map`) |
+| `0x88600000+` | -- | Linux kernel, followed by the MiB-aligned initramfs |
+
+For OpenSBI, this is `FW_TEXT_START=0x80100000` plus
+`FW_PAYLOAD_OFFSET=0x08500000`, giving a Linux entry address of
+`0x88600000`.
+
+The canonical single-core and multi-hart DTS memory maps, including DRAM
+profiles and DTS selection examples, are in [dts/README.md](dts/README.md#single-core-physical-memory-map).
 
 Multiple device trees are built for each workload, each corresponds to a specific NEMU configuration. The device tree files are placed under the `dt` directory in the build output directory of that workload. The "default" device tree built into the image is `dt/xiangshan.dtb`. To replace the device tree, the following command can be used:
 

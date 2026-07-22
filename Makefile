@@ -2,8 +2,24 @@ all: workloads
 
 MULTIHART ?= 0
 HARTS ?= 2
-LINUX_MULTIHART_DEFAULT_DTB := xiangshan-fpga-noAIA-$(HARTS)hart-mem8g
-LINUX_DEFAULT_DTB := $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(MULTIHART)),$(LINUX_MULTIHART_DEFAULT_DTB),))
+LINUX_DEFAULT_DTB := $(if $(DEFAULT_DTB),$(DEFAULT_DTB),)
+LINUX_ROOTFS_BUILD_VARS_HASH := $(shell printf '%s\n' \
+	'multihart=$(if $(filter 1,$(MULTIHART)),1,0)' \
+	'harts=$(if $(filter 1,$(MULTIHART)),$(HARTS),1)' | sha256sum | cut -d ' ' -f 1)
+LINUX_FIRMWARE_BUILD_VARS_HASH := $(shell printf '%s\n' \
+	'multihart=$(if $(filter 1,$(MULTIHART)),1,0)' \
+	'harts=$(if $(filter 1,$(MULTIHART)),$(HARTS),1)' \
+	'default_dtb=$(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan)' | sha256sum | cut -d ' ' -f 1)
+
+MULTIHART_SUPPORTED_HARTS := $(shell seq 2 128)
+ifeq ($(filter 1,$(MULTIHART)),1)
+ifeq ($(filter $(HARTS),$(MULTIHART_SUPPORTED_HARTS)),)
+$(error HARTS must be an integer in the range 2..128 when MULTIHART=1)
+endif
+ifeq ($(strip $(DEFAULT_DTB)),)
+$(error DEFAULT_DTB must be specified when MULTIHART=1; use the complete DTS basename without .dts.in)
+endif
+endif
 
 # Download buildroot
 BUILDROOT_DIR := build/buildroot
@@ -32,7 +48,7 @@ GCPT_IMPLEMENTATION := $(if $(filter 1,$(MULTIHART)),libcheckpoint,alpha)
 GCPT_SOURCE_DIR := $(if $(filter 1,$(MULTIHART)),bootloader/LibCheckpoint,bootloader/LibCheckpointAlpha)
 GCPT_BUILD_DIR := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint,build/LibCheckpointAlpha)
 GCPT_BIN := $(GCPT_BUILD_DIR)/build/gcpt.bin
-GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(MULTIHART)),$(LINUX_MULTIHART_DEFAULT_DTB),xiangshan))
+GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan)
 GCPT_CONFIGURE_MODE := $(if $(filter 1,$(MULTIHART)),dual_core,normal)
 GCPT_CONFIG_STAMP := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.$(GCPT_CONFIGURE_MODE),build/LibCheckpointAlpha-config/dtb.$(shell printf '%s\n' "$(GCPT_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1))
 GCPT_SOURCES := $(if $(filter 1,$(MULTIHART)),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -path '*/tests' -prune -o -type f -print 2>/dev/null),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -type f -print 2>/dev/null))
@@ -50,10 +66,12 @@ $(GCPT_BIN): scripts/build-gcpt.sh $(TOOLCHAIN_WRAPPER) $(GCPT_SOURCES) $(GCPT_D
 	bash scripts/build-gcpt.sh $(GCPT_SOURCE_DIR) $(GCPT_BUILD_DIR)
 
 # Build OpenSBI
-SBI_BUILD_DIR := build/opensbi
+SBI_BUILD_DIR := $(if $(filter 1,$(MULTIHART)),build/opensbi-multihart,build/opensbi)
 SBI_BIN := $(SBI_BUILD_DIR)/build/platform/generic/firmware/fw_jump.bin
 $(SBI_BIN): scripts/build-sbi.sh bootloader/opensbi.config $(TOOLCHAIN_WRAPPER)
-	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" bash scripts/build-sbi.sh bootloader/opensbi build/opensbi
+	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
+	MULTIHART="$(MULTIHART)" \
+	bash scripts/build-sbi.sh bootloader/opensbi $(SBI_BUILD_DIR)
 
 define add_workload_linux
 # Download files
@@ -62,7 +80,12 @@ build/linux-workloads/$(1)/download/sentinel: $$(shell find $$(abspath workloads
 	bash scripts/download-files.sh workloads/linux/$(1) build/linux-workloads/$(1)/download
 
 # Build and pack workload
-build/linux-workloads/$(1)/rootfs.cpio: $$(shell find $$(abspath workloads/linux/$(1))) $(TOOLCHAIN_WRAPPER) build/linux-workloads/$(1)/download/sentinel scripts/build-workload-linux.sh scripts/package-multihart-rootfs.py
+build/linux-workloads/$(1)/rootfs-vars.$(LINUX_ROOTFS_BUILD_VARS_HASH).stamp:
+	mkdir -p "$$(@D)"
+	rm -f "$$(@D)"/rootfs-vars.*.stamp
+	touch "$$@"
+
+build/linux-workloads/$(1)/rootfs.cpio: $$(shell find $$(abspath workloads/linux/$(1))) $(TOOLCHAIN_WRAPPER) build/linux-workloads/$(1)/download/sentinel scripts/build-workload-linux.sh scripts/package-multihart-rootfs.py build/linux-workloads/$(1)/rootfs-vars.$(LINUX_ROOTFS_BUILD_VARS_HASH).stamp
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	SYSROOT_DIR="$$(abspath $(BUILDROOT_DIR)/output/staging)" \
 	BUILDROOT_DIR="$$(abspath $(BUILDROOT_DIR))" \
@@ -71,11 +94,18 @@ build/linux-workloads/$(1)/rootfs.cpio: $$(shell find $$(abspath workloads/linux
 	bash scripts/build-workload-linux.sh workloads/linux/$(1) build/linux-workloads/$(1)
 
 # Build all-in-one firmware
-build/linux-workloads/$(1)/fw_payload.bin: $$(shell find $$(abspath dts)) $(GCPT_BIN) dts/xiangshan.dts.in scripts/build-sbi.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) build/opensbi/build/platform/generic/firmware/fw_jump.bin
+build/linux-workloads/$(1)/firmware-vars.$(LINUX_FIRMWARE_BUILD_VARS_HASH).stamp:
+	mkdir -p "$$(@D)"
+	rm -f "$$(@D)"/firmware-vars.*.stamp
+	touch "$$@"
+
+build/linux-workloads/$(1)/fw_payload.bin: $$(shell find $$(abspath dts)) $(GCPT_BIN) dts/xiangshan.dts.in scripts/build-sbi.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) $(SBI_BIN) build/linux-workloads/$(1)/firmware-vars.$(LINUX_FIRMWARE_BUILD_VARS_HASH).stamp
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	DTC="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/dtc" \
 	DEFAULT_DTB="$(LINUX_DEFAULT_DTB)" \
-	bash scripts/build-firmware-linux.sh $(GCPT_BIN) build/opensbi dts $(LINUX_IMAGE) build/linux-workloads/$(1)
+	MULTIHART="$$(MULTIHART)" \
+	HARTS="$$(HARTS)" \
+	bash scripts/build-firmware-linux.sh $(GCPT_BIN) $(SBI_BUILD_DIR) dts $(LINUX_IMAGE) build/linux-workloads/$(1)
 
 linux/$(1): build/linux-workloads/$(1)/fw_payload.bin
 
