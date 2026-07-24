@@ -165,6 +165,12 @@ The default SPEC cfg is:
 workloads/linux/spec2006/configs/riscv_gcc15_base.cfg
 ```
 
+For GCC 16, select:
+
+```text
+workloads/linux/spec2006/configs/riscv_gcc16_base.cfg
+```
+
 Override it with:
 
 ```sh
