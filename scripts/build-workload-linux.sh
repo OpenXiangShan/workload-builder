@@ -37,10 +37,13 @@ pack-cpio() {
 
 apply-multihart-package() {
     local harts
+    local workload_name
     harts="${HARTS:-2}"
+    workload_name="${MULTIHART_PAYLOAD_DIR:-$(basename "$WORKLOAD_DIR")}"
     python3 "$SCRIPT_DIR/package-multihart-rootfs.py" \
         --pkg-dir "$PKG_DIR" \
-        --harts "$harts"
+        --harts "$harts" \
+        --workload-name "$workload_name"
 }
 
 populate-src-dir

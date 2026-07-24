@@ -16,3 +16,16 @@ The workload downloads and builds the CoreMark benchmark from source. It uses an
 The benchmark runs with these parameters, which is a "standard" verification run of CoreMark:
 
 - 0x0 0x0 0x66 0 7 1 2000
+
+## Multi-hart builds
+
+Build a multi-hart CoreMark workload with:
+
+```bash
+make linux/coremark MULTIHART=1 HARTS=<count> -jN
+```
+
+The generated root filesystem starts one CoreMark process per hart. Each process
+is pinned with `taskset` and uses the same verification arguments listed above.
+Set `HARTS` to the number of harts in the matching QEMU checkpoint; the build
+selects `xiangshan-fpga-noAIA-<HARTS>hart-mem8g` by default.
