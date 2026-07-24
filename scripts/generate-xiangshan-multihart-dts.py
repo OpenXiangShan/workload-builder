@@ -5,6 +5,14 @@ from pathlib import Path
 
 
 MULTIHART_RISCV_ISA = "rv64imafdc"
+MAX_HARTS = 128
+CHECKPOINT_RESERVED_NODE = """
+
+		/* Keep the 131 MiB QEMU checkpoint window out of Linux memory. */
+		checkpoint: checkpoint@80300000 {
+			no-map;
+			reg = <0x0 0x80300000 0x0 0x08300000>;
+		};"""
 CPU_ISA_PROPERTIES = re.compile(
     r'\t\t\triscv,isa = "[^"]+";\n'
     r'\t\t\triscv,isa-base = "[^"]+";\n'
@@ -19,8 +27,8 @@ def positive_harts(value):
         harts = int(value, 0)
     except ValueError as exc:
         raise argparse.ArgumentTypeError("harts must be an integer") from exc
-    if harts < 2:
-        raise argparse.ArgumentTypeError("harts must be at least 2")
+    if not 2 <= harts <= MAX_HARTS:
+        raise argparse.ArgumentTypeError(f"harts must be in the range 2..{MAX_HARTS}")
     return harts
 
 
@@ -121,6 +129,17 @@ def sanitize_nemu_uart_comments(text):
     )
 
 
+def add_checkpoint_reserved_memory(text):
+    if "checkpoint@80300000" in text:
+        return text
+
+    start, end = extract_node(text, "\treserved-memory {")
+    close = text.rfind("\n\t};", start, end)
+    if close == -1:
+        raise RuntimeError("reserved-memory node does not have the expected closing brace")
+    return text[:close] + CHECKPOINT_RESERVED_NODE + text[close:]
+
+
 def render(base_text, harts):
     start, end = extract_node(base_text, "\t\tcpu0: cpu@0 {")
     cpu0_node = normalize_cpu_isa(base_text[start:end])
@@ -142,6 +161,7 @@ def render(base_text, harts):
     text = align_nemu_plic(text)
     text = replace_fpga_uart_with_nemu_uartlite(text)
     text = sanitize_nemu_uart_comments(text)
+    text = add_checkpoint_reserved_memory(text)
     return text
 
 

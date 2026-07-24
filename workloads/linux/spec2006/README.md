@@ -67,13 +67,14 @@ make linux/spec2006 BENCH=astar INPUT=biglakes \
 
 ## Build a multi-hart workload
 
-Add `MULTIHART=1 HARTS=2`. The current LibCheckpoint QEMU restorer supports
-exactly two guest harts:
+Add `MULTIHART=1 HARTS=<count>`, where `<count>` matches the QEMU checkpoint
+and the selected device-tree template. Supported counts are 2 through 128:
 
 ```sh
 make linux/spec2006 BENCH=astar INPUT=biglakes \
   SPEC2006_ISO=/path/to/cpu2006.iso \
-  MULTIHART=1 HARTS=2 -jN
+  MULTIHART=1 HARTS=2 \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g -jN
 ```
 
 The package step creates one SPEC tree per hart:
@@ -91,15 +92,9 @@ starting that hart's benchmark copy with `SPEC_ROOT=/specX`, then uses
 `/bin/nemu-trap 258` after it returns. The launcher uses `taskset -c X` for
 CPU binding.
 
-When `DEFAULT_DTB` is omitted, `MULTIHART=1` selects:
-
-```text
-xiangshan-fpga-noAIA-<HARTS>hart-mem8g
-```
-
-The selected template must exist at
-`dts/xiangshan-fpga-noAIA-<HARTS>hart-mem8g.dts.in`; firmware assembly
-fails if it is missing.
+When `MULTIHART=1`, `DEFAULT_DTB` must be the complete DTS basename, including
+the desired memory profile. The corresponding `dts/<DEFAULT_DTB>.dts.in`
+template must exist; firmware assembly fails if it is missing.
 
 Selected SPEC cases are built one by one to avoid concurrent `runspec`
 instances contending on shared temporary state inside the SPEC tool tree.

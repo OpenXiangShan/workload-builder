@@ -7,14 +7,37 @@ DTS_TEMPLATE_DIR="$(realpath "$3")"
 KERNEL_IMAGE="$(realpath "$4")"
 WORKLOAD_BUILD_DIR="$(realpath "$5")"
 CPIO_ARCHIVE="$WORKLOAD_BUILD_DIR/rootfs.cpio"
-DEFAULT_DTB="${DEFAULT_DTB:-xiangshan}"
+DEFAULT_DTB="${DEFAULT_DTB:-}"
 DTB_MEMORY_PROFILE="${DTB_MEMORY_PROFILE:-}"
 DTB_MIN_MEMORY_BYTES="${DTB_MIN_MEMORY_BYTES:-}"
+HARTS="${HARTS:-2}"
+readonly MULTIHART_MAX_HARTS=128
+readonly MULTIHART_KERNEL_OFFSET_MB=134
 
 MEM_BEGIN=$(( 0x80000000 ))
 DTB_OFFSET_KB=1536
+DTB_MAX_SIZE_KB=512
 SBI_OFFSET_KB=1024
 KERNEL_OFFSET_MB=2
+
+if [ "${MULTIHART:-0}" = 1 ]; then
+    if [ -z "$DEFAULT_DTB" ]; then
+        echo "DEFAULT_DTB must be specified when MULTIHART=1; use the complete DTS basename without .dts.in" >&2
+        exit 1
+    fi
+    case "$HARTS" in
+        ''|*[!0-9]*) echo "HARTS must be an integer in the range 2..$MULTIHART_MAX_HARTS" >&2; exit 1 ;;
+    esac
+    if [ "$HARTS" -lt 2 ] || [ "$HARTS" -gt "$MULTIHART_MAX_HARTS" ]; then
+        echo "HARTS must be an integer in the range 2..$MULTIHART_MAX_HARTS" >&2
+        exit 1
+    fi
+    DTB_OFFSET_KB=2048
+    DTB_MAX_SIZE_KB=1024
+    KERNEL_OFFSET_MB="$MULTIHART_KERNEL_OFFSET_MB"
+elif [ -z "$DEFAULT_DTB" ]; then
+    DEFAULT_DTB=xiangshan
+fi
 
 KILOBYTE=1024
 MEGABYTE=$(( 1024*1024 ))
@@ -33,7 +56,7 @@ INITRAMFS_END_LO=$(printf "0x%x" $(( INITRAMFS_END_ADDR & 0xffffffff )))
 
 # Build device tree files
 DTC="${DTC:-dtc}"
-dtb_memory_size_bytes() {
+dtb_memory_range_bytes() {
     local dts_file="$1"
     local cells
     cells="$(
@@ -53,7 +76,7 @@ dtb_memory_size_bytes() {
                     }
                 }
                 if (count >= 4) {
-                    print values[3], values[4]
+                    print values[1], values[2], values[3], values[4]
                     exit
                 }
             }
@@ -63,23 +86,129 @@ dtb_memory_size_bytes() {
         return 1
     fi
     set -- $cells
-    local high="$1"
-    local low="$2"
-    printf '%s\n' $(( high * 4294967296 + low ))
+    local begin_high="$1"
+    local begin_low="$2"
+    local size_high="$3"
+    local size_low="$4"
+    printf '%s %s\n' \
+        $(( begin_high * 4294967296 + begin_low )) \
+        $(( size_high * 4294967296 + size_low ))
 }
 
-check_dtb_memory_size() {
+check_dtb_memory_layout() {
     local dts_file="$1"
     local min_bytes="$2"
+    local memory_range
+    local memory_begin
     local memory_bytes
-    if ! memory_bytes="$(dtb_memory_size_bytes "$dts_file")"; then
+    local memory_end_addr
+    if ! memory_range="$(dtb_memory_range_bytes "$dts_file")"; then
         echo "Cannot determine memory size from DTS: $dts_file" >&2
         exit 1
     fi
-    if [ "$memory_bytes" -lt "$min_bytes" ]; then
+    read -r memory_begin memory_bytes <<< "$memory_range"
+    if [ "$memory_begin" -ne "$MEM_BEGIN" ]; then
+        printf 'DTS memory must begin at 0x80000000: found 0x%x in %s\n' \
+            "$memory_begin" "$dts_file" >&2
+        exit 1
+    fi
+    if [ -n "$min_bytes" ] && [ "$memory_bytes" -lt "$min_bytes" ]; then
         echo "DTS memory is too small: $dts_file describes $memory_bytes bytes, need at least $min_bytes bytes" >&2
         exit 1
     fi
+    memory_end_addr=$(( memory_begin + memory_bytes ))
+    if [ "$INITRAMFS_END_ADDR" -gt "$memory_end_addr" ]; then
+        printf 'Firmware image exceeds DTS memory: image ends at 0x%x, memory ends at 0x%x in %s\n' \
+            "$INITRAMFS_END_ADDR" "$memory_end_addr" "$dts_file" >&2
+        exit 1
+    fi
+}
+
+check_multihart_cpu_count() {
+    local dts_file="$1"
+    local expected_harts="$2"
+    local actual_harts
+    actual_harts="$(grep -Ec 'device_type[[:space:]]*=[[:space:]]*"cpu"' "$dts_file" || true)"
+    if [ "$actual_harts" -ne "$expected_harts" ]; then
+        echo "DTS hart count mismatch: expected $expected_harts, found $actual_harts in $dts_file" >&2
+        exit 1
+    fi
+}
+
+check_multihart_checkpoint_reservation() {
+    local dts_file="$1"
+    if ! awk '
+        /@80300000[[:space:]]*\{/ {
+            in_node = 1
+            found_node = 1
+            has_reg = 0
+            has_no_map = 0
+            next
+        }
+        in_node {
+            if ($0 ~ /reg[[:space:]]*=[[:space:]]*<[[:space:]]*0x0[[:space:]]+0x80300000[[:space:]]+0x0[[:space:]]+0x08300000[[:space:]]*>[[:space:]]*;/) {
+                has_reg = 1
+            }
+            if ($0 ~ /no-map[[:space:]]*;/) {
+                has_no_map = 1
+            }
+            if ($0 ~ /^[[:space:]]*};/) {
+                exit !(has_reg && has_no_map)
+            }
+        }
+        END {
+            if (!found_node) {
+                exit 1
+            }
+        }
+    ' "$dts_file"; then
+        echo "DTS checkpoint reservation missing or invalid: expected no-map [0x80300000, 0x88600000) in $dts_file" >&2
+        exit 1
+    fi
+}
+
+check_image_component_size() {
+    local component="$1"
+    local file="$2"
+    local max_bytes="$3"
+    local actual_bytes
+    actual_bytes="$(stat -c%s "$file")"
+    if [ "$actual_bytes" -gt "$max_bytes" ]; then
+        echo "$component image is too large: maximum $max_bytes bytes, found $actual_bytes bytes in $file" >&2
+        exit 1
+    fi
+}
+
+check_gcpt_image_size() {
+    local file="$1"
+    local max_bytes="$2"
+    local actual_bytes
+    local fallback_bytes
+    actual_bytes="$(stat -c%s "$file")"
+    if [ "$actual_bytes" -le "$max_bytes" ]; then
+        return
+    fi
+
+    # Both checkpoint implementations link a no-payload fallback at exactly
+    # 1 MiB. In a combined image external OpenSBI occupies that address, so
+    # accept only their known fallback signatures and omit them from the
+    # packed GCPT slot.
+    if [ "${MULTIHART:-0}" = 1 ] && \
+        [ "$actual_bytes" -eq $(( max_bytes + 8 )) ]; then
+        fallback_bytes="$(od -An -tx1 -j "$max_bytes" -N8 "$file" | tr -d '[:space:]')"
+        if [ "$fallback_bytes" = 1305100067800000 ]; then
+            return
+        fi
+    elif [ "${MULTIHART:-0}" != 1 ] && \
+        [ "$actual_bytes" -eq $(( max_bytes + 24 )) ]; then
+        fallback_bytes="$(od -An -tx1 -j "$max_bytes" -N24 "$file" | tr -d '[:space:]')"
+        if [ "$fallback_bytes" = 730050106ff0dfff13000000130000001300000000000000 ]; then
+            return
+        fi
+    fi
+
+    echo "GCPT image is too large: maximum $max_bytes bytes, found $actual_bytes bytes in $file" >&2
+    exit 1
 }
 
 build-dtb() {
@@ -137,11 +266,17 @@ if ! [ -f "$DEFAULT_DTS_FILE" ]; then
     echo "Default device tree source not found: $DEFAULT_DTS_FILE" >&2
     exit 1
 fi
-if [ -n "$DTB_MIN_MEMORY_BYTES" ]; then
-    check_dtb_memory_size "$DEFAULT_DTS_FILE" "$DTB_MIN_MEMORY_BYTES"
+if [ "${MULTIHART:-0}" = 1 ]; then
+    check_multihart_cpu_count "$DEFAULT_DTS_FILE" "$HARTS"
+    check_multihart_checkpoint_reservation "$DEFAULT_DTS_FILE"
 fi
-dd if="$STARTUP_FILE" of="$WORKLOAD_BUILD_DIR/fw_payload.bin" status=none
+check_dtb_memory_layout "$DEFAULT_DTS_FILE" "$DTB_MIN_MEMORY_BYTES"
+SBI_IMAGE="$SBI_BUILD_DIR/build/platform/generic/firmware/fw_jump.bin"
+check_gcpt_image_size "$STARTUP_FILE" $(( SBI_OFFSET_KB * KILOBYTE ))
+check_image_component_size OpenSBI "$SBI_IMAGE" $(( (DTB_OFFSET_KB - SBI_OFFSET_KB) * KILOBYTE ))
+check_image_component_size DTB "$DEFAULT_DTB_FILE" $(( DTB_MAX_SIZE_KB * KILOBYTE ))
+dd if="$STARTUP_FILE" of="$WORKLOAD_BUILD_DIR/fw_payload.bin" bs="$KILOBYTE" count="$SBI_OFFSET_KB" status=none
 dd if="$DEFAULT_DTB_FILE" of="$WORKLOAD_BUILD_DIR/fw_payload.bin" bs="$KILOBYTE" seek="$DTB_OFFSET_KB" conv=notrunc status=none
-dd if="$SBI_BUILD_DIR/build/platform/generic/firmware/fw_jump.bin" of="$WORKLOAD_BUILD_DIR/fw_payload.bin" bs="$KILOBYTE" seek="$SBI_OFFSET_KB" conv=notrunc status=none
+dd if="$SBI_IMAGE" of="$WORKLOAD_BUILD_DIR/fw_payload.bin" bs="$KILOBYTE" seek="$SBI_OFFSET_KB" conv=notrunc status=none
 dd if="$KERNEL_IMAGE" of="$WORKLOAD_BUILD_DIR/fw_payload.bin" bs="$MEGABYTE" seek="$KERNEL_OFFSET_MB" conv=notrunc status=none
 dd if="$CPIO_ARCHIVE" of="$WORKLOAD_BUILD_DIR/fw_payload.bin" bs="$MEGABYTE" seek="$INITRAMFS_OFFSET_MB" conv=notrunc status=none
