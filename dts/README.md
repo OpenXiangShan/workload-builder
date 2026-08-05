@@ -103,11 +103,13 @@ UARTLITE and PLIC settings. Generated multi-hart templates reserve the fixed
 131 MiB checkpoint window `[0x80300000, 0x88600000)`.
 
 The full capability block describes XiangShan hardware and is not fully
-emulated by the current QEMU `nemu` machine. In particular, DT-advertised
-`smrnmi` requires an OpenSBI platform `smrnmi_handlers_init` callback, while
-the `nemu` timer path cannot execute the DT-advertised `sstc` CSR sequence.
-The current multi-core DTB must omit `smrnmi` and `sstc` and run with
-`sstc=false`.
+supported by the current OpenSBI generic platform and QEMU `nemu` machine.
+DT-advertised `smrnmi` requires an OpenSBI platform
+`smrnmi_handlers_init` callback, which the generic platform does not provide.
+All single-hart and multi-hart DTBs used with the generic platform must omit
+`smrnmi`. In addition, the current multi-core `nemu` timer path cannot execute
+the DT-advertised `sstc` CSR sequence, so multi-core DTBs must omit `sstc` and
+run with `sstc=false`.
 
 The build does not invoke this generator automatically. Run it and review the
 result before building with the corresponding `HARTS` value.
