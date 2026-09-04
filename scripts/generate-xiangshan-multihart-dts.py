@@ -86,31 +86,39 @@ def debug_interrupt_list(harts):
     return " ".join(f"&intc_cpu{hart} 65535" for hart in range(harts))
 
 
-def align_nemu_plic(text):
-    return re.sub(r"riscv,ndev = <(?:0x42|66)>;", "riscv,ndev = <64>;", text)
+def align_qemu_plic(text):
+    return re.sub(r"riscv,ndev = <(?:0x42|64|66)>;", "riscv,ndev = <66>;", text)
 
 
-def replace_fpga_uart_with_nemu_uartlite(text):
-    node_header = "\t\tuart0: serial@310b0000 {"
-    if node_header not in text:
-        return text
+def replace_uart_with_qemu_16550(text):
+    match = re.search(r"^\t\tuart0: serial@[0-9a-fA-F]+ \{", text, re.MULTILINE)
+    if match is None:
+        raise RuntimeError("DTS does not contain the expected uart0 node")
 
-    start, end = extract_node(text, node_header)
-    comment_start = text.rfind("\n\t\t/*", 0, start)
-    if comment_start != -1 and "UART16550" in text[comment_start:start]:
-        start = comment_start + 1
+    start, end = extract_node(text, match.group(0))
+    prefix = text[:start]
+    comment_match = re.search(
+        r"(?P<comment>\r?\n[ \t]*/\*(?:[^*]|\*(?!/))*\*/)[ \t]*\r?\n[ \t]*$",
+        prefix,
+    )
+    if comment_match and re.search(
+        r"(?i)(?:\bUART(?:LITE|16550)?\b|0x40600000|serial@[0-9a-fA-F]+)",
+        comment_match.group("comment"),
+    ):
+        start = comment_match.start("comment") + 1
     uart = "\n".join(
         [
             "\t\t/*",
-            "\t\t * QEMU/NEMU exposes UARTLITE at 0x40600000.",
+            "\t\t * QEMU's nemu machine exposes the XiangShan 16550A UART at 0x310b0000.",
+            "\t\t * It is not connected to the PLIC.",
             "\t\t */",
-            "\t\tuart0: serial@40600000 {",
-            '\t\t\tcompatible = "xlnx,xps-uartlite-1.00.a";',
-            "\t\t\tinterrupt-parent = <&PLIC>;",
-            "\t\t\tinterrupts = <3>;",
+            "\t\tuart0: serial@310b0000 {",
+            '\t\t\tcompatible = "ns16550a";',
             "\t\t\tcurrent-speed = <115200>;",
-            "\t\t\treg = <0x0 0x40600000 0x0 0x1000>;",
-            '\t\t\treg-names = "control";',
+            "\t\t\treg = <0x0 0x310b0000 0x0 0x10000>;",
+            "\t\t\treg-shift = <0x2>;",
+            "\t\t\treg-io-width = <0x4>;",
+            "\t\t\tclock-frequency = <50000000>;",
             '\t\t\tstatus = "okay";',
             "\t\t};",
         ]
@@ -118,10 +126,22 @@ def replace_fpga_uart_with_nemu_uartlite(text):
     return text[:start] + uart + text[end:]
 
 
-def sanitize_nemu_uart_comments(text):
+def sanitize_qemu_comments(text):
+    text = text.replace(
+        " * XiangShan FPGA DTS used by the fpga board flow.",
+        " * XiangShan multi-hart DTS used by QEMU's nemu machine.",
+    )
     text = text.replace(
         " * 2. UART16550 is exposed as the serial console.",
+        " * 2. QEMU's nemu machine exposes a 16550A serial console.",
+    )
+    text = text.replace(
         " * 2. QEMU/NEMU UARTLITE is exposed as the serial console.",
+        " * 2. QEMU's nemu machine exposes a 16550A serial console.",
+    )
+    text = text.replace(
+        "This FPGA image boots without AIA.",
+        "This QEMU configuration boots without AIA.",
     )
     chosen_comment = re.compile(
         r"\n\t\t/\*\n"
@@ -197,9 +217,9 @@ def render(base_text, harts, memory_gib=None):
         "interrupts-extended = <&intc_cpu0 11 &intc_cpu0 9>;",
         f"interrupts-extended = <{interrupt_list(harts, 11, 9)}>;",
     )
-    text = align_nemu_plic(text)
-    text = replace_fpga_uart_with_nemu_uartlite(text)
-    text = sanitize_nemu_uart_comments(text)
+    text = align_qemu_plic(text)
+    text = replace_uart_with_qemu_16550(text)
+    text = sanitize_qemu_comments(text)
     text = add_checkpoint_reserved_memory(text)
     if memory_gib is not None:
         text = override_memory_profile(text, memory_gib)

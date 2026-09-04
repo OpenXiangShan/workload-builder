@@ -1,6 +1,7 @@
-# NEMU Workload Builder
+# NEMU/QEMU Workload Builder
 
-This repository serves as an automated build system to build the workloads of NEMU for testing purpose. It supports two types of workloads:
+This repository serves as an automated build system to build workloads for
+NEMU and the QEMU NEMU machine. It supports two types of workloads:
 
 1. **Linux workloads**: Traditional Linux-based workloads that run on top of the Linux kernel with initramfs
 2. **AM workloads**: Bare-metal applications that run directly on the Abstract Machine (AM) abstraction layer
@@ -11,7 +12,7 @@ Simply run `make` under the repository. The Linux kernel, the workloads and the 
 
 For Linux workloads:
 
-- `build/linux-workloads/workload_name/fw_payload.bin`: The all-in-one image that can be directly loaded by NEMU.
+- `build/linux-workloads/workload_name/fw_payload.bin` (NEMU) or `fw_payload.qemu.bin` (QEMU): The all-in-one image that can be directly loaded by the selected machine.
 - `build/linux-workloads/workload_name/rootfs.cpio`: The initramfs overlay of the workload.
 - `build/linux-workloads/workload_name/dt/`: The selected device tree source and binary.
 
@@ -24,35 +25,71 @@ You can also build a single workload with:
 - `make linux/workload_name` for a Linux workload.
 - `make am/workload_name` for an AM workload.
 
-SPEC Linux workloads can also build multi-hart rootfs images:
+Single-core workloads default to NEMU. QEMU support covers CoreMark, SPEC
+CPU2006, and SPEC CPU2017, which can be assembled with `PLATFORM=qemu`:
 
 ```shell
+make linux/coremark PLATFORM=qemu -jN
+make linux/spec2006 PLATFORM=qemu BENCH=astar INPUT=biglakes \
+  SPEC2006_ISO=/path/to/cpu2006.iso -jN
+```
+
+QEMU firmware is written beside the NEMU image as `fw_payload.qemu.bin`, so
+switching platforms does not overwrite `fw_payload.bin` or rebuild the shared
+benchmark/rootfs unnecessarily. Run the completed workload with:
+
+```shell
+QEMU_BIN=/path/to/qemu-system-riscv64 \
+  bash scripts/run-qemu.sh \
+  build/linux-workloads/coremark/fw_payload.qemu.bin
+QEMU_BIN=/path/to/qemu-system-riscv64 \
+  bash scripts/run-qemu.sh \
+  build/linux-workloads/spec2006/astar_biglakes/fw_payload.qemu.bin
+```
+
+Building does not require a QEMU installation. The verified baseline is
+OpenXiangShan/qemu commit `d6ef1ba720` from `fix/nemu-uart16550`; the runner
+requires `QEMU_BIN` and checks for the equivalent `nemu` machine device contract
+before booting. It uses TCG and treats only `Hit GOOD TRAP` as success. It
+defaults to 2 GiB of RAM; set `QEMU_MEMORY` to match the selected multi-hart DTS
+when needed.
+
+CoreMark, SPEC CPU2006, and SPEC CPU2017 also support multi-hart QEMU rootfs images:
+
+```shell
+make linux/coremark MULTIHART=1 HARTS=2 \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g-novec -jN
+
 make linux/spec2006 BENCH=astar INPUT=biglakes \
   SPEC2006_ISO=/path/to/cpu2006.iso \
   MULTIHART=1 HARTS=2 \
-  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g -jN
-
-make linux/spec2017 BENCH=mcf MODE=rate INPUT=ref \
-  SPEC2017_ISO=/path/to/cpu2017.iso \
-  MULTIHART=1 HARTS=2 \
-  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g -jN
+  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g-novec -jN
 ```
 
-`MULTIHART=1` creates per-hart workload directories, uses `/bin/nemu-trap` to
-send codes 256 and 257 before each benchmark copy and code 258 after it
-returns, and requires `DEFAULT_DTB` to be set to the complete DTS basename.
-Its matching template must exist in `dts/`; the build fails rather than
-guessing a memory profile or generating a missing multi-hart DTS.
+`MULTIHART=1` automatically selects `PLATFORM=qemu`; explicitly combining it
+with `PLATFORM=nemu` is rejected. It creates per-hart workload directories,
+uses `/bin/nemu-trap` to send codes 256 and 257 before each benchmark copy and
+code 258 after it returns, and requires `DEFAULT_DTB` to be set to the complete
+DTS basename. Its matching template must exist in `dts/`; the build fails
+rather than guessing a memory profile or generating a missing multi-hart DTS.
+Other Linux workload targets remain NEMU-only.
 
 Single-core firmware uses LibCheckpointAlpha. Multi-core firmware uses
 LibCheckpoint to restore QEMU multi-hart checkpoints. Set `HARTS` to match
 the checkpoint and the selected device-tree template; supported multi-hart
 counts are 2 through 128. All multi-hart images reserve the 131 MiB checkpoint
-window `[0x80300000, 0x88600000)` and load Linux at `0x88600000`.
+window `[0x80300000, 0x88600000)` and load Linux at `0x88600000`. Multi-hart
+builds default `GCPT_SERIAL_PORT` to the QEMU 16550A TX register at
+`0x310b0000`; the build passes it to LibCheckpoint as `CONFIG_SERIAL_PORT`.
 
 ## Workload Compatibility
 
-Not all workloads can run on all NEMU configurations. The only workload supported by `riscv64-nutshell_defconfig` is `linux/hello`, since all other workloads require hardware floating point, which is not supported by nutshell. RVV related workloads require the vector ISA extension, and hypervisor related workloads require the hypervisor ISA extension.
+Not all workloads can run on all NEMU or QEMU configurations. QEMU support is
+limited to `linux/coremark`, `linux/spec2006`, and `linux/spec2017`; the only workload supported by
+`riscv64-nutshell_defconfig` is `linux/hello`, since all other workloads require
+hardware floating point, which is not supported by nutshell. RVV related workloads
+require the vector ISA extension, and hypervisor related workloads require the
+hypervisor ISA extension.
 
 ## Build Requirements
 
@@ -79,9 +116,15 @@ A single-core image contains:
 |---------|-------------------------------|
 | 0.0 MiB | LibCheckpointAlpha            |
 | 1.0 MiB | OpenSBI                       |
-| 1.5 MiB | device tree                   |
-| >=2.0 MiB | Linux kernel at the next 2 MiB-aligned address |
+| 1.75 MiB | device tree                  |
+| 2.0 MiB | Linux kernel                  |
 | --      | initramfs containing workload |
+
+Single-core images place the DTB at 1.75 MiB (`0x801c0000`), providing 768 KiB
+for OpenSBI while leaving 256 KiB for the DTB before Linux at 2 MiB. This is an
+image-packing choice, not a fixed machine address. The assembler checks both
+component sizes. Multi-hart images keep their separate DTB address at
+`0x80200000`.
 
 A multi-hart image uses the fixed QEMU checkpoint layout:
 
@@ -104,6 +147,15 @@ well as the CLINT address used by GCPT. Its generated DTS and DTB are placed in
 the workload's `dt` directory and the DTB is embedded in the firmware image.
 
 For DTS files used with gcpt, the beginning of RAM must be reserved with a `reserved-memory` node so Linux does not allocate or map the gcpt checkpoint buffer. The XiangShan FPGA DTS templates reserve the first 1 MiB of their declared DRAM for this purpose.
+
+```shell
+dd conv=notrunc bs=1024 seek=1792 if=dt/some_device.dtb of=fw_payload.bin
+```
+
+Use `fw_payload.qemu.bin` as the output file for a QEMU image. The supported
+QEMU `nemu` machine exposes a no-IRQ 16550A UART at `0x310b0000`. Multi-hart
+images use their separate fixed DTB offset of 2048 KiB and must retain a
+matching multi-hart device tree.
 
 OpenSBI is patched (see `bootloader/opensbi.patch`) to load the device tree from a fixed offset relative to the DRAM base. The initramfs is placed after the Linux kernel and aligned to 1 MiB.
 

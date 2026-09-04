@@ -1,0 +1,142 @@
+/dts-v1/;
+
+/ {
+	compatible = "freechips,rocketchip-unknown-dev";
+	model = "qemu,nemu-single-core";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <1000000>;
+
+		cpu0: cpu@0 {
+			compatible = "ICT,xiangshan", "riscv";
+			device_type = "cpu";
+			reg = <0>;
+			status = "okay";
+
+			d-cache-block-size = <64>;
+			d-cache-sets = <256>;
+			d-cache-size = <65536>;
+			d-tlb-sets = <1>;
+			d-tlb-size = <48>;
+			i-cache-block-size = <64>;
+			i-cache-sets = <256>;
+			i-cache-size = <65536>;
+			i-tlb-sets = <1>;
+			i-tlb-size = <48>;
+			mmu-type = "riscv,sv48";
+			clock-frequency = <0>;
+			timebase-frequency = <1000000>;
+			tlb-split;
+
+			riscv,isa = "rv64imafdcvh_smstateen_sscofpmf_zicntr_zihpm_svpbmt_sdtrig_smcsrind_sscsrind_svade";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions =
+				"i", "m", "a", "f", "d", "c", "v", "h",
+				"sdtrig", "sha", "shcounterenw", "shgatpa",
+				"shlcofideleg", "shtvala", "shvsatpa", "shvstvala",
+				"shvstvecd", "smcsrind", "smdbltrp",
+				"smmpm", "smnpm", "smstateen",
+				"ss1p13", "ssccptr", "sscofpmf",
+				"sscounterenw", "sscsrind", "ssdbltrp", "ssnpm",
+				"sspm", "ssstateen", "ssstrict",
+				"sstvala", "sstvecd", "ssu64xl", "supm",
+				"sv39", "sv48", "svade", "svbare", "svinval",
+				"svnapot", "svpbmt", "za64rs", "zacas", "zawrs",
+				"zba", "zbb", "zbc", "zbkb", "zbkc", "zbkx",
+				"zbs", "zca", "zcb", "zcmop", "zfa", "zfh", "zfhmin",
+				"zic64b",
+				"ziccamoa", "ziccif", "zicclsm", "ziccrse",
+				"zicntr", "zicond", "zicsr", "zifencei",
+				"zihintntl", "zihintpause", "zihpm", "zimop",
+				"zkn", "zknd", "zkne", "zknh", "zksed",
+				"zksh", "zkt", "zvbb", "zvfh", "zvfhmin",
+				"zvkt", "zvl128b", "zvl32b", "zvl64b";
+			riscv,cbom-block-size = <0x40>;
+			riscv,cboz-block-size = <0x40>;
+
+			next-level-cache = <&l2_cache>;
+
+			cpu0_intc: interrupt-controller {
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+				#interrupt-cells = <1>;
+			};
+		};
+	};
+
+	l2_cache: l2-cache {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-block-size = <64>;
+		cache-size = <1048576>;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		reserved0: buffer@0 {
+			no-map;
+			reg = <0x0 0x80000000 0x0 0x100000>;
+		};
+	};
+
+	soc {
+		compatible = "freechips,rocketchip-unknown-soc", "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		clint@38000000 {
+			compatible = "riscv,clint0";
+			reg = <0x0 0x38000000 0x0 0x10000>;
+			reg-names = "control";
+			interrupts-extended = <&cpu0_intc 3 &cpu0_intc 7>;
+		};
+
+		plic: interrupt-controller@3c000000 {
+			compatible = "riscv,plic0";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			reg = <0x0 0x3c000000 0x0 0x4000000>;
+			reg-names = "control";
+			interrupts-extended = <&cpu0_intc 11 &cpu0_intc 9>;
+			riscv,max-priority = <7>;
+			riscv,ndev = <66>;
+		};
+
+		/* QEMU's nemu machine exposes the XiangShan 16550A UART at 0x310b0000. */
+		uart0: serial@310b0000 {
+			compatible = "ns16550a";
+			reg = <0x0 0x310b0000 0x0 0x10000>;
+			reg-shift = <0x2>;
+			reg-io-width = <0x4>;
+			clock-frequency = <50000000>;
+			current-speed = <115200>;
+			status = "okay";
+		};
+	};
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		bootargs = "console=hvc0 earlycon=sbi";
+		stdout-path = "serial0:115200n8";
+		linux,initrd-start = <INITRAMFS_BEGIN_HI INITRAMFS_BEGIN_LO>;
+		linux,initrd-end = <INITRAMFS_END_HI INITRAMFS_END_LO>;
+		/* ASCII: "XIANGSHAN_NEMU_BOARD_RANDOM_SEED" */
+		rng-seed = /bits/ 8 <0x58 0x49 0x41 0x4e 0x47 0x53 0x48 0x41 0x4e 0x5f 0x4e 0x45 0x4d 0x55 0x5f 0x42 0x4f 0x41 0x52 0x44 0x5f 0x52 0x41 0x4e 0x44 0x4f 0x4d 0x5f 0x53 0x45 0x45 0x44>;
+	};
+};

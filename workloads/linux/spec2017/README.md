@@ -16,6 +16,15 @@ make linux/spec2017 BENCH=mcf MODE=rate INPUT=ref SPEC2017_ISO=/path/to/cpu2017.
 make linux/spec2017 BENCH=mcf MODE=speed INPUT=ref SPEC2017_ISO=/path/to/cpu2017.iso -jN
 ```
 
+On QEMU, rate and speed builds automatically select the QEMU-compatible 8 GiB
+and 24 GiB DTS profiles respectively. Match the QEMU RAM size when running the
+resulting firmware:
+
+```sh
+QEMU_MEMORY=8G bash scripts/run-qemu.sh build/linux-workloads/spec2017/mcf_rate_refrate/fw_payload.qemu.bin
+QEMU_MEMORY=24G bash scripts/run-qemu.sh build/linux-workloads/spec2017/mcf_speed_refspeed/fw_payload.qemu.bin
+```
+
 `MODE=rate` selects `_r` benchmarks and maps `INPUT=ref` to `refrate`.
 `MODE=speed` selects `_s` benchmarks and maps `INPUT=ref` to `refspeed`.
 Full case names are also accepted:
@@ -33,7 +42,7 @@ matching multi-hart DTS template explicitly:
 make linux/spec2017 BENCH=mcf MODE=rate INPUT=ref \
   SPEC2017_ISO=/path/to/cpu2017.iso \
   MULTIHART=1 HARTS=2 \
-  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem16g -jN
+  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem16g-novec -jN
 ```
 
 The same options apply to split image exports:
@@ -42,7 +51,7 @@ The same options apply to split image exports:
 make spec2017-images BENCH=mcf MODE=rate INPUT=ref \
   SPEC2017_ISO=/path/to/cpu2017.iso \
   MULTIHART=1 HARTS=2 \
-  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem16g -jN
+  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem16g-novec -jN
 ```
 
 The package step creates `/spec0` through `/spec<N-1>` and starts one copy on
@@ -167,9 +176,9 @@ The final `nemu-trap <status>` is always emitted for single-hart images.
 Multi-hart images use the per-hart task wrappers and aggregate launcher
 described above instead.
 
-The repository provides static `xiangshan-fpga-noAIA-novec` DTS templates for the
-SPEC2017 memory profiles used by default. The embedded DTB is selected per
-case:
+The repository provides static DTS templates for the SPEC2017 memory profiles
+used by default. NEMU uses the `xiangshan-fpga-noAIA-novec` family and QEMU uses
+the `xiangshan-qemu-nemu` family. The embedded DTB is selected per case:
 
 ```text
 rate  -> 8g
@@ -209,6 +218,8 @@ The source templates live in:
 ```text
 dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in
 dts/xiangshan-fpga-noAIA-mem24g-novec.dts.in
+dts/xiangshan-qemu-nemu-mem8g.dts.in
+dts/xiangshan-qemu-nemu-mem24g.dts.in
 ```
 
 They are compiled into each case's `dt/` directory during firmware assembly.

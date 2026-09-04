@@ -27,7 +27,7 @@
     cpus {
         #address-cells = <1>;
         #size-cells = <0>;
-        timebase-frequency = <10000000>;
+        timebase-frequency = <1000000>;
 
         cpu0: cpu@0 {
             compatible = "riscv";
@@ -1354,7 +1354,7 @@
                               <&cpu30_intc 11>, <&cpu30_intc 9>,
                               <&cpu31_intc 11>, <&cpu31_intc 9>;
         riscv,max-priority = <7>;
-        riscv,ndev = <64>;
+        riscv,ndev = <66>;
     };
 
 
@@ -1379,13 +1379,13 @@
         compatible = "simple-bus";
         ranges;
 
-        serial@40600000 {
-            compatible = "xlnx,xps-uartlite-1.00.a";
-            reg = <0x0 0x40600000 0x0 0x1000>;
-            interrupts-extended = <&plic 3>;
+        serial@310b0000 {
+            compatible = "ns16550a";
+            reg = <0x0 0x310b0000 0x0 0x10000>;
+            reg-shift = <0x2>;
+            reg-io-width = <0x4>;
+            clock-frequency = <50000000>;
             current-speed = <115200>;
-            xlnx,data-bits = <8>;
-            xlnx,use-parity = <0>;
         };
 
     };

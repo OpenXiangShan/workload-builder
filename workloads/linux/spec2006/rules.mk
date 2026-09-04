@@ -9,7 +9,7 @@ SPEC2006_BUILD_DIR ?= $(SPEC2006_REPO_ROOT)/build/linux-workloads/spec2006
 SPEC2006_CASE_CONFIG := $(SPEC2006_WORKLOAD_DIR)/spec06.json
 SPEC2006_CFG ?= $(SPEC2006_WORKLOAD_DIR)/configs/gcc16-linux-riscv64-rva23u64_novec.cfg
 SPEC2006_HELPER := $(SPEC2006_WORKLOAD_DIR)/spec2006-package.py
-SPEC2006_IMAGE_DIR ?= $(SPEC2006_REPO_ROOT)/build/images/spec2006
+QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu-mem2g
 SPEC2006_SOURCE_SPEC_ISO := $(SPEC2006_ISO)
 SPEC2006_PREPARED_SPEC_ROOT := $(SPEC2006_BUILD_DIR)/spec-src
 SPEC2006_SOURCE_SPEC_HASH := $(shell printf '%s\n' "$(SPEC2006_SOURCE_SPEC_ISO)" | sha256sum | cut -d ' ' -f 1)
@@ -21,7 +21,18 @@ SPEC2006_GNU_TOOLCHAIN_ROOT ?=
 SPEC2006_JEMALLOC_ROOT ?=
 SPEC2006_MULTIHART ?= $(MULTIHART)
 SPEC2006_HARTS ?= $(if $(HARTS),$(HARTS),2)
-SPEC2006_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(SPEC2006_MULTIHART)),,xiangshan-fpga-noAIA-novec))
+PLATFORM ?= $(if $(filter 1,$(SPEC2006_MULTIHART)),qemu,nemu)
+ifeq ($(filter $(PLATFORM),nemu qemu),)
+$(error PLATFORM must be either nemu or qemu)
+endif
+ifeq ($(filter 1,$(SPEC2006_MULTIHART)),1)
+ifneq ($(PLATFORM),qemu)
+$(error MULTIHART=1 requires PLATFORM=qemu)
+endif
+endif
+SPEC2006_IMAGE_DIR ?= $(SPEC2006_REPO_ROOT)/build/images/spec2006
+SPEC2006_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(SPEC2006_MULTIHART)),,$(if $(filter qemu,$(PLATFORM)),$(QEMU_DEFAULT_DTB),xiangshan-fpga-noAIA-novec)))
+SPEC2006_FIRMWARE_FILENAME := $(if $(filter qemu,$(PLATFORM)),fw_payload.qemu.bin,fw_payload.bin)
 ifeq ($(filter 1,$(SPEC2006_MULTIHART)),1)
 ifeq ($(strip $(SPEC2006_DEFAULT_DTB)),)
 $(error DEFAULT_DTB or SPEC2006_DEFAULT_DTB must be specified when MULTIHART=1; use the complete DTS basename without .dts.in)
@@ -146,22 +157,23 @@ $(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUI
 	MULTIHART_PAYLOAD_DIR=spec \
 	bash "$$(SPEC2006_SCRIPTS_DIR)/build-workload-linux.sh" "$$(SPEC2006_WORKLOAD_DIR)" "$(SPEC2006_BUILD_DIR)/$(1)"
 
-$(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin: $$(SPEC2006_DTS_SOURCES) $$(SPEC2006_DEFAULT_DTB_STAMP) $$(SPEC2006_GCPT_BIN) $$(SPEC2006_SCRIPTS_DIR)/build-firmware-linux.sh $$(SPEC2006_SCRIPTS_DIR)/dts-config.sh $(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio $$(SPEC2006_LINUX_IMAGE) $$(SPEC2006_SBI_BIN)
+$(SPEC2006_BUILD_DIR)/$(1)/$(SPEC2006_FIRMWARE_FILENAME): $$(SPEC2006_DTS_SOURCES) $$(SPEC2006_DEFAULT_DTB_STAMP) $$(SPEC2006_GCPT_BIN) $$(SPEC2006_SCRIPTS_DIR)/build-firmware-linux.sh $$(SPEC2006_SCRIPTS_DIR)/dts-config.sh $(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio $$(SPEC2006_LINUX_IMAGE) $$(SPEC2006_SBI_BIN)
 	@printf '$(SPEC2006_PROGRESS_PREFIX) Assembling firmware for $(1)\n'
 	@CROSS_COMPILE="$$(SPEC2006_BUILDROOT_CROSS_COMPILE)" \
 	DTC="$$(SPEC2006_DTC)" \
 	DEFAULT_DTB="$$(SPEC2006_DEFAULT_DTB)" \
+	FIRMWARE_OUTPUT="$$(abspath $$@)" \
 	MULTIHART="$$(SPEC2006_MULTIHART)" \
 	HARTS="$$(SPEC2006_HARTS)" \
 	SPEC2006_PROGRESS_K="$$(SPEC2006_PROGRESS_K)" \
 	SPEC2006_PROGRESS_N="$$(SPEC2006_PROGRESS_N)" \
 	bash "$$(SPEC2006_SCRIPTS_DIR)/build-firmware-linux.sh" "$$(SPEC2006_GCPT_BIN)" "$$(SPEC2006_SBI_BUILD_DIR)" "$$(SPEC2006_DTS_DIR)" "$$(SPEC2006_LINUX_IMAGE)" "$(SPEC2006_BUILD_DIR)/$(1)"
 
-linux/$(1): $(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin
+linux/$(1): $(SPEC2006_BUILD_DIR)/$(1)/$(SPEC2006_FIRMWARE_FILENAME)
 
 WORKLOAD_PHONY_TARGETS += linux/$(1)
 
-$(call spec2006_case_image_stamp,$(1)): $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUILD_DIR)/$(1)/fw_payload.bin $(SPEC2006_GCPT_ELF) $(SPEC2006_GCPT_BIN) $(SPEC2006_LINUX_IMAGE) $(SPEC2006_SBI_BIN) $$(SPEC2006_SCRIPTS_DIR)/export-linux-debug-artifacts.sh $$(SPEC2006_SCRIPTS_DIR)/dts-config.sh | spec2006-check-spec-iso
+$(call spec2006_case_image_stamp,$(1)): $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUILD_DIR)/$(1)/$(SPEC2006_FIRMWARE_FILENAME) $(SPEC2006_GCPT_ELF) $(SPEC2006_GCPT_BIN) $(SPEC2006_LINUX_IMAGE) $(SPEC2006_SBI_BIN) $$(SPEC2006_SCRIPTS_DIR)/export-linux-debug-artifacts.sh $$(SPEC2006_SCRIPTS_DIR)/dts-config.sh | spec2006-check-spec-iso
 	@printf '$(SPEC2006_PROGRESS_PREFIX) Exporting $(1) artifacts to $(SPEC2006_IMAGE_DIR)\n'
 	@run_command="$(SPEC2006_BUILD_DIR)/$(1)/package/spec/run.sh"; \
 	if [ ! -f "$$$$run_command" ]; then run_command="$(SPEC2006_BUILD_DIR)/$(1)/package/spec_common/launch_multihart.sh"; fi; \
@@ -172,6 +184,7 @@ $(call spec2006_case_image_stamp,$(1)): $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUI
 	SPEC_CONFIG="$(SPEC2006_CFG)" \
 	GCPT_ELF="$(SPEC2006_GCPT_ELF)" \
 	GCPT_BIN="$(SPEC2006_GCPT_BIN)" \
+	FIRMWARE_IMAGE="$(SPEC2006_BUILD_DIR)/$(1)/$(SPEC2006_FIRMWARE_FILENAME)" \
 	bash "$(SPEC2006_SCRIPTS_DIR)/export-linux-debug-artifacts.sh" "$(SPEC2006_BUILDROOT_DIR)" "$(SPEC2006_SBI_BUILD_DIR)" "$(SPEC2006_BUILD_DIR)/$(1)" "$(SPEC2006_IMAGE_DIR)" "$(1)" "$(SPEC2006_DEFAULT_DTB)" "$(SPEC2006_LINUX_IMAGE)"
 	@touch "$$@"
 endef
@@ -184,7 +197,7 @@ linux/spec2006: spec2006-check-spec-iso
 		echo "   or: make linux/spec2006 BENCH=astar_biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN"; \
 		exit 1; \
 	fi
-	@$(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2006_DEFAULT_DTB)" $(SPEC2006_BUILD_DIR)/$(SPEC2006_CASE)/fw_payload.bin
+	@$(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2006_DEFAULT_DTB)" $(SPEC2006_BUILD_DIR)/$(SPEC2006_CASE)/$(SPEC2006_FIRMWARE_FILENAME)
 
 spec2006-elf: spec2006-check-spec-iso
 	@if [ -z "$(BENCH)" ]; then \

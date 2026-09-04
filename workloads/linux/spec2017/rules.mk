@@ -22,8 +22,21 @@ SPEC2017_GNU_TOOLCHAIN_ROOT ?=
 SPEC2017_JEMALLOC_ROOT ?=
 SPEC2017_MULTIHART ?= $(MULTIHART)
 SPEC2017_HARTS ?= $(if $(HARTS),$(HARTS),2)
+PLATFORM ?= $(if $(filter 1,$(SPEC2017_MULTIHART)),qemu,nemu)
+ifeq ($(filter $(PLATFORM),nemu qemu),)
+$(error PLATFORM must be either nemu or qemu)
+endif
+ifeq ($(filter 1,$(SPEC2017_MULTIHART)),1)
+ifneq ($(PLATFORM),qemu)
+$(error MULTIHART=1 requires PLATFORM=qemu)
+endif
+endif
+QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu-mem2g
+SPEC2017_QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu
 SPEC2017_EXPLICIT_DEFAULT_DTB := $(if $(DEFAULT_DTB),1,$(if $(filter undefined,$(origin SPEC2017_DEFAULT_DTB)),,1))
-SPEC2017_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(SPEC2017_MULTIHART)),,xiangshan-fpga-noAIA-novec))
+SPEC2017_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(SPEC2017_MULTIHART)),,$(if $(filter qemu,$(PLATFORM)),$(SPEC2017_QEMU_DEFAULT_DTB),xiangshan-fpga-noAIA-novec)))
+SPEC2017_GCPT_DEFAULT_DTB := $(if $(and $(filter qemu,$(PLATFORM)),$(filter-out 1,$(SPEC2017_MULTIHART))),$(QEMU_DEFAULT_DTB),$(SPEC2017_DEFAULT_DTB))
+SPEC2017_FIRMWARE_FILENAME := $(if $(filter qemu,$(PLATFORM)),fw_payload.qemu.bin,fw_payload.bin)
 ifeq ($(filter 1,$(SPEC2017_MULTIHART)),1)
 ifeq ($(strip $(SPEC2017_DEFAULT_DTB)),)
 $(error DEFAULT_DTB or SPEC2017_DEFAULT_DTB must be specified when MULTIHART=1; use the complete DTS basename without .dts.in)
@@ -187,11 +200,12 @@ $(SPEC2017_BUILD_DIR)/$(1)/firmware/dtb-$(call spec2017_case_dtb_tag,$(1)).stamp
 		"required_min_memory_bytes=$(call spec2017_case_dtb_required_min_memory_bytes,$(1))" > "$$@.tmp"
 	@if [ -f "$$@" ] && cmp -s "$$@.tmp" "$$@"; then rm "$$@.tmp"; else mv "$$@.tmp" "$$@"; fi
 
-$(SPEC2017_BUILD_DIR)/$(1)/fw_payload.bin: $$(SPEC2017_DTS_SOURCES) $$(SPEC2017_GCPT_BIN) $$(SPEC2017_SCRIPTS_DIR)/build-firmware-linux.sh $$(SPEC2017_SCRIPTS_DIR)/dts-config.sh $(SPEC2017_BUILD_DIR)/$(1)/rootfs.cpio $$(SPEC2017_LINUX_IMAGE) $$(SPEC2017_SBI_BIN) $(SPEC2017_BUILD_DIR)/$(1)/firmware/dtb-$(call spec2017_case_dtb_tag,$(1)).stamp
+$(SPEC2017_BUILD_DIR)/$(1)/$(SPEC2017_FIRMWARE_FILENAME): $$(SPEC2017_DTS_SOURCES) $$(SPEC2017_GCPT_BIN) $$(SPEC2017_SCRIPTS_DIR)/build-firmware-linux.sh $$(SPEC2017_SCRIPTS_DIR)/dts-config.sh $(SPEC2017_BUILD_DIR)/$(1)/rootfs.cpio $$(SPEC2017_LINUX_IMAGE) $$(SPEC2017_SBI_BIN) $(SPEC2017_BUILD_DIR)/$(1)/firmware/dtb-$(call spec2017_case_dtb_tag,$(1)).stamp
 	@printf '$(SPEC2017_PROGRESS_PREFIX) Assembling firmware for $(1)\n'
 	@CROSS_COMPILE="$$(SPEC2017_BUILDROOT_CROSS_COMPILE)" \
 	DTC="$$(SPEC2017_DTC)" \
 	DEFAULT_DTB="$$(SPEC2017_DEFAULT_DTB)" \
+	FIRMWARE_OUTPUT="$$(abspath $$@)" \
 	DTB_MEMORY_PROFILE="$(call spec2017_case_dtb_profile,$(1))" \
 	DTB_MIN_MEMORY_BYTES="$(call spec2017_case_dtb_min_memory_bytes,$(1))" \
 	DTB_REQUIRED_MIN_MEMORY_BYTES="$(call spec2017_case_dtb_required_min_memory_bytes,$(1))" \
@@ -201,7 +215,7 @@ $(SPEC2017_BUILD_DIR)/$(1)/fw_payload.bin: $$(SPEC2017_DTS_SOURCES) $$(SPEC2017_
 	SPEC2017_PROGRESS_N="$$(SPEC2017_PROGRESS_N)" \
 	bash "$$(SPEC2017_SCRIPTS_DIR)/build-firmware-linux.sh" "$$(SPEC2017_GCPT_BIN)" "$$(SPEC2017_SBI_BUILD_DIR)" "$$(SPEC2017_DTS_DIR)" "$$(SPEC2017_LINUX_IMAGE)" "$(SPEC2017_BUILD_DIR)/$(1)"
 
-linux/$(1): $(SPEC2017_BUILD_DIR)/$(1)/fw_payload.bin
+linux/$(1): $(SPEC2017_BUILD_DIR)/$(1)/$(SPEC2017_FIRMWARE_FILENAME)
 
 WORKLOAD_PHONY_TARGETS += linux/$(1)
 
@@ -241,6 +255,7 @@ $(SPEC2017_IMAGE_DIR)/stamps/$(1).images.stamp: $(SPEC2017_PREPARE_STAMP) $(SPEC
 		DTB_REQUIRED_MIN_MEMORY_BYTES="$(call spec2017_case_dtb_required_min_memory_bytes,$(1))" \
 		MULTIHART="$$(SPEC2017_MULTIHART)" \
 		HARTS="$$(SPEC2017_HARTS)" \
+		FIRMWARE_OUTPUT="$$$$build_dir/$(SPEC2017_FIRMWARE_FILENAME)" \
 		SPEC2017_PROGRESS_K="$$(SPEC2017_PROGRESS_K)" \
 		SPEC2017_PROGRESS_N="$$(SPEC2017_PROGRESS_N)" \
 		bash "$$(SPEC2017_SCRIPTS_DIR)/build-firmware-linux.sh" "$$(SPEC2017_GCPT_BIN)" "$$(SPEC2017_SBI_BUILD_DIR)" "$$(SPEC2017_DTS_DIR)" "$$(SPEC2017_LINUX_IMAGE)" "$$$$build_dir"; \
@@ -253,6 +268,7 @@ $(SPEC2017_IMAGE_DIR)/stamps/$(1).images.stamp: $(SPEC2017_PREPARE_STAMP) $(SPEC
 		SPEC_CONFIG="$(abspath $(call spec2017_case_cfg,$(1)))" \
 		GCPT_ELF="$$(SPEC2017_GCPT_ELF)" \
 		GCPT_BIN="$$(SPEC2017_GCPT_BIN)" \
+		FIRMWARE_IMAGE="$$$$build_dir/$(SPEC2017_FIRMWARE_FILENAME)" \
 		bash "$$(SPEC2017_SCRIPTS_DIR)/export-linux-debug-artifacts.sh" "$$(SPEC2017_BUILDROOT_DIR)" "$$(SPEC2017_SBI_BUILD_DIR)" "$$$$build_dir" "$(SPEC2017_IMAGE_DIR)" "$$$$variant" "$(call spec2017_case_dtb_name,$(1))" "$$(SPEC2017_LINUX_IMAGE)"; \
 	done
 	@touch "$$@"
@@ -270,7 +286,7 @@ linux/spec2017: spec2017-check-spec-config
 		echo "Cannot resolve SPEC2017 case from BENCH=$(BENCH), MODE=$(SPEC2017_MODE), INPUT=$(SPEC2017_INPUT)"; \
 		exit 1; \
 	fi
-	@$(MAKE) --no-print-directory -f "$(SPEC2017_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2017_DEFAULT_DTB)" $(SPEC2017_BUILD_DIR)/$(SPEC2017_CASE)/fw_payload.bin
+	@$(MAKE) --no-print-directory -f "$(SPEC2017_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2017_GCPT_DEFAULT_DTB)" $(SPEC2017_BUILD_DIR)/$(SPEC2017_CASE)/$(SPEC2017_FIRMWARE_FILENAME)
 
 spec2017-elf: spec2017-check-spec-config
 	@if [ -z "$(BENCH)" ]; then \
@@ -309,7 +325,7 @@ spec2017-images: spec2017-check-spec-config
 	i=0; \
 	for case in $(SPEC2017_IMAGE_CASES); do \
 		i=$$((i + 1)); \
-		SPEC2017_PROGRESS_K="$$i" SPEC2017_PROGRESS_N="$$total" $(MAKE) --no-print-directory -f "$(SPEC2017_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2017_DEFAULT_DTB)" "$(SPEC2017_IMAGE_DIR)/stamps/$$case.images.stamp" || exit $$?; \
+		SPEC2017_PROGRESS_K="$$i" SPEC2017_PROGRESS_N="$$total" $(MAKE) --no-print-directory -f "$(SPEC2017_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2017_GCPT_DEFAULT_DTB)" "$(SPEC2017_IMAGE_DIR)/stamps/$$case.images.stamp" || exit $$?; \
 	done
 	@printf '[spec2017 %s/%s] Output written to %s\n' "$(words $(SPEC2017_IMAGE_CASES))" "$(words $(SPEC2017_IMAGE_CASES))" "$(abspath $(SPEC2017_IMAGE_DIR))"
 

@@ -20,6 +20,12 @@ These parameters are replaced with the corresponding values when building the wo
 - `xiangshan-fpga-noAIA-mem8g-novec.dts.in`: XiangShan FPGA DTS without vector extensions, with an 8 GiB memory profile.
 - `xiangshan-fpga-noAIA-mem24g-novec.dts.in`: XiangShan FPGA DTS without vector extensions, with a 24 GiB memory profile.
 - `xiangshan-fpga-noAIA-mem64g-novec.dts.in`: XiangShan FPGA DTS without vector extensions, with a 64 GiB memory profile.
+- `xiangshan-qemu-nemu-mem2g.dts.in`: Single-hart DTS for QEMU's `nemu`
+  machine, with 2 GiB of memory and a no-IRQ 16550A UART at `0x310b0000`.
+- `xiangshan-qemu-nemu-mem8g.dts.in`: The same single-hart QEMU profile with
+  8 GiB of memory, used by SPEC2017 rate workloads.
+- `xiangshan-qemu-nemu-mem24g.dts.in`: The same single-hart QEMU profile with
+  24 GiB of memory, used by SPEC2017 speed workloads.
 
 Multi-hart XiangShan builds require the user to select a complete DTS basename
 with `DEFAULT_DTB`; the build no longer assumes a `mem8g` suffix. For example,
@@ -38,12 +44,11 @@ and the `0x88600000` kernel address do not apply. This table shows the default
 |-------------------------|----------------|------------|
 | `0x80000000–0x800fffff` | 1 MiB | LibCheckpointAlpha checkpoint-recovery program; reserved as `no-map` in the DTS |
 | `0x80100000` | +1 MiB | OpenSBI firmware starts here |
-| `0x80180000` | +1.5 MiB | Device tree placed here by firmware assembly |
-| `0x80200000` and above | >=+2 MiB | Linux kernel at the first 2 MiB-aligned address, then the MiB-aligned initramfs |
+| `0x801c0000` | +1.75 MiB | Device tree placed here by firmware assembly |
+| `0x80200000` and above | +2 MiB | Linux kernel image, then the MiB-aligned initramfs |
 
-The single-core firmware packer uses `DTB_OFFSET_KB=1536`,
-`SBI_OFFSET_KB=1024`, and a minimum kernel offset of 2 MiB. The kernel's
-physical address is rounded up to a 2 MiB boundary. The initramfs address is
+The single-core firmware packer uses `DTB_OFFSET_KB=1792`,
+`SBI_OFFSET_KB=1024`, and `KERNEL_OFFSET_MB=2`. The initramfs address is
 computed from the actual kernel size and starts at the next MiB boundary. The
 selected single-core DTS supplies the DRAM base and capacity; no fixed 8 GiB or
 64 GiB profile is imposed by this layout.
@@ -82,8 +87,8 @@ standard templates retain these profiles:
 
 | Template | DRAM |
 |----------|------|
-| `xiangshan-fpga-noAIA-2hart-mem8g` | 8 GiB |
-| `xiangshan-fpga-noAIA-2hart-mem16g` | 16 GiB |
+| `xiangshan-fpga-noAIA-2hart-mem8g-novec` | 8 GiB |
+| `xiangshan-fpga-noAIA-2hart-mem16g-novec` | 16 GiB |
 | `xiangshan-fpga-noAIA-32hart-mem64g` | 64 GiB |
 
 `xiangshan-fpga-noAIA-mem16g-novec` is the single-hart Host profile for
@@ -95,8 +100,8 @@ least 16 GiB, and structured ISA extension `h`.
 Select the complete template basename explicitly when building, for example:
 
 ```sh
-make linux/hello MULTIHART=1 HARTS=2 \
-  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g
+make linux/coremark MULTIHART=1 HARTS=2 \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g-novec
 ```
 
 ## Generate Multi-Hart XiangShan DTS
@@ -107,35 +112,33 @@ XiangShan FPGA baseline with:
 
 ```shell
 python3 scripts/generate-xiangshan-multihart-dts.py \
-  --base dts/xiangshan-fpga-noAIA-mem8g.dts.in \
+  --base dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in \
   --harts 2 \
-  --output dts/xiangshan-fpga-noAIA-2hart-mem8g.dts.in
+  --output dts/xiangshan-fpga-noAIA-2hart-mem8g-novec.dts.in
 ```
 
 Use `--memory-gib` to override the copied DRAM capacity. The checked-in 16 GiB
-two-hart profile is generated with:
+two-hart profile can be regenerated with:
 
 ```shell
 python3 scripts/generate-xiangshan-multihart-dts.py \
-  --base dts/xiangshan-fpga-noAIA-mem8g.dts.in \
+  --base dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in \
   --harts 2 \
   --memory-gib 16 \
-  --output dts/xiangshan-fpga-noAIA-2hart-mem16g.dts.in
+  --output dts/xiangshan-fpga-noAIA-2hart-mem16g-novec.dts.in
 ```
 
 `--harts` must be in the range 2 through 128, and `--memory-gib` must be a
 positive integer when specified. The generator copies the CPU node for each
-hart, extends the CLINT, PLIC, and debug interrupt contexts, and applies the
-NEMU UARTLITE and PLIC settings. Generated multi-hart templates reserve the
-fixed 131 MiB checkpoint window `[0x80300000, 0x88600000)`.
+hart, extends the CLINT, PLIC, and debug interrupt contexts, sets
+`riscv,ndev = <66>`, and emits the no-IRQ 16550A console at `0x310b0000` used
+by the supported QEMU `nemu` machine. Generated multi-hart templates reserve
+the fixed 131 MiB checkpoint window `[0x80300000, 0x88600000)`.
 
 The full capability block describes XiangShan hardware and is not fully
-emulated by the current generic OpenSBI/QEMU `nemu` path. In particular,
-DT-advertised `smrnmi` requires an OpenSBI platform
-`smrnmi_handlers_init` callback, so all generic-platform DTS templates omit
-it. The `nemu` timer path likewise cannot execute the DT-advertised `sstc` CSR
-sequence; multi-core diagnostic runs may need to omit `sstc` and use
-`sstc=false`.
+emulated by the current QEMU `nemu` path. In particular, the timer path cannot
+execute the DT-advertised `sstc` CSR sequence, so generated multi-hart CPU nodes
+omit `sstc`.
 
 The build does not invoke this generator automatically. Run it and review the
 result before building with the corresponding `HARTS` value.

@@ -7,6 +7,7 @@ BUILD_DIR="$(dirname "$GCPT_BUILD_DIR")"
 GCPT_IMPLEMENTATION="${GCPT_IMPLEMENTATION:-alpha}"
 GCPT_CONFIGURE_MODE="${GCPT_CONFIGURE_MODE:-normal}"
 GCPT_PAYLOAD_PATH="${GCPT_PAYLOAD_PATH:-${3:-}}"
+GCPT_SERIAL_PORT="${GCPT_SERIAL_PORT:-}"
 
 source "$(dirname "${BASH_SOURCE[0]}")/dts-config.sh"
 
@@ -28,6 +29,9 @@ case "$GCPT_IMPLEMENTATION" in
         make -C "$GCPT_BUILD_DIR"
         ;;
     libcheckpoint)
+        if [ -n "$GCPT_SERIAL_PORT" ]; then
+            CFLAGS="${CFLAGS:-} -DCONFIG_SERIAL_PORT=$GCPT_SERIAL_PORT"
+        fi
         case "$GCPT_CONFIGURE_MODE" in
             normal|dual_core) ;;
             *)

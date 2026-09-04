@@ -1,15 +1,28 @@
 all: workloads
 
 MULTIHART ?= 0
+PLATFORM ?= $(if $(filter 1,$(MULTIHART)),qemu,nemu)
 HARTS ?= 2
-LINUX_DEFAULT_DTB := $(if $(DEFAULT_DTB),$(DEFAULT_DTB),)
+QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu-mem2g
+
+ifeq ($(filter $(PLATFORM),nemu qemu),)
+$(error PLATFORM must be either nemu or qemu)
+endif
+ifeq ($(filter 1,$(MULTIHART)),1)
+ifneq ($(PLATFORM),qemu)
+$(error MULTIHART=1 requires PLATFORM=qemu)
+endif
+endif
+
+LINUX_DEFAULT_DTB := $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(MULTIHART)),,$(if $(filter qemu,$(PLATFORM)),$(QEMU_DEFAULT_DTB),)))
+LINUX_FIRMWARE_FILENAME := $(if $(filter qemu,$(PLATFORM)),fw_payload.qemu.bin,fw_payload.bin)
 LINUX_ROOTFS_BUILD_VARS_HASH := $(shell printf '%s\n' \
 	'multihart=$(if $(filter 1,$(MULTIHART)),1,0)' \
 	'harts=$(if $(filter 1,$(MULTIHART)),$(HARTS),1)' | sha256sum | cut -d ' ' -f 1)
 LINUX_FIRMWARE_BUILD_VARS_HASH := $(shell printf '%s\n' \
 	'multihart=$(if $(filter 1,$(MULTIHART)),1,0)' \
 	'harts=$(if $(filter 1,$(MULTIHART)),$(HARTS),1)' \
-	'default_dtb=$(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan)' | sha256sum | cut -d ' ' -f 1)
+	'default_dtb=$(if $(LINUX_DEFAULT_DTB),$(LINUX_DEFAULT_DTB),xiangshan)' | sha256sum | cut -d ' ' -f 1)
 
 MULTIHART_SUPPORTED_HARTS = $(shell seq 2 128)
 ifeq ($(filter 1,$(MULTIHART)),1)
@@ -51,11 +64,12 @@ GCPT_IMPLEMENTATION := $(if $(filter 1,$(MULTIHART)),libcheckpoint,alpha)
 GCPT_SOURCE_DIR := $(if $(filter 1,$(MULTIHART)),bootloader/LibCheckpoint,bootloader/LibCheckpointAlpha)
 GCPT_BUILD_DIR := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint,build/LibCheckpointAlpha)
 GCPT_BIN := $(GCPT_BUILD_DIR)/build/gcpt.bin
-GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan)
+GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter qemu,$(PLATFORM)),$(QEMU_DEFAULT_DTB),xiangshan))
 GCPT_DEFAULT_DTS := dts/$(GCPT_DEFAULT_DTB).dts.in
 GCPT_CONFIGURE_MODE := $(if $(filter 1,$(MULTIHART)),dual_core,normal)
+GCPT_SERIAL_PORT ?= $(if $(filter 1,$(MULTIHART)),0x310b0000,)
 GCPT_DTB_CONFIG_HASH := $(shell printf '%s\n' "$(GCPT_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
-GCPT_CONFIG_STAMP := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.$(GCPT_CONFIGURE_MODE),build/LibCheckpointAlpha-config/dtb.$(GCPT_DTB_CONFIG_HASH))
+GCPT_CONFIG_STAMP := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.$(GCPT_CONFIGURE_MODE).serial-port.$(GCPT_SERIAL_PORT),build/LibCheckpointAlpha-config/dtb.$(GCPT_DTB_CONFIG_HASH))
 GCPT_SOURCES := $(if $(filter 1,$(MULTIHART)),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -path '*/tests' -prune -o -type f -print 2>/dev/null),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -type f -print 2>/dev/null))
 GCPT_DTS_SOURCES := $(if $(filter 1,$(MULTIHART)),,$(GCPT_DEFAULT_DTS))
 $(GCPT_CONFIG_STAMP):
@@ -67,6 +81,7 @@ $(GCPT_BIN): scripts/build-gcpt.sh scripts/dts-config.sh $(TOOLCHAIN_WRAPPER) $(
 	GCPT_IMPLEMENTATION="$(GCPT_IMPLEMENTATION)" \
 	GCPT_CONFIGURE_MODE="$(GCPT_CONFIGURE_MODE)" \
 	GCPT_PAYLOAD_PATH="$(if $(filter 1,$(MULTIHART)),$(abspath $(SBI_BIN)),)" \
+	GCPT_SERIAL_PORT="$(GCPT_SERIAL_PORT)" \
 	DEFAULT_DTB="$(GCPT_DEFAULT_DTB)" \
 	DTS_TEMPLATE_DIR="$(abspath dts)" \
 	bash scripts/build-gcpt.sh $(GCPT_SOURCE_DIR) $(GCPT_BUILD_DIR)
@@ -110,19 +125,20 @@ build/linux-workloads/$(1)/firmware-vars.$(LINUX_FIRMWARE_BUILD_VARS_HASH).stamp
 	rm -f "$$(@D)"/firmware-vars.*.stamp
 	touch "$$@"
 
-build/linux-workloads/$(1)/fw_payload.bin: $$(shell find $$(abspath dts)) $(GCPT_BIN) dts/xiangshan.dts.in scripts/build-sbi.sh scripts/dts-config.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) $(SBI_BIN) build/linux-workloads/$(1)/firmware-vars.$(LINUX_FIRMWARE_BUILD_VARS_HASH).stamp
+build/linux-workloads/$(1)/$(LINUX_FIRMWARE_FILENAME): $$(shell find $$(abspath dts)) $(GCPT_BIN) $(GCPT_DEFAULT_DTS) scripts/build-sbi.sh scripts/dts-config.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) $(SBI_BIN) build/linux-workloads/$(1)/firmware-vars.$(LINUX_FIRMWARE_BUILD_VARS_HASH).stamp
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	DTC="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/dtc" \
 	DEFAULT_DTB="$(LINUX_DEFAULT_DTB)" \
+	FIRMWARE_OUTPUT="$$(abspath $$@)" \
 	MULTIHART="$$(MULTIHART)" \
 	HARTS="$$(HARTS)" \
 	bash scripts/build-firmware-linux.sh $(GCPT_BIN) $(SBI_BUILD_DIR) dts $(LINUX_IMAGE) build/linux-workloads/$(1)
 
-linux/$(1): build/linux-workloads/$(1)/fw_payload.bin
+linux/$(1): build/linux-workloads/$(1)/$(LINUX_FIRMWARE_FILENAME)
 
 WORKLOAD_PHONY_TARGETS += linux/$(1)
 WORKLOAD_DIRS += build/linux-workloads/$(1)
-WORKLOADS_LINUX += build/linux-workloads/$(1)/fw_payload.bin
+WORKLOADS_LINUX += build/linux-workloads/$(1)/$(LINUX_FIRMWARE_FILENAME)
 ROOTFS += build/linux-workloads/$(1)/rootfs.cpio
 DT_DIRS += build/linux-workloads/$(1)/dt
 TARFLAGS += --transform='s|^build/linux-workloads/$(1)|workloads/linux/$(1)|'
@@ -159,13 +175,17 @@ LINUX_WORKLOAD_DIRS := $(patsubst workloads/linux/%/build.sh,%,$(wildcard worklo
 AM_WORKLOAD_DIRS := $(patsubst workloads/am/%/build.sh,%,$(wildcard workloads/am/*/build.sh))
 LINUX_GENERIC_WORKLOADS := $(sort $(filter-out $(LINUX_WORKLOAD_RULE_DIRS),$(LINUX_WORKLOAD_DIRS)))
 AM_GENERIC_WORKLOADS := $(sort $(filter-out $(AM_WORKLOAD_RULE_DIRS),$(AM_WORKLOAD_DIRS)))
+# QEMU support covers the Linux workloads with QEMU-compatible firmware flows.
+QEMU_SUPPORTED_LINUX_WORKLOADS := coremark spec2006 spec2017
+LINUX_ENABLED_GENERIC_WORKLOADS := $(if $(filter qemu,$(PLATFORM)),$(filter $(QEMU_SUPPORTED_LINUX_WORKLOADS),$(LINUX_GENERIC_WORKLOADS)),$(LINUX_GENERIC_WORKLOADS))
+LINUX_WORKLOAD_RULE_FILES := $(if $(filter qemu,$(PLATFORM)),$(wildcard $(foreach workload,$(QEMU_SUPPORTED_LINUX_WORKLOADS),workloads/linux/$(workload)/rules.mk)),$(wildcard workloads/linux/*/rules.mk))
 
-$(foreach workload,$(LINUX_GENERIC_WORKLOADS),$(eval $(call add_workload_linux,$(workload))))
+$(foreach workload,$(LINUX_ENABLED_GENERIC_WORKLOADS),$(eval $(call add_workload_linux,$(workload))))
 $(foreach workload,$(AM_GENERIC_WORKLOADS),$(eval $(call add_workload_am,$(workload))))
 
 # Include workload-specific make rules. A workload can add its own targets by
 # placing rules.mk under its workload directory.
--include $(wildcard workloads/linux/*/rules.mk)
+-include $(LINUX_WORKLOAD_RULE_FILES)
 -include $(wildcard workloads/am/*/rules.mk)
 
 # Pack all workloads

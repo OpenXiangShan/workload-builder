@@ -32,6 +32,31 @@ The build flow is:
 build/linux-workloads/spec2006/<case>/fw_payload.bin
 ```
 
+## Build and run with QEMU
+
+Use `PLATFORM=qemu` to assemble the same single-core benchmark/rootfs for the
+QEMU NEMU machine:
+
+```sh
+make linux/spec2006 PLATFORM=qemu BENCH=astar INPUT=biglakes \
+  SPEC2006_ISO=/path/to/cpu2006.iso -jN
+```
+
+This writes
+`build/linux-workloads/spec2006/<case>/fw_payload.qemu.bin` without replacing
+the NEMU `fw_payload.bin`. Run the Astar BigLakes case with:
+
+```sh
+QEMU_BIN=/path/to/qemu-system-riscv64 \
+  bash scripts/run-qemu.sh \
+  build/linux-workloads/spec2006/astar_biglakes/fw_payload.qemu.bin
+```
+
+Building does not require QEMU. The runner requires `QEMU_BIN` to name a
+compatible executable. Single-core QEMU mode uses the 2 GiB NEMU-machine DTS
+with a no-IRQ 16550A UART at `0x310b0000` and does not enable SimPoint
+profiling or checkpoint generation.
+
 ## Build and export images
 
 Export all selected cases to `build/images/spec2006`:
@@ -55,9 +80,13 @@ make spec2006-images BENCH=mcf SPEC2006_ISO=/path/to/cpu2006.iso -jN
 make spec2006-images BENCH=astar_biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN
 ```
 
-By default, SPEC2006 firmware images embed
-`dts/xiangshan-fpga-noAIA-novec.dts.in`. Override that baseline with
-`DEFAULT_DTB` if you need another DTS template:
+Adding `PLATFORM=qemu` exports the complete QEMU artifact tree to the same
+`build/images/spec2006` directory. Its firmware is
+`bin/<case>.fw_payload.bin`.
+
+By default, NEMU firmware embeds `dts/xiangshan-fpga-noAIA-novec.dts.in`, while
+QEMU firmware embeds `dts/xiangshan-qemu-nemu-mem2g.dts.in`. Override the
+platform default with `DEFAULT_DTB` if you need another DTS template:
 
 ```sh
 make linux/spec2006 BENCH=astar INPUT=biglakes \
@@ -74,7 +103,18 @@ and the selected device-tree template. Supported counts are 2 through 128:
 make linux/spec2006 BENCH=astar INPUT=biglakes \
   SPEC2006_ISO=/path/to/cpu2006.iso \
   MULTIHART=1 HARTS=2 \
-  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g -jN
+  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g-novec -jN
+```
+
+`MULTIHART=1` automatically selects `PLATFORM=qemu`; explicitly setting
+`PLATFORM=nemu` is rejected. The resulting firmware is
+`build/linux-workloads/spec2006/<case>/fw_payload.qemu.bin`. When running it,
+set `HARTS` and `QEMU_MEMORY` to match the selected DTS:
+
+```sh
+QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=8G \
+  HARTS=2 bash scripts/run-qemu.sh \
+  build/linux-workloads/spec2006/astar_biglakes/fw_payload.qemu.bin
 ```
 
 The package step creates one SPEC tree per hart:
@@ -126,12 +166,15 @@ build/images/spec2006/
 `kernel/` contains the ELF kernel plus its symbol map and configuration for
 debugging; `dt/` contains the exact DTB and generated DTS used by that case.
 `manifest/` records component hashes and load addresses. `gcpt/`, `cfg/`, and
-`opensbi/` are shared by the export tree.
+`opensbi/` are shared by cases within the export tree.
 
-Re-running `make spec2006-images` rebuilds the export tree so the directory
-layout and contents stay complete and consistent.
+Re-running `make spec2006-images` rebuilds the export tree for the selected
+platform, so a QEMU export replaces the previously exported NEMU artifacts in
+the same directory.
 
-Override the destination with `SPEC2006_IMAGE_DIR=/path/to/image`.
+Override the destination with `SPEC2006_IMAGE_DIR=/path/to/image`; the explicit
+path is used as-is. Use a separate custom directory if both NEMU and QEMU
+exports must be kept, because each run replaces the complete output tree.
 
 ## Build ELF only
 

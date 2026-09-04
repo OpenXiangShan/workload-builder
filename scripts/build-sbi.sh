@@ -20,7 +20,7 @@ else
     read -r MEM_BEGIN MEM_SIZE CLINT_MMIO <<< "$DTS_CONFIG"
     FW_TEXT_START=$((MEM_BEGIN + MEGABYTE))
     FW_JUMP_ADDR="$(dts_linux_kernel_address "$MEM_BEGIN" "$((2 * MEGABYTE))")"
-    FW_JUMP_FDT_ADDR=$((MEM_BEGIN + 1536 * 1024))
+    FW_JUMP_FDT_ADDR=$((MEM_BEGIN + 1792 * 1024))
 fi
 
 # prepare OpenSBI source
