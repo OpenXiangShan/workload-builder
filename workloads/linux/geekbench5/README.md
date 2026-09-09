@@ -3,6 +3,13 @@
 This workload packages the Geekbench 5.5.1 Linux/RISC-V Preview binaries into a
 Linux initramfs workload.
 
+The default image keeps the Preview binary's normal upload flow and enables an
+offline runtime takeover around it. It patches only the embedded upload URL
+scheme (without changing ELF offsets), and redirects all name resolution and
+socket traffic to an in-process local transport. No kernel source, network
+device, or listener is needed, and all benchmark computation remains in the
+downloaded ELF.
+
 Build the all-in-one NEMU firmware image:
 
 ```shell
@@ -27,10 +34,17 @@ default is `--cpu --iterations 1`:
 GEEKBENCH_ARGS='--sysinfo' make linux/geekbench5
 ```
 
+The in-process transport receives the normal upload request, extracts the
+calculated `score` and `multicore_score` values, and prints them without
+contacting the Browser. The complete captured upload request is printed before
+the score summary.
+The capture buffer grows with each request and honors that request's own
+`Content-Length`; chunked or close-delimited uploads are also captured in full.
+After a complete scored upload is printed and parsed, the preload shim finishes
+the Preview process so it cannot wait for a real Browser response.
 The boot script calls `nemu-trap 0` after the Geekbench process returns. This is
-intentional: the Preview binary may return a non-zero status when it cannot
-upload results, but reaching this point still means the benchmark path
-completed. The generated inittab also appends `nemu-trap -1` after
+intentional: the shim finishes the Preview process after a complete scored
+upload has been printed, and the generated inittab also appends `nemu-trap -1` after
 `/geekbench/run.sh` as a fallback for cases where the run script exits before
 issuing its own trap.
 
@@ -48,3 +62,6 @@ both switches as Pro-only.
 The Geekbench Preview binary exposes only the full CPU benchmark and sysinfo
 commands. Individual workload switches are present in the binary but require
 Geekbench Pro, so this workload builds the runnable CPU benchmark image.
+
+The workload always enables the takeover; there is no network-enabled mode in
+the generated image.

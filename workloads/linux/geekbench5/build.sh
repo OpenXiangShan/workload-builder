@@ -12,6 +12,11 @@ tar -C "$extract_dir" --strip-components=1 -xf "$archive"
 install -m 755 "$extract_dir/geekbench5" "$payload_dir/geekbench5"
 install -m 755 "$extract_dir/geekbench_riscv64" "$payload_dir/geekbench_riscv64"
 install -m 644 "$extract_dir/geekbench.plar" "$payload_dir/geekbench.plar"
+bash "$WORKLOAD_DIR/../geekbench-patch-offline-elf.sh" "$payload_dir/geekbench_riscv64"
+"${CROSS_COMPILE}gcc" -shared -fPIC -O2 \
+    -Wl,-soname,libgeekbench-offline.so \
+    -o "$payload_dir/libgeekbench-offline.so" \
+    "$WORKLOAD_DIR/../geekbench-offline-network.c"
 install -m 755 "$WORKLOAD_DIR/run.sh" "$payload_dir/run.sh"
 mkdir -p "$PKG_DIR/etc"
 mkdir -p "$PKG_DIR/etc/default"

@@ -11,6 +11,7 @@ mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 
 cd /geekbench
+export LD_PRELOAD=/geekbench/libgeekbench-offline.so
 ./geekbench_riscv64 $GEEKBENCH_ARGS
 # Geekbench may fail after the benchmark when it cannot upload results, so
 # treat reaching this point as successful workload completion.

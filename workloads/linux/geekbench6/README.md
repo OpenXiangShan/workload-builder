@@ -3,6 +3,14 @@
 This workload packages the Geekbench 6.7.0 Linux/RISC-V Preview binaries into a
 Linux initramfs workload.
 
+Preview builds require an upload and reject the Pro-only offline/export
+switches. The default image keeps that normal upload flow while enabling the
+same offline runtime takeover as the Geekbench 5 workload: the build rewrites
+the embedded HTTPS endpoint without changing ELF offsets, and the preload
+library replaces IPv4/IPv6 sockets with an in-process local transport. The
+kernel source and networking configuration are unchanged and no listener is
+required.
+
 Build the all-in-one NEMU firmware image:
 
 ```shell
@@ -27,10 +35,15 @@ default is `--cpu --iterations 1`:
 GEEKBENCH_ARGS='--sysinfo' make linux/geekbench6
 ```
 
-The boot script calls `nemu-trap 0` after the Geekbench process returns. This is
-intentional: the Preview binary may return a non-zero status when it cannot
-upload results, but reaching this point still means the benchmark path
-completed. The generated inittab also appends `nemu-trap -1` after
+The preload library and in-process transport capture the normal upload. They
+extract the calculated `score` and `multicore_score` values from the upload
+document and print them without contacting the Browser. The complete captured
+upload request is printed before the score summary. The capture buffer grows
+with each request and honors that request's own `Content-Length`; chunked or
+close-delimited uploads are also captured in full. After a complete scored
+upload is printed and parsed, the preload shim finishes the Preview process so
+it cannot wait for a real Browser response. The boot script calls `nemu-trap 0`
+after the Geekbench process returns. The generated inittab also appends `nemu-trap -1` after
 `/geekbench/run.sh` as a fallback for cases where the run script exits before
 issuing its own trap.
 
@@ -53,3 +66,6 @@ binary for broader simulator compatibility.
 The Geekbench Preview binary exposes only the full CPU benchmark and sysinfo
 commands. Individual workload switches are present in the binary but require
 Geekbench Pro, so this workload builds the runnable CPU benchmark image.
+
+The workload always enables the takeover; there is no network-enabled mode in
+the generated image.

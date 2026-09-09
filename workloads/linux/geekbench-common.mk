@@ -14,7 +14,7 @@ build/linux-workloads/$(1)/build-vars.$$(shell printf '%s\n%s' "$$(PROFILING)" "
 	touch $$@
 
 # Build and pack workload
-build/linux-workloads/$(1)/rootfs.cpio: $$(shell find $$(abspath workloads/linux/$(1))) $(TOOLCHAIN_WRAPPER) build/linux-workloads/$(1)/download/sentinel build/linux-workloads/$(1)/build-vars.$$(shell printf '%s\n%s' "$$(PROFILING)" "$$(GEEKBENCH_ARGS)" | sha256sum | cut -d ' ' -f 1) scripts/build-workload-linux.sh
+build/linux-workloads/$(1)/rootfs.cpio: $$(shell find $$(abspath workloads/linux/$(1))) workloads/linux/geekbench-offline-network.c workloads/linux/geekbench-patch-offline-elf.sh $(TOOLCHAIN_WRAPPER) build/linux-workloads/$(1)/download/sentinel build/linux-workloads/$(1)/build-vars.$$(shell printf '%s\n%s' "$$(PROFILING)" "$$(GEEKBENCH_ARGS)" | sha256sum | cut -d ' ' -f 1) scripts/build-workload-linux.sh
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	SYSROOT_DIR="$$(abspath $(BUILDROOT_DIR)/output/staging)" \
 	BUILDROOT_DIR="$$(abspath $(BUILDROOT_DIR))" \

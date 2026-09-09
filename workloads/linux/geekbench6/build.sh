@@ -14,6 +14,13 @@ install -m 755 "$extract_dir/geekbench_riscv64" "$payload_dir/geekbench_riscv64"
 install -m 755 "$extract_dir/geekbench_rv64gcv" "$payload_dir/geekbench_rv64gcv"
 install -m 644 "$extract_dir/geekbench.plar" "$payload_dir/geekbench.plar"
 install -m 644 "$extract_dir/geekbench-workload.plar" "$payload_dir/geekbench-workload.plar"
+# Geekbench 6 Preview requires its normal upload flow; the upload is redirected
+# at runtime by the preload transport.
+bash "$WORKLOAD_DIR/../geekbench-patch-offline-elf.sh" "$payload_dir/geekbench_riscv64"
+"${CROSS_COMPILE}gcc" -shared -fPIC -O2 \
+    -Wl,-soname,libgeekbench-offline.so \
+    -o "$payload_dir/libgeekbench-offline.so" \
+    "$WORKLOAD_DIR/../geekbench-offline-network.c"
 install -m 755 "$WORKLOAD_DIR/run.sh" "$payload_dir/run.sh"
 mkdir -p "$PKG_DIR/etc"
 mkdir -p "$PKG_DIR/etc/default"
