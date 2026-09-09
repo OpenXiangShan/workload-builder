@@ -74,6 +74,34 @@ DTS basename. Its matching template must exist in `dts/`; the build fails
 rather than guessing a memory profile or generating a missing multi-hart DTS.
 Other Linux workload targets remain NEMU-only.
 
+SPECjbb2015 can be built from locally supplied licensed media and an RV64 JDK:
+
+```sh
+make linux/specjbb2015 \
+  SPECJBB_INPUT=/path/to/SPECjbb2015-1.03.iso \
+  SPECJBB_RV_JDK_INPUT=/path/to/jdk25 \
+  MULTIHART=1 HARTS=2 \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g-novec -jN
+```
+
+The workload uses one multithreaded JVM across all guest harts. See
+`workloads/linux/specjbb2015/README.md` for heap and mode options. The ISO and
+JDK are local inputs and are not redistributed by this repository.
+
+SPECjbb2015 can be built from locally supplied licensed media and an RV64 JDK:
+
+```sh
+make linux/specjbb2015 \
+  SPECJBB_INPUT=/path/to/SPECjbb2015-1.03.iso \
+  SPECJBB_RV_JDK_INPUT=/path/to/jdk25 \
+  MULTIHART=1 HARTS=2 \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g-novec -jN
+```
+
+The workload uses one multithreaded JVM across all guest harts. See
+`workloads/linux/specjbb2015/README.md` for heap and mode options. The ISO and
+JDK are local inputs and are not redistributed by this repository.
+
 Single-core firmware uses LibCheckpointAlpha. Multi-core firmware uses
 LibCheckpoint to restore QEMU multi-hart checkpoints. Set `HARTS` to match
 the checkpoint and the selected device-tree template; supported multi-hart
