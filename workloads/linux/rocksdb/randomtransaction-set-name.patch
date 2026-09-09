@@ -1,0 +1,10 @@
+diff --git a/test_util/transaction_test_util.cc b/test_util/transaction_test_util.cc
+--- a/test_util/transaction_test_util.cc
++++ b/test_util/transaction_test_util.cc
+@@ -57 +57,5 @@
+-  assert(txn_->SetName(name).ok());
++  Status name_status = txn_->SetName(name);
++  if (!name_status.ok()) {
++    last_status_ = name_status;
++    return false;
++  }
