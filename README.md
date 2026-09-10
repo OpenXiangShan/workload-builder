@@ -144,15 +144,14 @@ A single-core image contains:
 |---------|-------------------------------|
 | 0.0 MiB | LibCheckpointAlpha            |
 | 1.0 MiB | OpenSBI                       |
-| 1.75 MiB | device tree                  |
-| 2.0 MiB | Linux kernel                  |
+| 2.0 MiB | device tree                   |
+| 4.0 MiB | Linux kernel                  |
 | --      | initramfs containing workload |
 
-Single-core images place the DTB at 1.75 MiB (`0x801c0000`), providing 768 KiB
-for OpenSBI while leaving 256 KiB for the DTB before Linux at 2 MiB. This is an
-image-packing choice, not a fixed machine address. The assembler checks both
-component sizes. Multi-hart images keep their separate DTB address at
-`0x80200000`.
+Single-core and multi-hart images place the DTB at 2 MiB (`0x80200000`). The
+single-core kernel starts at 4 MiB (`0x80400000`) to keep it separate from the
+DTB. This is an image-packing choice, not a fixed machine address. The
+assembler checks both component sizes.
 
 A multi-hart image uses the fixed QEMU checkpoint layout:
 
@@ -177,13 +176,12 @@ the workload's `dt` directory and the DTB is embedded in the firmware image.
 For DTS files used with gcpt, the beginning of RAM must be reserved with a `reserved-memory` node so Linux does not allocate or map the gcpt checkpoint buffer. The XiangShan FPGA DTS templates reserve the first 1 MiB of their declared DRAM for this purpose.
 
 ```shell
-dd conv=notrunc bs=1024 seek=1792 if=dt/some_device.dtb of=fw_payload.bin
+dd conv=notrunc bs=1024 seek=2048 if=dt/some_device.dtb of=fw_payload.bin
 ```
 
 Use `fw_payload.qemu.bin` as the output file for a QEMU image. The supported
 QEMU `nemu` machine exposes a no-IRQ 16550A UART at `0x310b0000`. Multi-hart
-images use their separate fixed DTB offset of 2048 KiB and must retain a
-matching multi-hart device tree.
+images must retain a matching multi-hart device tree.
 
 OpenSBI is patched (see `bootloader/opensbi.patch`) to load the device tree from a fixed offset relative to the DRAM base. The initramfs is placed after the Linux kernel and aligned to 1 MiB.
 
