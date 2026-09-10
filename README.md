@@ -291,6 +291,10 @@ Device-tree templates are generated at build time through
 Recognized basenames always use the generated template; the checked-in
 `dts/*.dts.in` files are no longer read for them and remain as references.
 
+For generated `xiangshan-fpga-noAIA*` templates, the default ISA declaration is
+Kunminghu V3. Select V2 with `DTS_ISA_CONFIG=kunminghu-v2`; the DTB basename
+continues to select hart count, memory size, and vector mode.
+
 For an unsupported custom basename, place the complete template at
 `dts/<name>.dts.in` and select it with `DEFAULT_DTB=<name>`. It is copied into
 `build/generated-dts` on each build, so it survives cleaning the build tree; a

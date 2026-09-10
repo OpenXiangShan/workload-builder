@@ -21,9 +21,16 @@ GAPBS_BUILDROOT_CROSS_COMPILE ?= $(GAPBS_BUILDROOT_DIR)/output/host/bin/riscv64-
 GAPBS_DTC ?= $(GAPBS_BUILDROOT_DIR)/output/host/bin/dtc
 GAPBS_DTS_SOURCES := $(GAPBS_SCRIPTS_DIR)/generate-nemu-board-dts.py $(GAPBS_REPO_ROOT)/nemu_board/dts/DTSGen.py $(GAPBS_REPO_ROOT)/nemu_board/dts/workload-builder-profiles.json \
 	$(wildcard $(GAPBS_REPO_ROOT)/dts/$(GAPBS_DEFAULT_DTB).dts.in)
+GAPBS_FIRMWARE_VARS_HASH := $(shell printf '%s\n' 'default_dtb=$(GAPBS_DEFAULT_DTB)' 'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
+GAPBS_FIRMWARE_VARS_STAMP := $(GAPBS_BUILD_DIR)/firmware-vars.$(GAPBS_FIRMWARE_VARS_HASH).stamp
 GAPBS_ALL_CASES := $(shell python3 $(GAPBS_HELPER) --list-cases)
 
 WORKLOAD_DIRS += $(GAPBS_BUILD_DIR)
+
+$(GAPBS_FIRMWARE_VARS_STAMP):
+	@mkdir -p "$(@D)"
+	@rm -f "$(@D)"/firmware-vars.*.stamp
+	@touch "$@"
 
 define add_gapbs_case
 $(GAPBS_BUILD_DIR)/$(1)/download/sentinel:
@@ -36,7 +43,7 @@ $(GAPBS_BUILD_DIR)/$(1)/rootfs.cpio: $$(GAPBS_HELPER) $$(GAPBS_WORKLOAD_DIR)/bui
 	GAPBS_GRAPH_DIR="$$(GAPBS_GRAPH_DIR)" \
 	bash "$$(GAPBS_SCRIPTS_DIR)/build-workload-linux.sh" "$$(GAPBS_WORKLOAD_DIR)" "$(GAPBS_BUILD_DIR)/$(1)"
 
-$(GAPBS_BUILD_DIR)/$(1)/fw_payload.bin: $$(GAPBS_DTS_SOURCES) $$(GAPBS_GCPT_BIN) $$(GAPBS_SCRIPTS_DIR)/build-firmware-linux.sh $$(GAPBS_SCRIPTS_DIR)/dts-config.sh $(GAPBS_BUILD_DIR)/$(1)/rootfs.cpio $$(GAPBS_LINUX_IMAGE) $$(GAPBS_SBI_BIN)
+$(GAPBS_BUILD_DIR)/$(1)/fw_payload.bin: $$(GAPBS_DTS_SOURCES) $$(GAPBS_FIRMWARE_VARS_STAMP) $$(GAPBS_GCPT_BIN) $$(GAPBS_SCRIPTS_DIR)/build-firmware-linux.sh $$(GAPBS_SCRIPTS_DIR)/dts-config.sh $(GAPBS_BUILD_DIR)/$(1)/rootfs.cpio $$(GAPBS_LINUX_IMAGE) $$(GAPBS_SBI_BIN)
 	@printf '[gapbs] Assembling firmware for $(1)\n'
 	@CROSS_COMPILE="$$(GAPBS_BUILDROOT_CROSS_COMPILE)" \
 	DTC="$$(GAPBS_DTC)" \

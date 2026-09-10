@@ -196,6 +196,7 @@ $(SPEC2017_BUILD_DIR)/$(1)/firmware/dtb-$(call spec2017_case_dtb_tag,$(1)).stamp
 	@printf '%s\n' \
 		"case=$(1)" \
 		"default_dtb=$$(SPEC2017_DEFAULT_DTB)" \
+		"dts_isa_config=$$(DTS_ISA_CONFIG)" \
 		"profile=$(call spec2017_case_dtb_profile,$(1))" \
 		"min_memory_bytes=$(call spec2017_case_dtb_min_memory_bytes,$(1))" \
 		"required_min_memory_bytes=$(call spec2017_case_dtb_required_min_memory_bytes,$(1))" > "$$@.tmp"
@@ -220,7 +221,7 @@ linux/$(1): $(SPEC2017_BUILD_DIR)/$(1)/$(SPEC2017_FIRMWARE_FILENAME)
 
 WORKLOAD_PHONY_TARGETS += linux/$(1)
 
-$(SPEC2017_IMAGE_DIR)/stamps/$(1).images.stamp: $(SPEC2017_PREPARE_STAMP) $(SPEC2017_BUILD_DIR)/$(1)/cfg.$(call spec2017_case_cfg_hash,$(1)).stamp $$(SPEC2017_HELPER) $$(SPEC2017_WORKLOAD_DIR)/build.sh $(SPEC2017_BUILD_DIR)/$(1)/download/sentinel $(SPEC2017_BUILD_DIR)/$(1)/build-vars.$(SPEC2017_BUILD_VARS_HASH).stamp $$(SPEC2017_DTS_SOURCES) $$(SPEC2017_GCPT_BIN) $$(SPEC2017_GCPT_ELF) $$(SPEC2017_SCRIPTS_DIR)/build-firmware-linux.sh $$(SPEC2017_SCRIPTS_DIR)/export-linux-debug-artifacts.sh $$(SPEC2017_SCRIPTS_DIR)/dts-config.sh $$(SPEC2017_SCRIPTS_DIR)/package-multihart-rootfs.py $$(SPEC2017_LINUX_IMAGE) $$(SPEC2017_SBI_BIN) | spec2017-check-spec-config
+$(SPEC2017_IMAGE_DIR)/stamps/$(1).images.stamp: $(SPEC2017_PREPARE_STAMP) $(SPEC2017_BUILD_DIR)/$(1)/cfg.$(call spec2017_case_cfg_hash,$(1)).stamp $$(SPEC2017_HELPER) $$(SPEC2017_WORKLOAD_DIR)/build.sh $(SPEC2017_BUILD_DIR)/$(1)/download/sentinel $(SPEC2017_BUILD_DIR)/$(1)/build-vars.$(SPEC2017_BUILD_VARS_HASH).stamp $$(SPEC2017_DTS_SOURCES) $$(SPEC2017_GCPT_BIN) $$(SPEC2017_GCPT_ELF) $$(SPEC2017_SCRIPTS_DIR)/build-firmware-linux.sh $$(SPEC2017_SCRIPTS_DIR)/export-linux-debug-artifacts.sh $$(SPEC2017_SCRIPTS_DIR)/dts-config.sh $$(SPEC2017_SCRIPTS_DIR)/package-multihart-rootfs.py $$(SPEC2017_LINUX_IMAGE) $$(SPEC2017_SBI_BIN) $(SPEC2017_BUILD_DIR)/$(1)/firmware/dtb-$(call spec2017_case_dtb_tag,$(1)).stamp | spec2017-check-spec-config
 	@printf '$(SPEC2017_PROGRESS_PREFIX) Packaging split run images for $(1)\n'
 	@WORKLOAD_DIR="$$(abspath $$(SPEC2017_WORKLOAD_DIR))" \
 	WORKLOAD_BUILD_DIR="$$(abspath $(SPEC2017_BUILD_DIR)/$(1))" \

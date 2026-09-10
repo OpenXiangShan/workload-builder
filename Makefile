@@ -4,10 +4,15 @@ MULTIHART ?= 0
 PLATFORM ?= $(if $(filter 1,$(MULTIHART)),qemu,nemu)
 HARTS ?= 2
 QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu-mem2g
+DTS_ISA_CONFIG ?= kunminghu-v3
 DTS_DIR := build/generated-dts
+export DTS_ISA_CONFIG
 
 ifeq ($(filter $(PLATFORM),nemu qemu),)
 $(error PLATFORM must be either nemu or qemu)
+endif
+ifeq ($(filter $(DTS_ISA_CONFIG),kunminghu-v2 kunminghu-v3),)
+$(error DTS_ISA_CONFIG must be either kunminghu-v2 or kunminghu-v3)
 endif
 ifeq ($(filter 1,$(MULTIHART)),1)
 ifneq ($(PLATFORM),qemu)
@@ -23,7 +28,8 @@ LINUX_ROOTFS_BUILD_VARS_HASH := $(shell printf '%s\n' \
 LINUX_FIRMWARE_BUILD_VARS_HASH := $(shell printf '%s\n' \
 	'multihart=$(if $(filter 1,$(MULTIHART)),1,0)' \
 	'harts=$(if $(filter 1,$(MULTIHART)),$(HARTS),1)' \
-	'default_dtb=$(if $(LINUX_DEFAULT_DTB),$(LINUX_DEFAULT_DTB),xiangshan)' | sha256sum | cut -d ' ' -f 1)
+	'default_dtb=$(if $(LINUX_DEFAULT_DTB),$(LINUX_DEFAULT_DTB),xiangshan)' \
+	'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
 
 MULTIHART_SUPPORTED_HARTS = $(shell seq 2 128)
 ifeq ($(filter 1,$(MULTIHART)),1)

@@ -1,4 +1,5 @@
 GEEKBENCH_DEFAULT_DTB = $(if $(DEFAULT_DTB),$(DEFAULT_DTB),xiangshan-fpga-noAIA)
+GEEKBENCH_FIRMWARE_VARS_HASH := $(shell printf '%s\n' 'default_dtb=$(GEEKBENCH_DEFAULT_DTB)' 'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
 
 define add_workload_linux_geekbench
 # Download files
@@ -23,7 +24,12 @@ build/linux-workloads/$(1)/rootfs.cpio: $$(shell find $$(abspath workloads/linux
 	bash scripts/build-workload-linux.sh workloads/linux/$(1) build/linux-workloads/$(1)
 
 # Build all-in-one firmware
-build/linux-workloads/$(1)/fw_payload.bin: scripts/generate-nemu-board-dts.py nemu_board/dts/DTSGen.py nemu_board/dts/workload-builder-profiles.json $(wildcard dts/$(GEEKBENCH_DEFAULT_DTB).dts.in) $(GCPT_BIN) scripts/build-sbi.sh scripts/dts-config.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) build/opensbi/build/platform/generic/firmware/fw_jump.bin
+build/linux-workloads/$(1)/firmware-vars.$(GEEKBENCH_FIRMWARE_VARS_HASH).stamp:
+	mkdir -p "$$(@D)"
+	rm -f "$$(@D)"/firmware-vars.*.stamp
+	touch "$$@"
+
+build/linux-workloads/$(1)/fw_payload.bin: scripts/generate-nemu-board-dts.py nemu_board/dts/DTSGen.py nemu_board/dts/workload-builder-profiles.json $(wildcard dts/$(GEEKBENCH_DEFAULT_DTB).dts.in) $(GCPT_BIN) scripts/build-sbi.sh scripts/dts-config.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) build/opensbi/build/platform/generic/firmware/fw_jump.bin build/linux-workloads/$(1)/firmware-vars.$(GEEKBENCH_FIRMWARE_VARS_HASH).stamp
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	DTC="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/dtc" \
 	DEFAULT_DTB="$(GEEKBENCH_DEFAULT_DTB)" \

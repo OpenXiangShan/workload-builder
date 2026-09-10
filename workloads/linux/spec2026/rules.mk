@@ -119,6 +119,7 @@ $(SPEC2026_BUILD_DIR)/$(1)/firmware/dtb-$(call spec2026_case_dtb_tag,$(1)).stamp
 	@printf '%s\n' \
 		"case=$(1)" \
 		"default_dtb=$$(SPEC2026_DEFAULT_DTB)" \
+		"dts_isa_config=$$(DTS_ISA_CONFIG)" \
 		"profile=$(call spec2026_case_dtb_profile,$(1))" \
 		"min_memory_bytes=$(call spec2026_case_dtb_min_memory_bytes,$(1))" > "$$@.tmp"
 	@if [ -f "$$@" ] && cmp -s "$$@.tmp" "$$@"; then rm "$$@.tmp"; else mv "$$@.tmp" "$$@"; fi

@@ -107,21 +107,18 @@ make linux/coremark MULTIHART=1 HARTS=2 \
   DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g-novec
 ```
 
-## Generate Multi-Hart XiangShan DTS
+Generated `xiangshan-fpga-noAIA*` templates use the Kunminghu V3 ISA
+declaration by default. Select V2 independently of the DTB basename:
 
-Run the generator from the repository root to create a template for a new
-hart count. For example, generate the two-hart template from the 8 GiB
-XiangShan FPGA baseline with:
-
-```shell
-python3 scripts/generate-xiangshan-multihart-dts.py \
-  --base dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in \
-  --harts 2 \
-  --output dts/xiangshan-fpga-noAIA-2hart-mem8g-novec.dts.in
+```sh
+make linux/coremark \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-mem16g-novec \
+  DTS_ISA_CONFIG=kunminghu-v2
 ```
 
-Use `--memory-gib` to override the copied DRAM capacity. The checked-in 16 GiB
-two-hart profile can be regenerated with:
+`DTS_ISA_CONFIG` accepts `kunminghu-v2` and `kunminghu-v3`. The `-novec`
+suffix still controls vector advertisement for either version. This selector
+does not apply to QEMU/NEMU profiles or supplied custom templates.
 
 ## Build-Time Multi-Hart DTS Generation
 

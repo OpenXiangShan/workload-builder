@@ -7,8 +7,10 @@ dts_generate_template() {
     local generator="$(dirname "${BASH_SOURCE[0]}")/generate-nemu-board-dts.py"
     local custom_dir="$(dirname "${BASH_SOURCE[0]}")/../dts"
     local output="$dts_dir/$default_dtb.dts.in"
+    local isa_config="${DTS_ISA_CONFIG:-kunminghu-v3}"
 
     python3 "$generator" --name "$default_dtb" --output "$output" \
+        --isa-config "$isa_config" \
         --preserve-existing-unsupported \
         --custom-template-dir "$custom_dir"
 }

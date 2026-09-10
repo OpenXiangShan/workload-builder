@@ -60,7 +60,7 @@ SPEC2006_ELF_TARGETS := $(foreach case,$(SPEC2006_SELECTED_CASES),$(SPEC2006_BUI
 SPEC2006_DTS_SOURCES := $(SPEC2006_SCRIPTS_DIR)/generate-nemu-board-dts.py $(SPEC2006_REPO_ROOT)/nemu_board/dts/DTSGen.py $(SPEC2006_REPO_ROOT)/nemu_board/dts/workload-builder-profiles.json \
 	$(wildcard $(SPEC2006_REPO_ROOT)/dts/$(SPEC2006_DEFAULT_DTB).dts.in)
 SPEC2006_CFG_HASH := $(shell if [ -f "$(abspath $(SPEC2006_CFG))" ]; then sha256sum "$(abspath $(SPEC2006_CFG))" | cut -d ' ' -f 1; else printf 'missing'; fi)
-SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$(SPEC2006_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
+SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$(SPEC2006_DEFAULT_DTB)" "$(DTS_ISA_CONFIG)" | sha256sum | cut -d ' ' -f 1)
 SPEC2006_BUILD_VARS_HASH := $(shell printf '%s\n' '$(SPEC2006_INPUT)' '$(SPEC2006_TUNE)' '$(SPEC2006_JOBS)' '$(SPEC2006_CROSS_COMPILE)' 'multihart=$(SPEC2006_MULTIHART)' 'harts=$(SPEC2006_HARTS)' | sha256sum | cut -d ' ' -f 1)
 spec2006_case_image_stamp = $(SPEC2006_IMAGE_DIR)/stamps/$(1).images.stamp
 

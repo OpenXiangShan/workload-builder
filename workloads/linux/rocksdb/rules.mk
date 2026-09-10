@@ -41,7 +41,7 @@ ROCKSDB_CASE_FIRMWARE := $(foreach case,$(ROCKSDB_CASES),$(ROCKSDB_BUILD_DIR)/$(
 ROCKSDB_COMPILER_ID := $(shell "$(ROCKSDB_CROSS_COMPILE)g++" --version 2>/dev/null | head -n 1)
 ROCKSDB_BUILD_VARS_HASH := $(shell printf '%s\n' 'cross_compile=$(ROCKSDB_CROSS_COMPILE)' 'compiler=$(ROCKSDB_COMPILER_ID)' 'sysroot=$(ROCKSDB_SYSROOT_DIR)' 'march=$(ROCKSDB_MARCH)' 'mabi=$(ROCKSDB_MABI)' 'opt_flags=$(ROCKSDB_OPT_FLAGS)' | sha256sum | cut -d ' ' -f 1)
 ROCKSDB_BUILD_VARS_STAMP := $(ROCKSDB_BUILD_DIR)/rocksdb-build-vars.$(ROCKSDB_BUILD_VARS_HASH).stamp
-ROCKSDB_FIRMWARE_VARS_HASH := $(shell printf '%s\n' 'default_dtb=$(ROCKSDB_DEFAULT_DTB)' | sha256sum | cut -d ' ' -f 1)
+ROCKSDB_FIRMWARE_VARS_HASH := $(shell printf '%s\n' 'default_dtb=$(ROCKSDB_DEFAULT_DTB)' 'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
 ROCKSDB_FIRMWARE_VARS_STAMP := $(ROCKSDB_BUILD_DIR)/rocksdb-firmware-vars.$(ROCKSDB_FIRMWARE_VARS_HASH).stamp
 rocksdb_case_ops = $(if $(strip $(ROCKSDB_OPS)),$(ROCKSDB_OPS),$(ROCKSDB_DEFAULT_OPS_$(1)))
 rocksdb_case_threads = $(if $(filter timeseries,$(1)),2,$(ROCKSDB_THREADS))
