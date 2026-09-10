@@ -1,8 +1,11 @@
-# Device Tree Templates
+# Device Tree Reference Templates
 
-This directory contains device tree templates for each device configuration.
-For each workload, the selected device tree is generated from its template on
-the fly because some parameters cannot be known in advance.
+This directory contains the historical device tree templates for each device
+configuration. Firmware builds generate recognized basenames through
+`scripts/generate-nemu-board-dts.py` into `build/generated-dts`, so these files
+remain only as references for the platform contracts below. Unsupported custom
+basenames are read from this directory as `dts/<name>.dts.in` and copied into
+`build/generated-dts`, which keeps them outside the build tree.
 
 ## Parameters
 
@@ -30,8 +33,8 @@ These parameters are replaced with the corresponding values when building the wo
 Multi-hart XiangShan builds require the user to select a complete DTS basename
 with `DEFAULT_DTB`; the build no longer assumes a `mem8g` suffix. For example,
 `DEFAULT_DTB=xiangshan-fpga-noAIA-32hart-mem64g` selects
-`xiangshan-fpga-noAIA-32hart-mem64g.dts.in`. The matching template must exist;
-the build fails if it does not.
+the generated `xiangshan-fpga-noAIA-32hart-mem64g.dts.in`. The complete name
+provides the hart and memory profiles; the build does not guess either value.
 
 ## Single-Core Physical Memory Map
 
@@ -120,32 +123,23 @@ python3 scripts/generate-xiangshan-multihart-dts.py \
 Use `--memory-gib` to override the copied DRAM capacity. The checked-in 16 GiB
 two-hart profile can be regenerated with:
 
-```shell
-python3 scripts/generate-xiangshan-multihart-dts.py \
-  --base dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in \
-  --harts 2 \
-  --memory-gib 16 \
-  --output dts/xiangshan-fpga-noAIA-2hart-mem16g-novec.dts.in
-```
+## Build-Time Multi-Hart DTS Generation
 
-`--harts` must be in the range 2 through 128, and `--memory-gib` must be a
-positive integer when specified. The generator copies the CPU node for each
-hart, extends the CLINT, PLIC, and debug interrupt contexts, sets
-`riscv,ndev = <66>`, and emits the no-IRQ 16550A console at `0x310b0000` used
-by the supported QEMU `nemu` machine. Generated multi-hart templates reserve
-the fixed 131 MiB checkpoint window `[0x80300000, 0x88600000)`.
+The build invokes `scripts/generate-nemu-board-dts.py` for the selected
+`DEFAULT_DTB`. Hart count and memory size are derived from the complete
+basename, for example `xiangshan-qemu-nemu-2hart-mem16g-novec`. Supported
+multi-hart counts are 2 through 128. Generated multi-hart FPGA and QEMU
+templates reserve the fixed 131 MiB checkpoint window
+`[0x80300000, 0x88600000)`.
 
 The full capability block describes XiangShan hardware and is not fully
 emulated by the current QEMU `nemu` path. In particular, the timer path cannot
 execute the DT-advertised `sstc` CSR sequence, so generated multi-hart CPU nodes
 omit `sstc`.
 
-The build does not invoke this generator automatically. Run it and review the
-result before building with the corresponding `HARTS` value.
-
-The generator can create other topologies. For multi-core firmware, set
-`HARTS` in the range 2 through 128 to match both the generated template and the
-QEMU checkpoint, and pass that template through `DEFAULT_DTB`. Every
+For multi-core firmware, set `HARTS` in the range 2 through 128 to match both
+the generated template and the QEMU checkpoint, and select that template
+through `DEFAULT_DTB`. Every
 multi-hart image uses DTB address `0x80200000` and kernel address
 `0x88600000`; the fixed placement keeps the 131 MiB checkpoint window at
 `0x80300000` clear of the boot payload.

@@ -84,9 +84,9 @@ Adding `PLATFORM=qemu` exports the complete QEMU artifact tree to the same
 `build/images/spec2006` directory. Its firmware is
 `bin/<case>.fw_payload.bin`.
 
-By default, NEMU firmware embeds `dts/xiangshan-fpga-noAIA-novec.dts.in`, while
-QEMU firmware embeds `dts/xiangshan-qemu-nemu-mem2g.dts.in`. Override the
-platform default with `DEFAULT_DTB` if you need another DTS template:
+By default, NEMU firmware generates the `xiangshan-fpga-noAIA-novec` profile,
+while QEMU firmware generates `xiangshan-qemu-nemu-mem2g`. Override the
+platform default with `DEFAULT_DTB` if you need another DTS profile:
 
 ```sh
 make linux/spec2006 BENCH=astar INPUT=biglakes \
@@ -133,8 +133,8 @@ starting that hart's benchmark copy with `SPEC_ROOT=/specX`, then uses
 CPU binding.
 
 When `MULTIHART=1`, `DEFAULT_DTB` must be the complete DTS basename, including
-the desired memory profile. The corresponding `dts/<DEFAULT_DTB>.dts.in`
-template must exist; firmware assembly fails if it is missing.
+the desired hart and memory profiles. Recognized basenames are generated into
+`build/generated-dts`; the build does not infer missing profile components.
 
 Selected SPEC cases are built one by one to avoid concurrent `runspec`
 instances contending on shared temporary state inside the SPEC tool tree.

@@ -34,11 +34,11 @@ $(SPECJBB2015_BUILD_DIR)/rootfs.cpio: $(shell find $(SPECJBB2015_DIR)) $(TOOLCHA
 	  HARTS="$(SPECJBB2015_HARTS)" MULTIHART=0 \
 	  bash scripts/build-workload-linux.sh workloads/linux/specjbb2015 $(SPECJBB2015_BUILD_DIR)
 
-$(SPECJBB2015_BUILD_DIR)/fw_payload.bin: $(shell find $(abspath dts)) $(GCPT_BIN) scripts/build-firmware-linux.sh $(SPECJBB2015_BUILD_DIR)/rootfs.cpio $(LINUX_IMAGE) $(SBI_BIN)
+$(SPECJBB2015_BUILD_DIR)/fw_payload.bin: scripts/generate-nemu-board-dts.py nemu_board/dts/DTSGen.py nemu_board/dts/workload-builder-profiles.json $(wildcard dts/$(SPECJBB2015_DEFAULT_DTB).dts.in) $(GCPT_BIN) scripts/build-firmware-linux.sh $(SPECJBB2015_ROOTFS_STAMP) $(SPECJBB2015_BUILD_DIR)/rootfs.cpio $(LINUX_IMAGE) $(SBI_BIN)
 	@CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	  DTC="$(abspath $(BUILDROOT_DIR)/output/host/bin)/dtc" DEFAULT_DTB="$(SPECJBB2015_DEFAULT_DTB)" \
 	  MULTIHART="$(SPECJBB2015_MULTIHART)" HARTS="$(SPECJBB2015_HARTS)" \
-	  bash scripts/build-firmware-linux.sh $(GCPT_BIN) $(SBI_BUILD_DIR) dts $(LINUX_IMAGE) $(SPECJBB2015_BUILD_DIR)
+	  bash scripts/build-firmware-linux.sh $(GCPT_BIN) $(SBI_BUILD_DIR) build/generated-dts $(LINUX_IMAGE) $(SPECJBB2015_BUILD_DIR)
 
 linux/specjbb2015: $(SPECJBB2015_BUILD_DIR)/fw_payload.bin
 WORKLOAD_PHONY_TARGETS += linux/specjbb2015

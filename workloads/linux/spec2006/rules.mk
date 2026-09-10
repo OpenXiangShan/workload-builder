@@ -4,7 +4,7 @@ SPEC2006_SELF_MAKEFILE := $(SPEC2006_WORKLOAD_DIR)/rules.mk
 SPEC2006_ROOT_MAKEFILE := $(SPEC2006_REPO_ROOT)/Makefile
 SPEC2006_RECURSE_MAKEFILE := $(if $(filter $(SPEC2006_ROOT_MAKEFILE),$(abspath $(firstword $(MAKEFILE_LIST)))),$(SPEC2006_ROOT_MAKEFILE),$(SPEC2006_SELF_MAKEFILE))
 SPEC2006_SCRIPTS_DIR := $(SPEC2006_REPO_ROOT)/scripts
-SPEC2006_DTS_DIR := $(SPEC2006_REPO_ROOT)/dts
+SPEC2006_DTS_DIR := $(SPEC2006_REPO_ROOT)/build/generated-dts
 SPEC2006_BUILD_DIR ?= $(SPEC2006_REPO_ROOT)/build/linux-workloads/spec2006
 SPEC2006_CASE_CONFIG := $(SPEC2006_WORKLOAD_DIR)/spec06.json
 SPEC2006_CFG ?= $(SPEC2006_WORKLOAD_DIR)/configs/gcc16-linux-riscv64-rva23u64_novec.cfg
@@ -57,7 +57,8 @@ SPEC2006_ALL_CASES := $(shell python3 $(SPEC2006_HELPER) --cases-config $(SPEC20
 SPEC2006_SELECTED_CASES := $(shell python3 $(SPEC2006_HELPER) --cases-config $(SPEC2006_CASE_CONFIG) --list-cases --input-set $(SPEC2006_INPUT) 2>/dev/null)
 SPEC2006_IMAGE_CASES := $(if $(BENCH),$(SPEC2006_CASE),$(SPEC2006_SELECTED_CASES))
 SPEC2006_ELF_TARGETS := $(foreach case,$(SPEC2006_SELECTED_CASES),$(SPEC2006_BUILD_DIR)/$(case)/elf/$(case).elf)
-SPEC2006_DTS_SOURCES := $(shell find $(SPEC2006_DTS_DIR) -type f 2>/dev/null)
+SPEC2006_DTS_SOURCES := $(SPEC2006_SCRIPTS_DIR)/generate-nemu-board-dts.py $(SPEC2006_REPO_ROOT)/nemu_board/dts/DTSGen.py $(SPEC2006_REPO_ROOT)/nemu_board/dts/workload-builder-profiles.json \
+	$(wildcard $(SPEC2006_REPO_ROOT)/dts/$(SPEC2006_DEFAULT_DTB).dts.in)
 SPEC2006_CFG_HASH := $(shell if [ -f "$(abspath $(SPEC2006_CFG))" ]; then sha256sum "$(abspath $(SPEC2006_CFG))" | cut -d ' ' -f 1; else printf 'missing'; fi)
 SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$(SPEC2006_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
 SPEC2006_BUILD_VARS_HASH := $(shell printf '%s\n' '$(SPEC2006_INPUT)' '$(SPEC2006_TUNE)' '$(SPEC2006_JOBS)' '$(SPEC2006_CROSS_COMPILE)' 'multihart=$(SPEC2006_MULTIHART)' 'harts=$(SPEC2006_HARTS)' | sha256sum | cut -d ' ' -f 1)

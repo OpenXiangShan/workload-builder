@@ -4,7 +4,7 @@ SPEC2026_SELF_MAKEFILE := $(SPEC2026_WORKLOAD_DIR)/rules.mk
 SPEC2026_ROOT_MAKEFILE := $(SPEC2026_REPO_ROOT)/Makefile
 SPEC2026_RECURSE_MAKEFILE := $(if $(filter $(SPEC2026_ROOT_MAKEFILE),$(abspath $(firstword $(MAKEFILE_LIST)))),$(SPEC2026_ROOT_MAKEFILE),$(SPEC2026_SELF_MAKEFILE))
 SPEC2026_SCRIPTS_DIR := $(SPEC2026_REPO_ROOT)/scripts
-SPEC2026_DTS_DIR := $(SPEC2026_REPO_ROOT)/dts
+SPEC2026_DTS_DIR := $(SPEC2026_REPO_ROOT)/build/generated-dts
 SPEC2026_BUILD_DIR ?= $(SPEC2026_REPO_ROOT)/build/linux-workloads/spec2026
 SPEC2026_CFG ?= $(SPEC2026_WORKLOAD_DIR)/configs/riscv_gcc16_rva23u64_novec.cfg
 SPEC2026_HELPER := $(SPEC2026_WORKLOAD_DIR)/spec2026-package.py
@@ -46,7 +46,8 @@ SPEC2026_SPEED_DTB_MIN_MEMORY_BYTES ?= 68719476736
 SPEC2026_ALL_CASES := $(shell python3 $(SPEC2026_HELPER) --list-cases --mode all 2>/dev/null)
 SPEC2026_SELECTED_CASES := $(shell python3 $(SPEC2026_HELPER) --list-cases --input-set $(SPEC2026_INPUT) --mode $(SPEC2026_MODE) 2>/dev/null)
 SPEC2026_IMAGE_CASES := $(if $(BENCH),$(BENCH),$(shell python3 $(SPEC2026_HELPER) --list-cases --input-set $(SPEC2026_IMAGE_INPUT) --mode $(SPEC2026_IMAGE_MODE) 2>/dev/null))
-SPEC2026_DTS_SOURCES := $(shell find $(SPEC2026_DTS_DIR) -type f 2>/dev/null)
+SPEC2026_DTS_SOURCES := $(SPEC2026_SCRIPTS_DIR)/generate-nemu-board-dts.py $(SPEC2026_REPO_ROOT)/nemu_board/dts/DTSGen.py $(SPEC2026_REPO_ROOT)/nemu_board/dts/workload-builder-profiles.json \
+	$(wildcard $(SPEC2026_REPO_ROOT)/dts/$(SPEC2026_DEFAULT_DTB).dts.in)
 SPEC2026_CFG_HASH := $(shell if [ -f "$(abspath $(SPEC2026_CFG))" ]; then sha256sum "$(abspath $(SPEC2026_CFG))" | cut -d ' ' -f 1; else printf 'missing'; fi)
 SPEC2026_BUILD_VARS_HASH := $(shell printf '%s\n' '$(SPEC2026_INPUT)' '$(SPEC2026_TUNE)' '$(SPEC2026_JOBS)' '$(SPEC2026_CROSS_COMPILE)' '$(SPEC2026_COMPILER_ROOT)' 'jemalloc_root=$(SPEC2026_JEMALLOC_ROOT)' 'jemalloc_repo=$(SPEC2026_JEMALLOC_REPO)' 'jemalloc_commit=$(SPEC2026_JEMALLOC_COMMIT)' 'jemalloc_host=$(SPEC2026_JEMALLOC_CONFIGURE_HOST)' | sha256sum | cut -d ' ' -f 1)
 

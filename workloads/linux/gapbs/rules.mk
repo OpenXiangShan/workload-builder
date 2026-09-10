@@ -4,7 +4,7 @@ GAPBS_SELF_MAKEFILE := $(GAPBS_WORKLOAD_DIR)/rules.mk
 GAPBS_ROOT_MAKEFILE := $(GAPBS_REPO_ROOT)/Makefile
 GAPBS_RECURSE_MAKEFILE := $(if $(filter $(GAPBS_ROOT_MAKEFILE),$(abspath $(firstword $(MAKEFILE_LIST)))),$(GAPBS_ROOT_MAKEFILE),$(GAPBS_SELF_MAKEFILE))
 GAPBS_SCRIPTS_DIR := $(GAPBS_REPO_ROOT)/scripts
-GAPBS_DTS_DIR := $(GAPBS_REPO_ROOT)/dts
+GAPBS_DTS_DIR := $(GAPBS_REPO_ROOT)/build/generated-dts
 GAPBS_BUILD_DIR ?= $(GAPBS_REPO_ROOT)/build/linux-workloads/gapbs
 GAPBS_IMAGE_DIR ?= $(GAPBS_REPO_ROOT)/build/images/gapbs
 GAPBS_HELPER := $(GAPBS_WORKLOAD_DIR)/gapbs-package.py
@@ -19,7 +19,8 @@ GAPBS_SBI_BUILD_DIR ?= $(if $(SBI_BUILD_DIR),$(SBI_BUILD_DIR),$(GAPBS_REPO_ROOT)
 GAPBS_SBI_BIN ?= $(if $(SBI_BIN),$(SBI_BIN),$(GAPBS_SBI_BUILD_DIR)/build/platform/generic/firmware/fw_jump.bin)
 GAPBS_BUILDROOT_CROSS_COMPILE ?= $(GAPBS_BUILDROOT_DIR)/output/host/bin/riscv64-linux-
 GAPBS_DTC ?= $(GAPBS_BUILDROOT_DIR)/output/host/bin/dtc
-GAPBS_DTS_SOURCES := $(shell find $(GAPBS_DTS_DIR) -type f 2>/dev/null)
+GAPBS_DTS_SOURCES := $(GAPBS_SCRIPTS_DIR)/generate-nemu-board-dts.py $(GAPBS_REPO_ROOT)/nemu_board/dts/DTSGen.py $(GAPBS_REPO_ROOT)/nemu_board/dts/workload-builder-profiles.json \
+	$(wildcard $(GAPBS_REPO_ROOT)/dts/$(GAPBS_DEFAULT_DTB).dts.in)
 GAPBS_ALL_CASES := $(shell python3 $(GAPBS_HELPER) --list-cases)
 
 WORKLOAD_DIRS += $(GAPBS_BUILD_DIR)

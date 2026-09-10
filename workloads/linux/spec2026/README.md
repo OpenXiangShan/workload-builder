@@ -132,11 +132,11 @@ make linux/spec2026 BENCH=800.pot3d_s MODE=speed \
 
 The minimum checked size is 8 GiB for rate cases and 64 GiB for speed cases.
 
-The source templates live in:
+The generated templates are written to:
 
 ```text
-dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in
-dts/xiangshan-fpga-noAIA-mem64g-novec.dts.in
+build/generated-dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in
+build/generated-dts/xiangshan-fpga-noAIA-mem64g-novec.dts.in
 ```
 
 Re-running `make spec2026-images` rebuilds the export tree so the directory

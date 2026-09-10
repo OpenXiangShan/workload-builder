@@ -3,7 +3,7 @@ set -e
 
 STARTUP_FILE="$(realpath "$1")"
 SBI_BUILD_DIR="$(realpath "$2")"
-DTS_TEMPLATE_DIR="$(realpath "$3")"
+DTS_TEMPLATE_DIR="$(realpath -m "$3")"
 KERNEL_IMAGE="$(realpath "$4")"
 WORKLOAD_BUILD_DIR="$(realpath "$5")"
 CPIO_ARCHIVE="$WORKLOAD_BUILD_DIR/rootfs.cpio"
@@ -60,10 +60,7 @@ resolve_default_dtb_base() {
 
 DEFAULT_DTB_BASE="$(resolve_default_dtb_base "$DEFAULT_DTB" "$DTB_MEMORY_PROFILE")"
 DEFAULT_DTB_TEMPLATE="$DTS_TEMPLATE_DIR/$DEFAULT_DTB_BASE.dts.in"
-if ! [ -f "$DEFAULT_DTB_TEMPLATE" ]; then
-    echo "Default device tree template not found in dts directory: $DEFAULT_DTB_TEMPLATE" >&2
-    exit 1
-fi
+dts_generate_template "$DTS_TEMPLATE_DIR" "$DEFAULT_DTB_BASE"
 DTS_CONFIG="$(dts_extract_config "$DEFAULT_DTB_TEMPLATE")"
 read -r MEM_BEGIN MEM_SIZE CLINT_MMIO <<< "$DTS_CONFIG"
 if [ "${MULTIHART:-0}" = 1 ] && {
