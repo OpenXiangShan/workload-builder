@@ -30,6 +30,10 @@ make linux/verilator \
   VERILATOR_MAX_CYCLES=1000000 -jN
 ```
 
+Because both inputs come from outside this repository, the workload is not part
+of `make workloads` or `make tarball`; `rules.mk` keeps it out of them. Build it
+explicitly with the command above.
+
 `DEFAULT_DTB` is not optional. The default `xiangshan` device tree declares
 128 MiB of DRAM; the guest needs a few GiB for the model binary, the unpacked
 initramfs and the model's own heap.
@@ -80,3 +84,5 @@ which is the property being characterised.
 - `build.sh` — stages the model, the payload and the generated `inittab`.
 - `inittab.in` — launch template; `@MAX_CYCLES@` and `@RAM_SIZE@` are substituted
   at build time so the resulting image is self-contained.
+- `rules.mk` — registers the standard per-workload rules while excluding the
+  workload from the build-everything targets.
