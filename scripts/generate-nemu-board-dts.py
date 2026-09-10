@@ -6,7 +6,6 @@ import importlib.util
 import json
 import os
 import re
-import shutil
 import tempfile
 from pathlib import Path
 
@@ -34,14 +33,37 @@ def load_dtsgen():
     return module.DTSGen
 
 
-def memory_gib(name):
-    match = re.search(r"-mem([1-9][0-9]*)g(?:-|$)", name)
-    return int(match.group(1)) if match else (128 if name == "xiangshan" else 2)
-
-
-def harts(name):
-    match = re.search(r"-(\d+)hart(?:-|$)", name)
-    return int(match.group(1)) if match else 1
+def parse_name(name):
+    """Recognize complete built-in names; leave other names to custom templates."""
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", name):
+        raise ValueError("--name must be a basename without directory components")
+    fixed = {
+        "xiangshan": (1, 128 << 20),
+        "nutshell": (1, 128 << 20),
+        "spike": (1, 2 << 30),
+        "spike-2core": (2, 2 << 30),
+        "yanqihu": (1, 128 << 20),
+        "yanqihu-2core": (2, 128 << 20),
+        "xiangshan-fpga-AIA-mem16g": (1, 16 << 30),
+    }
+    if name in fixed:
+        return fixed[name]
+    match = re.fullmatch(
+        r"(?:xiangshan-fpga-noAIA|xiangshan-qemu-nemu)"
+        r"(?:-(?P<harts>[0-9]+)hart)?(?:-mem(?P<memory>[0-9]+)g)?(?:-novec)?",
+        name,
+    )
+    if match is None:
+        raise UnsupportedDTSName(f"unsupported DTS basename: {name}")
+    nr_harts = int(match["harts"] or 1)
+    if not 1 <= nr_harts <= 128:
+        raise ValueError("DTS hart count must be in 1..128")
+    if nr_harts > 1 and match["memory"] is None:
+        raise ValueError("multi-hart DTS names must include an explicit -mem<N>g profile")
+    memory = int(match["memory"] or 2) << 30
+    if memory <= 0 or memory > (1 << 64) - DRAM_BASE:
+        raise ValueError("DTS memory must be positive and fit in the 64-bit address space")
+    return nr_harts, memory
 
 
 def chosen_properties(profile, initrd=True):
@@ -158,16 +180,13 @@ def aia_devices():
 
 
 def render(name, isa_config_name="kunminghu-v3"):
+    nr_harts, memory = parse_name(name)
     DTSGen = load_dtsgen()
     profiles = json.loads(PROFILE_FILE.read_text())
     is_novec = name.endswith("-novec")
-    nr_harts = harts(name)
-    memory = memory_gib(name) << 30 if name != "xiangshan" else 128 << 20
     root_nodes = []
 
-    non_fpga_generated = (name.startswith(("xiangshan-qemu-nemu", "spike", "yanqihu"))
-                          or name in {"xiangshan", "nutshell"})
-    if isa_config_name != "kunminghu-v3" and non_fpga_generated:
+    if isa_config_name != "kunminghu-v3" and not name.startswith("xiangshan-fpga-noAIA"):
         raise ValueError("--isa-config is supported by the FPGA noAIA profile only")
 
     if name.startswith("xiangshan-fpga-noAIA"):
@@ -249,6 +268,7 @@ def render(name, isa_config_name="kunminghu-v3"):
                      legacy_isa="rv64imafdchv", mmu_type="riscv,sv39",
                      timebase_freq=1000000, memories=[(DRAM_BASE, memory)],
                      reserved_memories=[], plic_machine_first=False,
+                     chosen_properties=chosen_properties("nemu"),
                      bootargs="console=hvc0 earlycon=sbi")
     elif name.startswith("spike"):
         nr_harts = 2 if name == "spike-2core" else 1
@@ -265,10 +285,11 @@ def render(name, isa_config_name="kunminghu-v3"):
         gen = DTSGen(compatible="freechips,rocketchip-unknown-dev",
                      model="xiangshan,xiangshan-kunminghu",
                      cpu_compatibles=["UCAS,COOSCA1.0", "riscv"],
-                     isa_extensions=DTSGen.sort_isa_extensions("i m a f d c zicntr zicsr zifencei zihpm".split()),
+                     isa_extensions=DTSGen.sort_isa_extensions("i m a c zicntr zicsr zifencei zihpm".split()),
                      legacy_isa="rv64imafdc", mmu_type="riscv,sv39", timebase_freq=1000000,
                      clint_addr=0x38000000, plic_addr=None, memories=[(DRAM_BASE, 128 << 20)],
                      reserved_memories=[], uartlite_addr=None,
+                     chosen_properties=chosen_properties("nemu"),
                      bootargs="console=hvc0 earlycon=sbi")
         gen.add_device(serial_uartlite())
     elif name == "xiangshan-fpga-AIA-mem16g":
@@ -277,6 +298,7 @@ def render(name, isa_config_name="kunminghu-v3"):
         isa.update(isa_config["isa_extensions"])
         isa.discard("zca")
         isa.update({"smaia", "ssaia", "zabha", "zicbom", "zicboz"})
+        isa.update(VECTOR_EXTENSIONS)
         cpu_props = cache_properties(timebase=True) + "\nnext-level-cache = <&l2_cache>;"
         root_nodes = ["aliases { serial0 = &uart0; };", """l2_cache: l2-cache {
     compatible = "cache";
@@ -330,33 +352,26 @@ def main():
     parser.add_argument("--isa-config", choices=["kunminghu-v3", "kunminghu-v2"],
                         default="kunminghu-v3",
                         help="named FPGA noAIA ISA declaration (default: kunminghu-v3)")
-    parser.add_argument("--preserve-existing-unsupported", action="store_true",
-                        help="keep an existing output when its basename is not generated")
     parser.add_argument("--custom-template-dir", type=Path, default=None,
                         help="directory holding user-supplied templates for "
                              "unsupported basenames")
     args = parser.parse_args()
-    if not NEMU_BOARD_DTSGEN.is_file():
-        parser.error(f"nemu_board DTSGen.py not found: {NEMU_BOARD_DTSGEN}")
     if not args.output.name.endswith(".dts.in"):
         parser.error("--output must end in .dts.in")
     try:
-        output = render(args.name, args.isa_config)
+        try:
+            output = render(args.name, args.isa_config)
+        except UnsupportedDTSName:
+            custom = (args.custom_template_dir / f"{args.name}.dts.in"
+                      if args.custom_template_dir else None)
+            if custom is None or not custom.is_file():
+                raise
+            output = custom.read_text(encoding="utf-8")
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile("w", encoding="utf-8",
                                          dir=args.output.parent, delete=False) as tmp:
             tmp.write(output)
         os.replace(tmp.name, args.output)
-    except UnsupportedDTSName as exc:
-        if args.preserve_existing_unsupported and args.output.is_file():
-            return
-        custom = (args.custom_template_dir / args.output.name
-                  if args.custom_template_dir else None)
-        if custom is not None and custom.is_file():
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(custom, args.output)
-            return
-        parser.error(str(exc))
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
 

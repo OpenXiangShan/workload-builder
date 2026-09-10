@@ -47,11 +47,11 @@ and the `0x88600000` kernel address do not apply. This table shows the default
 |-------------------------|----------------|------------|
 | `0x80000000–0x800fffff` | 1 MiB | LibCheckpointAlpha checkpoint-recovery program; reserved as `no-map` in the DTS |
 | `0x80100000` | +1 MiB | OpenSBI firmware starts here |
-| `0x80200000` | +2 MiB | Device tree placed here by firmware assembly |
-| `0x80400000` and above | +4 MiB | Linux kernel image, then the MiB-aligned initramfs |
+| `0x801c0000` | +1.75 MiB | Device tree placed here by firmware assembly |
+| `0x80200000` and above | +2 MiB | Linux kernel image, then the MiB-aligned initramfs |
 
-The single-core firmware packer uses `DTB_OFFSET_KB=2048`,
-`SBI_OFFSET_KB=1024`, and `KERNEL_OFFSET_MB=4`. The initramfs address is
+The single-core firmware packer uses `DTB_OFFSET_KB=1792`,
+`SBI_OFFSET_KB=1024`, and `KERNEL_OFFSET_MB=2`. The initramfs address is
 computed from the actual kernel size and starts at the next MiB boundary. The
 selected single-core DTS supplies the DRAM base and capacity; no fixed 8 GiB or
 64 GiB profile is imposed by this layout.
@@ -128,6 +128,14 @@ basename, for example `xiangshan-qemu-nemu-2hart-mem16g-novec`. Supported
 multi-hart counts are 2 through 128. Generated multi-hart FPGA and QEMU
 templates reserve the fixed 131 MiB checkpoint window
 `[0x80300000, 0x88600000)`.
+
+Built-in FPGA noAIA and QEMU names must match
+`<board>[-<harts>hart][-mem<size>g][-novec]` in that order. Multi-hart names
+must explicitly specify memory size; zero memory and hart counts outside
+1 through 128 are rejected. Other basenames require a matching template in
+`dts/`, even if they start with a known board name. Custom templates are
+refreshed from their source on every invocation; a previously generated copy
+does not replace a missing source.
 
 The full capability block describes XiangShan hardware and is not fully
 emulated by the current QEMU `nemu` path. In particular, the timer path cannot

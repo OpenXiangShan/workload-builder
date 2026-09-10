@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Generate a recognized DTS basename or preserve an existing custom template.
+# Generate a recognized DTS basename or refresh a custom template from its source.
 dts_generate_template() {
     local dts_dir="$1"
     local default_dtb="$2"
@@ -11,7 +11,6 @@ dts_generate_template() {
 
     python3 "$generator" --name "$default_dtb" --output "$output" \
         --isa-config "$isa_config" \
-        --preserve-existing-unsupported \
         --custom-template-dir "$custom_dir"
 }
 
