@@ -7,13 +7,6 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-
-  # This is used as the key of the cache.
-  # Change this if buildroot version is changed,
-  # Or the buildroot config is changed.
-  BUILDROOT_VERSION: 2025.08.1-2
-
 jobs:
 
   prepare-sdk:
@@ -25,12 +18,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: 'recursive'
+      - name: Resolve buildroot version
+        id: buildroot
+        run: echo "version=$(make -s print-buildroot-version)" >> "$GITHUB_OUTPUT"
       - name: Cache buildroot SDK
         uses: actions/cache@v4
         id: cache-buildroot
         with:
           path: build
-          key: ${{ env.BUILDROOT_VERSION }}
+          key: ${{ steps.buildroot.outputs.version }}
       - name: Download source tarballs
         if: steps.cache-buildroot.outputs.cache-hit != 'true'
         run: |
@@ -46,11 +42,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: 'recursive'
+      - name: Resolve buildroot version
+        id: buildroot
+        run: echo "version=$(make -s print-buildroot-version)" >> "$GITHUB_OUTPUT"
       - name: Restore cache
         uses: actions/cache@v4
         with:
           path: build
-          key: ${{ env.BUILDROOT_VERSION }}
+          key: ${{ steps.buildroot.outputs.version }}
       - name: Build all Workloads
         run: |
           make tarball
