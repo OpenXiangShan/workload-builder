@@ -77,8 +77,8 @@ GCPT_SERIAL_PORT ?= $(if $(filter 1,$(MULTIHART)),0x310b0000,)
 GCPT_DTB_CONFIG_HASH := $(shell printf '%s\n' "$(GCPT_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
 GCPT_CONFIG_STAMP := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.$(GCPT_CONFIGURE_MODE).serial-port.$(GCPT_SERIAL_PORT),build/LibCheckpointAlpha-config/dtb.$(GCPT_DTB_CONFIG_HASH))
 GCPT_SOURCES := $(if $(filter 1,$(MULTIHART)),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -path '*/tests' -prune -o -type f -print 2>/dev/null),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -type f -print 2>/dev/null))
-GCPT_DTS_SOURCES := scripts/generate-nemu-board-dts.py nemu_board/dts/DTSGen.py nemu_board/dts/workload-builder-profiles.json \
-	$(wildcard dts/$(GCPT_DEFAULT_DTB).dts.in)
+GCPT_DTS_SOURCES := dts/generate-nemu-board-dts.py dts/generate-workload-builder-dts.py \
+	dts/DTSGen.py dts/workload-builder-profiles.json
 $(GCPT_CONFIG_STAMP):
 	mkdir -p "$(@D)"
 	rm -f $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.*,build/LibCheckpointAlpha-config/dtb.*)

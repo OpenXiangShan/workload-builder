@@ -19,8 +19,8 @@ GAPBS_SBI_BUILD_DIR ?= $(if $(SBI_BUILD_DIR),$(SBI_BUILD_DIR),$(GAPBS_REPO_ROOT)
 GAPBS_SBI_BIN ?= $(if $(SBI_BIN),$(SBI_BIN),$(GAPBS_SBI_BUILD_DIR)/build/platform/generic/firmware/fw_jump.bin)
 GAPBS_BUILDROOT_CROSS_COMPILE ?= $(GAPBS_BUILDROOT_DIR)/output/host/bin/riscv64-linux-
 GAPBS_DTC ?= $(GAPBS_BUILDROOT_DIR)/output/host/bin/dtc
-GAPBS_DTS_SOURCES := $(GAPBS_SCRIPTS_DIR)/generate-nemu-board-dts.py $(GAPBS_REPO_ROOT)/nemu_board/dts/DTSGen.py $(GAPBS_REPO_ROOT)/nemu_board/dts/workload-builder-profiles.json \
-	$(wildcard $(GAPBS_REPO_ROOT)/dts/$(GAPBS_DEFAULT_DTB).dts.in)
+GAPBS_DTS_SOURCES := $(GAPBS_REPO_ROOT)/dts/generate-nemu-board-dts.py $(GAPBS_REPO_ROOT)/dts/generate-workload-builder-dts.py \
+	$(GAPBS_REPO_ROOT)/dts/DTSGen.py $(GAPBS_REPO_ROOT)/dts/workload-builder-profiles.json
 GAPBS_FIRMWARE_VARS_HASH := $(shell printf '%s\n' 'default_dtb=$(GAPBS_DEFAULT_DTB)' 'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
 GAPBS_FIRMWARE_VARS_STAMP := $(GAPBS_BUILD_DIR)/firmware-vars.$(GAPBS_FIRMWARE_VARS_HASH).stamp
 GAPBS_ALL_CASES := $(shell python3 $(GAPBS_HELPER) --list-cases)

@@ -33,8 +33,8 @@ ROCKSDB_OPT_FLAGS ?= -O3 -ftree-vectorize -ftree-loop-vectorize -ftree-slp-vecto
 ROCKSDB_DTC ?= $(ROCKSDB_BUILDROOT_DIR)/output/host/bin/dtc
 ROCKSDB_COMMON_STAMP := $(ROCKSDB_BUILD_DIR)/common.stamp
 ROCKSDB_PACKAGE_HELPER := $(ROCKSDB_WORKLOAD_DIR)/package-case.sh
-ROCKSDB_DTS_SOURCES := $(ROCKSDB_SCRIPTS_DIR)/generate-nemu-board-dts.py $(ROCKSDB_REPO_ROOT)/nemu_board/dts/DTSGen.py $(ROCKSDB_REPO_ROOT)/nemu_board/dts/workload-builder-profiles.json \
-	$(wildcard $(ROCKSDB_REPO_ROOT)/dts/$(ROCKSDB_DEFAULT_DTB).dts.in)
+ROCKSDB_DTS_SOURCES := $(ROCKSDB_REPO_ROOT)/dts/generate-nemu-board-dts.py $(ROCKSDB_REPO_ROOT)/dts/generate-workload-builder-dts.py \
+	$(ROCKSDB_REPO_ROOT)/dts/DTSGen.py $(ROCKSDB_REPO_ROOT)/dts/workload-builder-profiles.json
 ROCKSDB_NON_COMMON_INPUTS := $(ROCKSDB_WORKLOAD_DIR)/README.md $(ROCKSDB_WORKLOAD_DIR)/links.txt $(ROCKSDB_WORKLOAD_DIR)/rules.mk $(ROCKSDB_PACKAGE_HELPER)
 ROCKSDB_COMMON_INPUTS := $(filter-out $(ROCKSDB_NON_COMMON_INPUTS),$(shell find $(ROCKSDB_WORKLOAD_DIR) -type f 2>/dev/null))
 ROCKSDB_CASE_FIRMWARE := $(foreach case,$(ROCKSDB_CASES),$(ROCKSDB_BUILD_DIR)/$(case)/fw_payload.bin)

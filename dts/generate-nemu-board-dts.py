@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate workload-builder DTS templates through nemu_board's DTSGen."""
+"""Generate workload-builder DTS templates from the bundled DTS generator."""
 
 import argparse
 import importlib.util
@@ -11,8 +11,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-NEMU_BOARD_DTSGEN = ROOT / "nemu_board" / "dts" / "DTSGen.py"
-PROFILE_FILE = ROOT / "nemu_board" / "dts" / "workload-builder-profiles.json"
+NEMU_BOARD_DTSGEN = ROOT / "dts" / "DTSGen.py"
+PROFILE_FILE = ROOT / "dts" / "workload-builder-profiles.json"
 DRAM_BASE = 0x80000000
 VECTOR_EXTENSIONS = {"v", "zvbb", "zvfh", "zvfhmin", "zvkt",
                      "zvl128b", "zvl32b", "zvl64b"}
@@ -27,14 +27,14 @@ class UnsupportedDTSName(ValueError):
 def load_dtsgen():
     spec = importlib.util.spec_from_file_location("nemu_board_dtsgen", NEMU_BOARD_DTSGEN)
     if spec is None or spec.loader is None:
-        raise SystemExit(f"cannot load nemu_board DTSGen.py: {NEMU_BOARD_DTSGEN}")
+        raise SystemExit(f"cannot load DTSGen.py: {NEMU_BOARD_DTSGEN}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.DTSGen
 
 
 def parse_name(name):
-    """Recognize complete built-in names; leave other names to custom templates."""
+    """Recognize complete built-in names."""
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", name):
         raise ValueError("--name must be a basename without directory components")
     fixed = {
@@ -352,21 +352,11 @@ def main():
     parser.add_argument("--isa-config", choices=["kunminghu-v3", "kunminghu-v2"],
                         default="kunminghu-v3",
                         help="named FPGA noAIA ISA declaration (default: kunminghu-v3)")
-    parser.add_argument("--custom-template-dir", type=Path, default=None,
-                        help="directory holding user-supplied templates for "
-                             "unsupported basenames")
     args = parser.parse_args()
     if not args.output.name.endswith(".dts.in"):
         parser.error("--output must end in .dts.in")
     try:
-        try:
-            output = render(args.name, args.isa_config)
-        except UnsupportedDTSName:
-            custom = (args.custom_template_dir / f"{args.name}.dts.in"
-                      if args.custom_template_dir else None)
-            if custom is None or not custom.is_file():
-                raise
-            output = custom.read_text(encoding="utf-8")
+        output = render(args.name, args.isa_config)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile("w", encoding="utf-8",
                                          dir=args.output.parent, delete=False) as tmp:
