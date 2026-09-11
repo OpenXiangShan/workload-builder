@@ -35,12 +35,19 @@ endif
 endif
 
 # Download buildroot
+#
+# BUILDROOT_VERSION is the single place this is pinned. CI derives its cache key
+# from it through the print-buildroot-version target, so a bump here is enough.
+BUILDROOT_VERSION := 2026.08
 BUILDROOT_DIR := build/buildroot
 $(BUILDROOT_DIR)/Makefile:
 	mkdir -p build
-	wget https://buildroot.org/downloads/buildroot-2025.08.1.tar.gz -O build/buildroot.tar.gz
+	wget https://buildroot.org/downloads/buildroot-$(BUILDROOT_VERSION).tar.gz -O build/buildroot.tar.gz
 	tar -xf build/buildroot.tar.gz -C build
-	mv build/buildroot-2025.08.1 $(BUILDROOT_DIR)
+	mv build/buildroot-$(BUILDROOT_VERSION) $(BUILDROOT_DIR)
+
+print-buildroot-version:
+	@echo $(BUILDROOT_VERSION)
 
 # Prepare buildroot SDK
 TOOLCHAIN_WRAPPER := $(BUILDROOT_DIR)/output/host/bin/toolchain-wrapper
@@ -222,4 +229,4 @@ clean-kernel:
 clean-workloads:
 	rm -rf $(WORKLOAD_DIRS) build/workloads.tar.zstd build/rootfs.tar.zstd
 
-.PHONY: all $(WORKLOAD_PHONY_TARGETS) init prepare-sdk source workloads rootfs tarball clean-kernel clean-workloads
+.PHONY: all $(WORKLOAD_PHONY_TARGETS) init prepare-sdk source workloads rootfs tarball clean-kernel clean-workloads print-buildroot-version
