@@ -28,6 +28,3 @@
 [submodule "bootloader/LibCheckpoint"]
 	path = bootloader/LibCheckpoint
 	url = https://github.com/OpenXiangShan/LibCheckpoint.git
-[submodule "nemu_board"]
-	path = nemu_board
-	url = https://github.com/OpenXiangShan/nemu_board.git

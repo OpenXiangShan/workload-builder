@@ -302,6 +302,16 @@ For an unsupported custom basename, place the complete template at
 `build/generated-dts` on each build, so it survives cleaning the build tree; a
 missing unsupported basename is rejected.
 
+### `nemu_board` source and co-authors
+
+The `nemu_board/` directory is vendored as ordinary tracked files from
+[OpenXiangShan/nemu_board](https://github.com/OpenXiangShan/nemu_board) at
+[commit `15db1e6`](https://github.com/OpenXiangShan/nemu_board/commit/15db1e6cdf4dcbf4cc016cb8938a5f8f35b59faf),
+not included as a Git submodule.
+
+GitHub authors and co-authors represented in the vendored history through that
+revision are `chenguokai`, `xyyy1420`, `dzwduan`, `cyyself` and `Gs-ygc`.
+
 Currently, the memory location of the initramfs containing the workload is passed to the kernel by device tree. So for each workload, device tree files are generated from the template on the fly, because the size of the initramfs cannot be known in advance. You should use the parameters `INITRAMFS_BEGIN` and `INITRAMFS_END` in the device tree template. 
 
 ```dts
