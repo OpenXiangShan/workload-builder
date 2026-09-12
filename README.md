@@ -71,7 +71,8 @@ with `PLATFORM=nemu` is rejected. It creates per-hart workload directories,
 uses `/bin/nemu-trap` to send codes 256 and 257 before each benchmark copy and
 code 258 after it returns, and requires `DEFAULT_DTB` to be set to the complete
 DTS basename. Recognized basenames are generated into `build/generated-dts`;
-the build still fails rather than guessing an omitted hart or memory profile.
+an unsupported basename can be supplied explicitly as `dts/<name>.dts.in`.
+The build still fails rather than guessing an omitted hart or memory profile.
 Other Linux workload targets remain NEMU-only.
 
 SPECjbb2015 can be built from locally supplied licensed media and an RV64 JDK:
@@ -290,8 +291,8 @@ Then run `make` to build your new workload.
 Device trees are generated from the sources in [dts/README.md](dts/README.md).
 Use `DEFAULT_DTB=device_name` to select a built-in generator profile; Make
 writes the resulting template to `build/generated-dts` before compiling it.
-Unknown basenames are rejected because this repository no longer carries
-checked-in custom `.dts.in` templates.
+To add a custom device tree, place `dts/device_name.dts.in` in the repository
+and select it with the same `DEFAULT_DTB=device_name` interface.
 
 For generated `xiangshan-fpga-noAIA*` templates, the default ISA declaration is
 Kunminghu V3. Select V2 with `DTS_ISA_CONFIG=kunminghu-v2`; the DTB basename

@@ -29,7 +29,7 @@ build/linux-workloads/$(1)/firmware-vars.$(GEEKBENCH_FIRMWARE_VARS_HASH).stamp:
 	rm -f "$$(@D)"/firmware-vars.*.stamp
 	touch "$$@"
 
-build/linux-workloads/$(1)/fw_payload.bin: dts/generate-nemu-board-dts.py dts/generate-workload-builder-dts.py dts/DTSGen.py dts/workload-builder-profiles.json $(GCPT_BIN) scripts/build-sbi.sh scripts/dts-config.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) build/opensbi/build/platform/generic/firmware/fw_jump.bin build/linux-workloads/$(1)/firmware-vars.$(GEEKBENCH_FIRMWARE_VARS_HASH).stamp
+build/linux-workloads/$(1)/fw_payload.bin: dts/generate-nemu-board-dts.py dts/generate-workload-builder-dts.py dts/DTSGen.py dts/workload-builder-profiles.json $(wildcard dts/$(GEEKBENCH_DEFAULT_DTB).dts.in) $(GCPT_BIN) scripts/build-sbi.sh scripts/dts-config.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) build/opensbi/build/platform/generic/firmware/fw_jump.bin build/linux-workloads/$(1)/firmware-vars.$(GEEKBENCH_FIRMWARE_VARS_HASH).stamp
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	DTC="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/dtc" \
 	DEFAULT_DTB="$(GEEKBENCH_DEFAULT_DTB)" \

@@ -2,9 +2,10 @@
 
 This directory is the canonical source for workload-builder device-tree
 generation. It contains `DTSGen.py`, the profile generator, the build-facing
-basename generator, and profile data. Checked-in `.dts.in` templates are not
-required; recognized `DEFAULT_DTB` names are generated into
-`build/generated-dts` during the build.
+basename generator, and profile data. Recognized `DEFAULT_DTB` names are
+generated into `build/generated-dts` during the build. An unsupported custom
+basename can be supplied explicitly as `dts/<name>.dts.in`; the build copies it
+into the generated directory before packing the firmware.
 
 ## Generate A Template
 
@@ -36,9 +37,9 @@ python3 dts/generate-nemu-board-dts.py \
 
 Built-in names include the `xiangshan`, `yanqihu`, `nutshell`, and `spike`
 profiles, FPGA noAIA names, and QEMU `nemu` names of the form
-`<board>[-<harts>hart][-mem<size>g][-novec]`. Unknown names fail with an
-`unsupported DTS basename` error because the repository no longer carries
-static custom templates.
+`<board>[-<harts>hart][-mem<size>g][-novec]`. Unknown names use a matching
+custom template passed through `--custom-template-dir`; otherwise generation
+fails with an `unsupported DTS basename` error.
 
 For generated FPGA noAIA names, select the ISA declaration independently of
 the basename:
@@ -60,10 +61,6 @@ default. The `-novec` suffix still controls vector advertisement.
 python3 dts/DTSGen.py --nr-harts 2 --memory-size 0x400000000 \
   --rva-profile rva23s64 | dtc -O dtb -o build/example.dtb -
 ```
-
-The helper shell scripts in this directory demonstrate common NEMU and QEMU
-hart-count configurations. They emit DTBs under `build/` and are independent
-of the workload-builder firmware packer.
 
 ## Profiles And Validation
 

@@ -81,7 +81,8 @@ SPEC2017_ALL_CASES := $(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --list-cases
 SPEC2017_SELECTED_CASES := $(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --list-cases --input-set $(SPEC2017_INPUT) --mode $(SPEC2017_MODE) 2>/dev/null)
 SPEC2017_IMAGE_CASES := $(if $(BENCH),$(SPEC2017_CASE),$(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --list-cases --input-set $(SPEC2017_IMAGE_INPUT) --mode $(SPEC2017_IMAGE_MODE) 2>/dev/null))
 SPEC2017_DTS_SOURCES := $(SPEC2017_REPO_ROOT)/dts/generate-nemu-board-dts.py $(SPEC2017_REPO_ROOT)/dts/generate-workload-builder-dts.py \
-	$(SPEC2017_REPO_ROOT)/dts/DTSGen.py $(SPEC2017_REPO_ROOT)/dts/workload-builder-profiles.json
+	$(SPEC2017_REPO_ROOT)/dts/DTSGen.py $(SPEC2017_REPO_ROOT)/dts/workload-builder-profiles.json \
+	$(wildcard $(SPEC2017_REPO_ROOT)/dts/$(SPEC2017_DEFAULT_DTB).dts.in)
 
 WORKLOAD_DIRS += $(SPEC2017_BUILD_DIR)
 

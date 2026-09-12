@@ -1,4 +1,0 @@
-*.dtb
-dts/build/
-/generated-*.dts.in
-/nemu-board-workload-builder.patch

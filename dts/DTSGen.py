@@ -90,13 +90,13 @@ class DTSGen:
     def indent(text, level: int = 4):
         indent_str = ' ' * level
         return "\n".join(indent_str + line if line.strip() != "" else line for line in text.split("\n"))
-    
+
     def gen_addrsize(addrsize, cell_number):
         res = ""
         for i in range(cell_number):
             res += f"0x{(addrsize >> (32 * (cell_number - i - 1))) & 0xFFFFFFFF:x} "
         return res.strip()
-    
+
     def __gen_memory(self, memory_start, memory_size):
         return f"""
 memory@{memory_start:x} {{
@@ -141,13 +141,17 @@ cpu{hart_id}: cpu@{hart_id:x} {{
 """.strip()
 
     def __gen_cpus(self):
+        cpu_nodes = "\n".join(
+            self.__gen_cpu_node(hart_id, self.isa_extensions) + "\n"
+            for hart_id in range(self.nr_harts)
+        )
         return f"""
 cpus {{
     #address-cells = <1>;
     #size-cells = <0>;
     timebase-frequency = <{self.timebase_freq}>;
 
-{DTSGen.indent('\n'.join(self.__gen_cpu_node(hart_id, self.isa_extensions) + "\n" for hart_id in range(self.nr_harts)))}
+{DTSGen.indent(cpu_nodes)}
 }};
 """.strip()
 
@@ -228,7 +232,7 @@ reserved-memory {{
             res += DTSGen.indent("\n".join(entry_lines) + "\n")
         res += "};"
         return res
-    
+
     def __gen_uartlite(self, uartlite_addr, plic_addr):
         # https://github.com/torvalds/linux/blob/master/Documentation/devicetree/bindings/serial/xlnx%2Copb-uartlite.yaml
         # Uartlite hardware does not handle clock division, so we do
@@ -251,7 +255,7 @@ mmc@{sd_addr:x} {{
     reg = <{DTSGen.gen_addrsize(sd_addr, 2)} {DTSGen.gen_addrsize(0x1000, 2)}>;
 }};
 """.strip()
-    
+
     def __gen_soc(self):
         compatible_list = ", ".join(f'"{compatible}"' for compatible in self.soc_compatible)
         res = f"""
@@ -269,7 +273,7 @@ soc {{
             res += DTSGen.indent(dev_str, 4) + "\n\n"
         res += "};"
         return res.strip()
-    
+
     def sort_isa_extensions(ext_list: list):
         SINGLE_ORDER = list("IMAFDQLCBKJTPVH")
         # Helper to categorize an extension name
@@ -316,8 +320,8 @@ soc {{
             # tie-breaker: lex order on base
             return -1 if ca[2] < cb[2] else (1 if ca[2] > cb[2] else 0)
         return sorted(ext_list, key=cmp_to_key(compare_ext))
-            
-    
+
+
     def get_isa_extensions_by_rva_profile(rva_profile: str):
         RVA20U64 = {
             "i", "m", "a", "f", "d", "c",
@@ -363,13 +367,24 @@ soc {{
         elif rva_profile == "rva23s64":
             return DTSGen.sort_isa_extensions(list(RVA23S64))
         assert False, f"Unknown rva profile string: {rva_profile}"
-    
+
     def add_device(self, dev_str: str):
         self.soc_devices.append(dev_str)
         return self
 
     def gen_dts(self):
         compatible_list = ", ".join(f'"{compatible}"' for compatible in self.compatible)
+        bootargs = (DTSGen.indent(f"bootargs = {json.dumps(self.bootargs)};", 8)
+                    if self.bootargs else "")
+        rng_seed = ""
+        if self.rng_seed:
+            ascii_seed = self.rng_seed.decode("ascii", "backslashreplace")
+            hex_seed = " ".join(f"0x{byte:02x}" for byte in self.rng_seed)
+            rng_seed = DTSGen.indent(
+                f'/* ASCII: "{ascii_seed}" */\nrng-seed = /bits/ 8 <{hex_seed}>;', 8)
+        memories = DTSGen.indent("\n".join(
+            self.__gen_memory(start, size) for (start, size) in self.memories
+        ))
         return f"""
 /dts-v1/;
 
@@ -378,14 +393,14 @@ soc {{
     #size-cells = <2>;
     compatible = {compatible_list};
     model = "{self.model}";
-    
+
     chosen {{
-{DTSGen.indent(f'bootargs = {json.dumps(self.bootargs)};', 8) if self.bootargs else ''}
-{DTSGen.indent(f'/* ASCII: "{self.rng_seed.decode("ascii", "backslashreplace")}" */\nrng-seed = /bits/ 8 <{" ".join(f"0x{b:02x}" for b in self.rng_seed)}>;', 8) if self.rng_seed else ''}
+{bootargs}
+{rng_seed}
 {DTSGen.indent(self.chosen_properties, 8)}
     }};
 
-{DTSGen.indent('\n'.join(self.__gen_memory(start, size) for (start, size) in self.memories))}
+{memories}
 
 {DTSGen.indent(self.__gen_cpus())}
 

@@ -20,7 +20,8 @@ GAPBS_SBI_BIN ?= $(if $(SBI_BIN),$(SBI_BIN),$(GAPBS_SBI_BUILD_DIR)/build/platfor
 GAPBS_BUILDROOT_CROSS_COMPILE ?= $(GAPBS_BUILDROOT_DIR)/output/host/bin/riscv64-linux-
 GAPBS_DTC ?= $(GAPBS_BUILDROOT_DIR)/output/host/bin/dtc
 GAPBS_DTS_SOURCES := $(GAPBS_REPO_ROOT)/dts/generate-nemu-board-dts.py $(GAPBS_REPO_ROOT)/dts/generate-workload-builder-dts.py \
-	$(GAPBS_REPO_ROOT)/dts/DTSGen.py $(GAPBS_REPO_ROOT)/dts/workload-builder-profiles.json
+	$(GAPBS_REPO_ROOT)/dts/DTSGen.py $(GAPBS_REPO_ROOT)/dts/workload-builder-profiles.json \
+	$(wildcard $(GAPBS_REPO_ROOT)/dts/$(GAPBS_DEFAULT_DTB).dts.in)
 GAPBS_FIRMWARE_VARS_HASH := $(shell printf '%s\n' 'default_dtb=$(GAPBS_DEFAULT_DTB)' 'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
 GAPBS_FIRMWARE_VARS_STAMP := $(GAPBS_BUILD_DIR)/firmware-vars.$(GAPBS_FIRMWARE_VARS_HASH).stamp
 GAPBS_ALL_CASES := $(shell python3 $(GAPBS_HELPER) --list-cases)
