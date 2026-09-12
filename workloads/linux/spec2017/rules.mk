@@ -4,7 +4,7 @@ SPEC2017_SELF_MAKEFILE := $(SPEC2017_WORKLOAD_DIR)/rules.mk
 SPEC2017_ROOT_MAKEFILE := $(SPEC2017_REPO_ROOT)/Makefile
 SPEC2017_RECURSE_MAKEFILE := $(if $(filter $(SPEC2017_ROOT_MAKEFILE),$(abspath $(firstword $(MAKEFILE_LIST)))),$(SPEC2017_ROOT_MAKEFILE),$(SPEC2017_SELF_MAKEFILE))
 SPEC2017_SCRIPTS_DIR := $(SPEC2017_REPO_ROOT)/scripts
-SPEC2017_DTS_DIR := $(SPEC2017_REPO_ROOT)/dts
+SPEC2017_DTS_DIR := $(SPEC2017_REPO_ROOT)/build/generated-dts
 SPEC2017_BUILD_DIR ?= $(SPEC2017_REPO_ROOT)/build/linux-workloads/spec2017
 SPEC2017_EXPLICIT_CFG := $(if $(filter undefined,$(origin SPEC2017_CFG)),,1)
 SPEC2017_RATE_CFG ?= $(SPEC2017_WORKLOAD_DIR)/configs/riscv-gcc16-rva23u64-novec.cfg
@@ -80,7 +80,9 @@ SPEC2017_CASE := $(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --resolve-case --
 SPEC2017_ALL_CASES := $(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --list-cases --input-set all --mode all 2>/dev/null)
 SPEC2017_SELECTED_CASES := $(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --list-cases --input-set $(SPEC2017_INPUT) --mode $(SPEC2017_MODE) 2>/dev/null)
 SPEC2017_IMAGE_CASES := $(if $(BENCH),$(SPEC2017_CASE),$(shell $(SPEC2017_PYTHON) $(SPEC2017_HELPER) --list-cases --input-set $(SPEC2017_IMAGE_INPUT) --mode $(SPEC2017_IMAGE_MODE) 2>/dev/null))
-SPEC2017_DTS_SOURCES := $(shell find $(SPEC2017_DTS_DIR) -type f 2>/dev/null)
+SPEC2017_DTS_SOURCES := $(SPEC2017_REPO_ROOT)/dts/generate-nemu-board-dts.py $(SPEC2017_REPO_ROOT)/dts/generate-workload-builder-dts.py \
+	$(SPEC2017_REPO_ROOT)/dts/DTSGen.py $(SPEC2017_REPO_ROOT)/dts/workload-builder-profiles.json \
+	$(wildcard $(SPEC2017_REPO_ROOT)/dts/$(SPEC2017_DEFAULT_DTB).dts.in)
 
 WORKLOAD_DIRS += $(SPEC2017_BUILD_DIR)
 
@@ -195,6 +197,7 @@ $(SPEC2017_BUILD_DIR)/$(1)/firmware/dtb-$(call spec2017_case_dtb_tag,$(1)).stamp
 	@printf '%s\n' \
 		"case=$(1)" \
 		"default_dtb=$$(SPEC2017_DEFAULT_DTB)" \
+		"dts_isa_config=$$(DTS_ISA_CONFIG)" \
 		"profile=$(call spec2017_case_dtb_profile,$(1))" \
 		"min_memory_bytes=$(call spec2017_case_dtb_min_memory_bytes,$(1))" \
 		"required_min_memory_bytes=$(call spec2017_case_dtb_required_min_memory_bytes,$(1))" > "$$@.tmp"
@@ -219,7 +222,7 @@ linux/$(1): $(SPEC2017_BUILD_DIR)/$(1)/$(SPEC2017_FIRMWARE_FILENAME)
 
 WORKLOAD_PHONY_TARGETS += linux/$(1)
 
-$(SPEC2017_IMAGE_DIR)/stamps/$(1).images.stamp: $(SPEC2017_PREPARE_STAMP) $(SPEC2017_BUILD_DIR)/$(1)/cfg.$(call spec2017_case_cfg_hash,$(1)).stamp $$(SPEC2017_HELPER) $$(SPEC2017_WORKLOAD_DIR)/build.sh $(SPEC2017_BUILD_DIR)/$(1)/download/sentinel $(SPEC2017_BUILD_DIR)/$(1)/build-vars.$(SPEC2017_BUILD_VARS_HASH).stamp $$(SPEC2017_DTS_SOURCES) $$(SPEC2017_GCPT_BIN) $$(SPEC2017_GCPT_ELF) $$(SPEC2017_SCRIPTS_DIR)/build-firmware-linux.sh $$(SPEC2017_SCRIPTS_DIR)/export-linux-debug-artifacts.sh $$(SPEC2017_SCRIPTS_DIR)/dts-config.sh $$(SPEC2017_SCRIPTS_DIR)/package-multihart-rootfs.py $$(SPEC2017_LINUX_IMAGE) $$(SPEC2017_SBI_BIN) | spec2017-check-spec-config
+$(SPEC2017_IMAGE_DIR)/stamps/$(1).images.stamp: $(SPEC2017_PREPARE_STAMP) $(SPEC2017_BUILD_DIR)/$(1)/cfg.$(call spec2017_case_cfg_hash,$(1)).stamp $$(SPEC2017_HELPER) $$(SPEC2017_WORKLOAD_DIR)/build.sh $(SPEC2017_BUILD_DIR)/$(1)/download/sentinel $(SPEC2017_BUILD_DIR)/$(1)/build-vars.$(SPEC2017_BUILD_VARS_HASH).stamp $$(SPEC2017_DTS_SOURCES) $$(SPEC2017_GCPT_BIN) $$(SPEC2017_GCPT_ELF) $$(SPEC2017_SCRIPTS_DIR)/build-firmware-linux.sh $$(SPEC2017_SCRIPTS_DIR)/export-linux-debug-artifacts.sh $$(SPEC2017_SCRIPTS_DIR)/dts-config.sh $$(SPEC2017_SCRIPTS_DIR)/package-multihart-rootfs.py $$(SPEC2017_LINUX_IMAGE) $$(SPEC2017_SBI_BIN) $(SPEC2017_BUILD_DIR)/$(1)/firmware/dtb-$(call spec2017_case_dtb_tag,$(1)).stamp | spec2017-check-spec-config
 	@printf '$(SPEC2017_PROGRESS_PREFIX) Packaging split run images for $(1)\n'
 	@WORKLOAD_DIR="$$(abspath $$(SPEC2017_WORKLOAD_DIR))" \
 	WORKLOAD_BUILD_DIR="$$(abspath $(SPEC2017_BUILD_DIR)/$(1))" \

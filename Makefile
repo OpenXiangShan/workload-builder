@@ -4,9 +4,15 @@ MULTIHART ?= 0
 PLATFORM ?= $(if $(filter 1,$(MULTIHART)),qemu,nemu)
 HARTS ?= 2
 QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu-mem2g
+DTS_ISA_CONFIG ?= kunminghu-v3
+DTS_DIR := build/generated-dts
+export DTS_ISA_CONFIG
 
 ifeq ($(filter $(PLATFORM),nemu qemu),)
 $(error PLATFORM must be either nemu or qemu)
+endif
+ifeq ($(filter $(DTS_ISA_CONFIG),kunminghu-v2 kunminghu-v3),)
+$(error DTS_ISA_CONFIG must be either kunminghu-v2 or kunminghu-v3)
 endif
 ifeq ($(filter 1,$(MULTIHART)),1)
 ifneq ($(PLATFORM),qemu)
@@ -22,7 +28,8 @@ LINUX_ROOTFS_BUILD_VARS_HASH := $(shell printf '%s\n' \
 LINUX_FIRMWARE_BUILD_VARS_HASH := $(shell printf '%s\n' \
 	'multihart=$(if $(filter 1,$(MULTIHART)),1,0)' \
 	'harts=$(if $(filter 1,$(MULTIHART)),$(HARTS),1)' \
-	'default_dtb=$(if $(LINUX_DEFAULT_DTB),$(LINUX_DEFAULT_DTB),xiangshan)' | sha256sum | cut -d ' ' -f 1)
+	'default_dtb=$(if $(LINUX_DEFAULT_DTB),$(LINUX_DEFAULT_DTB),xiangshan)' \
+	'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
 
 MULTIHART_SUPPORTED_HARTS = $(shell seq 2 128)
 ifeq ($(filter 1,$(MULTIHART)),1)
@@ -65,13 +72,14 @@ GCPT_SOURCE_DIR := $(if $(filter 1,$(MULTIHART)),bootloader/LibCheckpoint,bootlo
 GCPT_BUILD_DIR := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint,build/LibCheckpointAlpha)
 GCPT_BIN := $(GCPT_BUILD_DIR)/build/gcpt.bin
 GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter qemu,$(PLATFORM)),$(QEMU_DEFAULT_DTB),xiangshan))
-GCPT_DEFAULT_DTS := dts/$(GCPT_DEFAULT_DTB).dts.in
 GCPT_CONFIGURE_MODE := $(if $(filter 1,$(MULTIHART)),dual_core,normal)
 GCPT_SERIAL_PORT ?= $(if $(filter 1,$(MULTIHART)),0x310b0000,)
 GCPT_DTB_CONFIG_HASH := $(shell printf '%s\n' "$(GCPT_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
 GCPT_CONFIG_STAMP := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.$(GCPT_CONFIGURE_MODE).serial-port.$(GCPT_SERIAL_PORT),build/LibCheckpointAlpha-config/dtb.$(GCPT_DTB_CONFIG_HASH))
 GCPT_SOURCES := $(if $(filter 1,$(MULTIHART)),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -path '*/tests' -prune -o -type f -print 2>/dev/null),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -type f -print 2>/dev/null))
-GCPT_DTS_SOURCES := $(if $(filter 1,$(MULTIHART)),,$(GCPT_DEFAULT_DTS))
+GCPT_DTS_SOURCES := dts/generate-nemu-board-dts.py dts/generate-workload-builder-dts.py \
+	dts/DTSGen.py dts/workload-builder-profiles.json \
+	$(wildcard dts/$(GCPT_DEFAULT_DTB).dts.in)
 $(GCPT_CONFIG_STAMP):
 	mkdir -p "$(@D)"
 	rm -f $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.*,build/LibCheckpointAlpha-config/dtb.*)
@@ -83,7 +91,7 @@ $(GCPT_BIN): scripts/build-gcpt.sh scripts/dts-config.sh $(TOOLCHAIN_WRAPPER) $(
 	GCPT_PAYLOAD_PATH="$(if $(filter 1,$(MULTIHART)),$(abspath $(SBI_BIN)),)" \
 	GCPT_SERIAL_PORT="$(GCPT_SERIAL_PORT)" \
 	DEFAULT_DTB="$(GCPT_DEFAULT_DTB)" \
-	DTS_TEMPLATE_DIR="$(abspath dts)" \
+	DTS_TEMPLATE_DIR="$(abspath $(DTS_DIR))" \
 	bash scripts/build-gcpt.sh $(GCPT_SOURCE_DIR) $(GCPT_BUILD_DIR)
 
 # Build OpenSBI
@@ -92,11 +100,11 @@ $(SBI_CONFIG_STAMP):
 	mkdir -p "$(@D)"
 	rm -f "$(@D)"/dtb.* "$(@D)"/multihart-fixed
 	touch "$@"
-$(SBI_BIN): scripts/build-sbi.sh scripts/dts-config.sh bootloader/opensbi.config $(TOOLCHAIN_WRAPPER) $(if $(filter 1,$(MULTIHART)),,$(GCPT_DEFAULT_DTS)) $(SBI_CONFIG_STAMP)
+$(SBI_BIN): scripts/build-sbi.sh scripts/dts-config.sh $(GCPT_DTS_SOURCES) bootloader/opensbi.config $(TOOLCHAIN_WRAPPER) $(SBI_CONFIG_STAMP)
 	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	MULTIHART="$(MULTIHART)" \
 	DEFAULT_DTB="$(GCPT_DEFAULT_DTB)" \
-	DTS_TEMPLATE_DIR="$(abspath dts)" \
+	DTS_TEMPLATE_DIR="$(abspath $(DTS_DIR))" \
 	bash scripts/build-sbi.sh bootloader/opensbi $(SBI_BUILD_DIR)
 
 define add_workload_linux
@@ -125,14 +133,14 @@ build/linux-workloads/$(1)/firmware-vars.$(LINUX_FIRMWARE_BUILD_VARS_HASH).stamp
 	rm -f "$$(@D)"/firmware-vars.*.stamp
 	touch "$$@"
 
-build/linux-workloads/$(1)/$(LINUX_FIRMWARE_FILENAME): $$(shell find $$(abspath dts)) $(GCPT_BIN) $(GCPT_DEFAULT_DTS) scripts/build-sbi.sh scripts/dts-config.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) $(SBI_BIN) build/linux-workloads/$(1)/firmware-vars.$(LINUX_FIRMWARE_BUILD_VARS_HASH).stamp
+build/linux-workloads/$(1)/$(LINUX_FIRMWARE_FILENAME): $(GCPT_DTS_SOURCES) $(GCPT_BIN) scripts/build-sbi.sh scripts/dts-config.sh scripts/build-firmware-linux.sh build/linux-workloads/$(1)/rootfs.cpio $(LINUX_IMAGE) $(SBI_BIN) build/linux-workloads/$(1)/firmware-vars.$(LINUX_FIRMWARE_BUILD_VARS_HASH).stamp
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	DTC="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/dtc" \
 	DEFAULT_DTB="$(LINUX_DEFAULT_DTB)" \
 	FIRMWARE_OUTPUT="$$(abspath $$@)" \
 	MULTIHART="$$(MULTIHART)" \
 	HARTS="$$(HARTS)" \
-	bash scripts/build-firmware-linux.sh $(GCPT_BIN) $(SBI_BUILD_DIR) dts $(LINUX_IMAGE) build/linux-workloads/$(1)
+	bash scripts/build-firmware-linux.sh $(GCPT_BIN) $(SBI_BUILD_DIR) $(DTS_DIR) $(LINUX_IMAGE) build/linux-workloads/$(1)
 
 linux/$(1): build/linux-workloads/$(1)/$(LINUX_FIRMWARE_FILENAME)
 

@@ -1,151 +1,89 @@
-# Device Tree Templates
+# DTS Generator
 
-This directory contains device tree templates for each device configuration.
-For each workload, the selected device tree is generated from its template on
-the fly because some parameters cannot be known in advance.
+This directory is the canonical source for workload-builder device-tree
+generation. It contains `DTSGen.py`, the profile generator, the build-facing
+basename generator, and profile data. Recognized `DEFAULT_DTB` names are
+generated into `build/generated-dts` during the build. An unsupported custom
+basename can be supplied explicitly as `dts/<name>.dts.in`; the build copies it
+into the generated directory before packing the firmware.
 
-## Parameters
+## Generate A Template
 
-These parameters are replaced with the corresponding values when building the workloads:
-
-- `INITRAMFS_BEGIN`: Begin address of the initramfs containing the workload.
-- `INITRAMFS_END`: End address of the initramfs containing the workload.
-
-## Device Configurations
-
-- `xiangshan.dts.in`: This device tree template is for the `riscv64-xs_defconfig` NEMU configuration.
-- `yanqihu.dts.in`: This device tree template is for the `riscv64-yanqihu_defconfig` NEMU configuration.
-- `nutshell.dts.in`: This device tree template is for the `riscv64-nutshell_defconfig` NEMU configuration.
-- `xiangshan-fpga-noAIA-novec.dts.in`: Base XiangShan FPGA DTS without vector extensions.
-- `xiangshan-fpga-noAIA-mem8g-novec.dts.in`: XiangShan FPGA DTS without vector extensions, with an 8 GiB memory profile.
-- `xiangshan-fpga-noAIA-mem24g-novec.dts.in`: XiangShan FPGA DTS without vector extensions, with a 24 GiB memory profile.
-- `xiangshan-fpga-noAIA-mem64g-novec.dts.in`: XiangShan FPGA DTS without vector extensions, with a 64 GiB memory profile.
-- `xiangshan-qemu-nemu-mem2g.dts.in`: Single-hart DTS for QEMU's `nemu`
-  machine, with 2 GiB of memory and a no-IRQ 16550A UART at `0x310b0000`.
-- `xiangshan-qemu-nemu-mem8g.dts.in`: The same single-hart QEMU profile with
-  8 GiB of memory, used by SPEC2017 rate workloads.
-- `xiangshan-qemu-nemu-mem24g.dts.in`: The same single-hart QEMU profile with
-  24 GiB of memory, used by SPEC2017 speed workloads.
-
-Multi-hart XiangShan builds require the user to select a complete DTS basename
-with `DEFAULT_DTB`; the build no longer assumes a `mem8g` suffix. For example,
-`DEFAULT_DTB=xiangshan-fpga-noAIA-32hart-mem64g` selects
-`xiangshan-fpga-noAIA-32hart-mem64g.dts.in`. The matching template must exist;
-the build fails if it does not.
-
-## Single-Core Physical Memory Map
-
-Single-core images use `MULTIHART=0` and LibCheckpointAlpha. They keep the
-original compact placement below; the multi-hart checkpoint-state reservation
-and the `0x88600000` kernel address do not apply. This table shows the default
-`0x80000000` DRAM base:
-
-| Physical address / range | Size or offset | Assignment |
-|-------------------------|----------------|------------|
-| `0x80000000–0x800fffff` | 1 MiB | LibCheckpointAlpha checkpoint-recovery program; reserved as `no-map` in the DTS |
-| `0x80100000` | +1 MiB | OpenSBI firmware starts here |
-| `0x801c0000` | +1.75 MiB | Device tree placed here by firmware assembly |
-| `0x80200000` and above | +2 MiB | Linux kernel image, then the MiB-aligned initramfs |
-
-The single-core firmware packer uses `DTB_OFFSET_KB=1792`,
-`SBI_OFFSET_KB=1024`, and `KERNEL_OFFSET_MB=2`. The initramfs address is
-computed from the actual kernel size and starts at the next MiB boundary. The
-selected single-core DTS supplies the DRAM base and capacity; no fixed 8 GiB or
-64 GiB profile is imposed by this layout.
-
-The `memory` node's first address cell pair is the image's DRAM base. The build
-uses it for GCPT, OpenSBI, kernel, initramfs, and manifest placement, and uses
-the single `riscv,clint0` node to configure GCPT.
-
-## Multi-Hart Physical Memory Map
-
-All `MULTIHART=1` images use the same physical placement, regardless of
-the selected DRAM capacity or hart count. The image is loaded at `0x80000000`:
-
-| Physical range | Size | Assignment |
-|----------------|------|------------|
-| `0x80000000–0x800fffff` | 1 MiB | LibCheckpoint/GCPT checkpoint-recovery program |
-| `0x80100000–0x802fffff` | 2 MiB | OpenSBI firmware; the selected DTB is placed at `0x80200000` |
-| `0x80300000–0x885fffff` | 131 MiB | `no-map` checkpoint register-state reservation |
-| `0x88600000` and above | — | Linux kernel image, then the MiB-aligned initramfs |
-
-The checkpoint reservation is `[0x80300000, 0x88600000)`. LibCheckpoint uses
-one 1 MiB state slot per hart and currently allocates startup/restore storage
-for at most 128 harts. Therefore the build accepts `HARTS=2..128`; the 131 MiB
-window includes the slots plus alignment headroom before Linux.
-
-The kernel address is derived from the OpenSBI placement:
-
-```text
-FW_TEXT_START   = 0x80100000
-FW_JUMP_ADDR    = 0x88600000
-FW_JUMP_FDT_ADDR = 0x80200000
-```
-
-The unified addresses do not force a single DRAM size. The repository's
-standard templates retain these profiles:
-
-| Template | DRAM |
-|----------|------|
-| `xiangshan-fpga-noAIA-2hart-mem8g-novec` | 8 GiB |
-| `xiangshan-fpga-noAIA-2hart-mem16g-novec` | 16 GiB |
-| `xiangshan-fpga-noAIA-32hart-mem64g` | 64 GiB |
-
-`xiangshan-fpga-noAIA-mem16g-novec` is the single-hart Host profile for
-`virt/linux/*`. It disables AIA and vector advertisement, retains the H
-extension required by RISC-V KVM, and describes exactly 16 GiB of DRAM. The
-virtual build validates all three properties that affect nesting: one CPU, at
-least 16 GiB, and structured ISA extension `h`.
-
-Select the complete template basename explicitly when building, for example:
+The profile-oriented CLI is useful when creating a template explicitly:
 
 ```sh
-make linux/coremark MULTIHART=1 HARTS=2 \
-  DEFAULT_DTB=xiangshan-fpga-noAIA-2hart-mem8g-novec
-```
-
-## Generate Multi-Hart XiangShan DTS
-
-Run the generator from the repository root to create a template for a new
-hart count. For example, generate the two-hart template from the 8 GiB
-XiangShan FPGA baseline with:
-
-```shell
-python3 scripts/generate-xiangshan-multihart-dts.py \
-  --base dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in \
-  --harts 2 \
-  --output dts/xiangshan-fpga-noAIA-2hart-mem8g-novec.dts.in
-```
-
-Use `--memory-gib` to override the copied DRAM capacity. The checked-in 16 GiB
-two-hart profile can be regenerated with:
-
-```shell
-python3 scripts/generate-xiangshan-multihart-dts.py \
-  --base dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in \
-  --harts 2 \
+python3 dts/generate-workload-builder-dts.py \
+  --profile fpga-noaia-novec \
   --memory-gib 16 \
-  --output dts/xiangshan-fpga-noAIA-2hart-mem16g-novec.dts.in
+  --output /tmp/custom-fpga.dts.in
 ```
 
-`--harts` must be in the range 2 through 128, and `--memory-gib` must be a
-positive integer when specified. The generator copies the CPU node for each
-hart, extends the CLINT, PLIC, and debug interrupt contexts, sets
-`riscv,ndev = <66>`, and emits the no-IRQ 16550A console at `0x310b0000` used
-by the supported QEMU `nemu` machine. Generated multi-hart templates reserve
-the fixed 131 MiB checkpoint window `[0x80300000, 0x88600000)`.
+Supported profiles are `fpga-noaia-novec`, `qemu-nemu`, and `nemu`. Use
+`--harts 2..128` with `qemu-nemu` for multi-hart output. `--memory-gib` and
+`--memory-size` select the DRAM capacity; `--no-vector` removes vector ISA
+declarations. This CLI is for inspecting or exporting a profile; Make selects
+profiles through `DEFAULT_DTB` and regenerates its own build-tree copy. The
+generated file contains `INITRAMFS_BEGIN_*` and
+`INITRAMFS_END_*` placeholders and must be processed by the firmware packer
+before it is compiled into a DTB.
 
-The full capability block describes XiangShan hardware and is not fully
-emulated by the current QEMU `nemu` path. In particular, the timer path cannot
-execute the DT-advertised `sstc` CSR sequence, so generated multi-hart CPU nodes
-omit `sstc`.
+The build-facing CLI accepts a complete basename and is what Make invokes:
 
-The build does not invoke this generator automatically. Run it and review the
-result before building with the corresponding `HARTS` value.
+```sh
+python3 dts/generate-nemu-board-dts.py \
+  --name xiangshan-qemu-nemu-2hart-mem16g \
+  --output build/generated-dts/xiangshan-qemu-nemu-2hart-mem16g.dts.in
+```
 
-The generator can create other topologies. For multi-core firmware, set
-`HARTS` in the range 2 through 128 to match both the generated template and the
-QEMU checkpoint, and pass that template through `DEFAULT_DTB`. Every
-multi-hart image uses DTB address `0x80200000` and kernel address
-`0x88600000`; the fixed placement keeps the 131 MiB checkpoint window at
-`0x80300000` clear of the boot payload.
+Built-in names include the `xiangshan`, `yanqihu`, `nutshell`, and `spike`
+profiles, FPGA noAIA names, and QEMU `nemu` names of the form
+`<board>[-<harts>hart][-mem<size>g][-novec]`. Unknown names use a matching
+custom template passed through `--custom-template-dir`; otherwise generation
+fails with an `unsupported DTS basename` error.
+
+For generated FPGA noAIA names, select the ISA declaration independently of
+the basename:
+
+```sh
+make linux/coremark \
+  DEFAULT_DTB=xiangshan-fpga-noAIA-mem16g-novec \
+  DTS_ISA_CONFIG=kunminghu-v2
+```
+
+`DTS_ISA_CONFIG` accepts `kunminghu-v2` and `kunminghu-v3`, with V3 as the
+default. The `-novec` suffix still controls vector advertisement.
+
+## Direct DTSGen CLI
+
+`DTSGen.py` remains available for low-level generation:
+
+```sh
+python3 dts/DTSGen.py --nr-harts 2 --memory-size 0x400000000 \
+  --rva-profile rva23s64 | dtc -O dtb -o build/example.dtb -
+```
+
+## Profiles And Validation
+
+Profile data is stored in `workload-builder-profiles.json`. The `source` URLs
+in that file document the historical workload-builder templates from which
+the declarations were derived; generation itself is offline.
+
+The build invokes the generator and then uses `dtc` to compile the generated
+template. This validates DTS generation, DTB compilation, and image assembly;
+it does not prove that NEMU, QEMU, or FPGA hardware boots a workload
+successfully.
+
+## Contributors
+
+The generator incorporates the `DTSGen` implementation and device-tree
+conventions from OpenXiangShan's `nemu_board`. The vendored source revision is
+commit `15db1e6` of
+[`OpenXiangShan/nemu_board`](https://github.com/OpenXiangShan/nemu_board/commit/15db1e6cdf4dcbf4cc016cb8938a5f8f35b59faf).
+
+GitHub authors and co-authors represented in that revision are:
+
+- `chenguokai`
+- `xyyy1420`
+- `dzwduan`
+- `cyyself`
+- `Gs-ygc`

@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
 
+# Generate a recognized DTS basename or refresh a custom template from its source.
+dts_generate_template() {
+    local dts_dir="$1"
+    local default_dtb="$2"
+    local generator="$(dirname "${BASH_SOURCE[0]}")/../dts/generate-nemu-board-dts.py"
+    local custom_dir="$(dirname "${BASH_SOURCE[0]}")/../dts"
+    local output="$dts_dir/$default_dtb.dts.in"
+    local args=(--name "$default_dtb" --output "$output"
+                --custom-template-dir "$custom_dir")
+
+    if [[ "$default_dtb" == xiangshan-fpga-noAIA* ]]; then
+        args+=(--isa-config "${DTS_ISA_CONFIG:-kunminghu-v3}")
+    fi
+    python3 "$generator" "${args[@]}"
+}
+
 # Print the selected DTS address configuration as three shell words:
 # memory base, memory size, and CLINT base.
 dts_extract_config() {

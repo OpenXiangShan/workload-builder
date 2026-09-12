@@ -213,13 +213,13 @@ The mode-specific minimum is 8 GiB for rate cases and 24 GiB for speed cases.
 Multi-hart builds additionally require at least 16 GiB, so both checks must
 pass.
 
-The source templates live in:
+The generated templates are written to:
 
 ```text
-dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in
-dts/xiangshan-fpga-noAIA-mem24g-novec.dts.in
-dts/xiangshan-qemu-nemu-mem8g.dts.in
-dts/xiangshan-qemu-nemu-mem24g.dts.in
+build/generated-dts/xiangshan-fpga-noAIA-mem8g-novec.dts.in
+build/generated-dts/xiangshan-fpga-noAIA-mem24g-novec.dts.in
+build/generated-dts/xiangshan-qemu-nemu-mem8g.dts.in
+build/generated-dts/xiangshan-qemu-nemu-mem24g.dts.in
 ```
 
 They are compiled into each case's `dt/` directory during firmware assembly.

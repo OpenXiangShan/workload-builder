@@ -20,8 +20,9 @@ The resulting firmware is written to `build/linux-workloads/geekbench5/` as
 `fw_payload.bin`, with the unpacked initramfs in `rootfs.cpio` and generated
 device trees in `dt/`.
 
-This workload uses `dts/xiangshan-fpga-noAIA.dts.in` as its built-in default
-device tree so the large Geekbench initramfs stays inside Linux-visible memory.
+This workload generates the `xiangshan-fpga-noAIA` profile as its built-in
+default device tree so the large Geekbench initramfs stays inside Linux-visible
+memory.
 
 The automated boot path runs `./geekbench_riscv64 --cpu --iterations 1` so the
 simulator validation can reach a good trap in reasonable time. The default DTB

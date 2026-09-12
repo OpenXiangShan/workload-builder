@@ -12,6 +12,8 @@ endif
 
 SPECJBB2015_ROOTFS_HASH := $(shell printf '%s\n' 'harts=$(SPECJBB2015_HARTS)' 'xms=$(SPECJBB_JVM_XMS)' 'xmx=$(SPECJBB_JVM_XMX)' 'mode=$(SPECJBB_MODE)' | sha256sum | cut -d ' ' -f 1)
 SPECJBB2015_ROOTFS_STAMP := $(SPECJBB2015_BUILD_DIR)/rootfs-vars.$(SPECJBB2015_ROOTFS_HASH).stamp
+SPECJBB2015_FIRMWARE_HASH := $(shell printf '%s\n' 'default_dtb=$(SPECJBB2015_DEFAULT_DTB)' 'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
+SPECJBB2015_FIRMWARE_STAMP := $(SPECJBB2015_BUILD_DIR)/firmware-vars.$(SPECJBB2015_FIRMWARE_HASH).stamp
 
 .PHONY: specjbb2015-check-inputs
 specjbb2015-check-inputs:
@@ -27,6 +29,11 @@ $(SPECJBB2015_ROOTFS_STAMP):
 	@rm -f "$(@D)"/rootfs-vars.*.stamp
 	@touch "$@"
 
+$(SPECJBB2015_FIRMWARE_STAMP):
+	@mkdir -p "$(@D)"
+	@rm -f "$(@D)"/firmware-vars.*.stamp
+	@touch "$@"
+
 $(SPECJBB2015_BUILD_DIR)/rootfs.cpio: $(shell find $(SPECJBB2015_DIR)) $(TOOLCHAIN_WRAPPER) scripts/build-workload-linux.sh $(SPECJBB2015_BUILD_DIR)/download/sentinel $(SPECJBB2015_ROOTFS_STAMP) | specjbb2015-check-inputs
 	@CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	  SPECJBB_INPUT="$(SPECJBB_INPUT)" SPECJBB_RV_JDK_INPUT="$(SPECJBB_RV_JDK_INPUT)" \
@@ -34,11 +41,11 @@ $(SPECJBB2015_BUILD_DIR)/rootfs.cpio: $(shell find $(SPECJBB2015_DIR)) $(TOOLCHA
 	  HARTS="$(SPECJBB2015_HARTS)" MULTIHART=0 \
 	  bash scripts/build-workload-linux.sh workloads/linux/specjbb2015 $(SPECJBB2015_BUILD_DIR)
 
-$(SPECJBB2015_BUILD_DIR)/fw_payload.bin: $(shell find $(abspath dts)) $(GCPT_BIN) scripts/build-firmware-linux.sh $(SPECJBB2015_BUILD_DIR)/rootfs.cpio $(LINUX_IMAGE) $(SBI_BIN)
+$(SPECJBB2015_BUILD_DIR)/fw_payload.bin: dts/generate-nemu-board-dts.py dts/generate-workload-builder-dts.py dts/DTSGen.py dts/workload-builder-profiles.json $(wildcard dts/$(SPECJBB2015_DEFAULT_DTB).dts.in) $(GCPT_BIN) scripts/build-firmware-linux.sh $(SPECJBB2015_ROOTFS_STAMP) $(SPECJBB2015_FIRMWARE_STAMP) $(SPECJBB2015_BUILD_DIR)/rootfs.cpio $(LINUX_IMAGE) $(SBI_BIN)
 	@CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	  DTC="$(abspath $(BUILDROOT_DIR)/output/host/bin)/dtc" DEFAULT_DTB="$(SPECJBB2015_DEFAULT_DTB)" \
 	  MULTIHART="$(SPECJBB2015_MULTIHART)" HARTS="$(SPECJBB2015_HARTS)" \
-	  bash scripts/build-firmware-linux.sh $(GCPT_BIN) $(SBI_BUILD_DIR) dts $(LINUX_IMAGE) $(SPECJBB2015_BUILD_DIR)
+	  bash scripts/build-firmware-linux.sh $(GCPT_BIN) $(SBI_BUILD_DIR) build/generated-dts $(LINUX_IMAGE) $(SPECJBB2015_BUILD_DIR)
 
 linux/specjbb2015: $(SPECJBB2015_BUILD_DIR)/fw_payload.bin
 WORKLOAD_PHONY_TARGETS += linux/specjbb2015

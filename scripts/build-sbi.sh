@@ -13,9 +13,10 @@ if [ "${MULTIHART:-0}" = 1 ]; then
     FW_JUMP_FDT_ADDR=0x80200000
 else
     DEFAULT_DTB="${DEFAULT_DTB:-xiangshan}"
-    DTS_TEMPLATE_DIR="${DTS_TEMPLATE_DIR:-$(dirname "${BASH_SOURCE[0]}")/../dts}"
-    DTS_TEMPLATE_DIR="$(realpath "$DTS_TEMPLATE_DIR")"
+    DTS_TEMPLATE_DIR="${DTS_TEMPLATE_DIR:-$(dirname "${BASH_SOURCE[0]}")/../build/generated-dts}"
+    DTS_TEMPLATE_DIR="$(realpath -m "$DTS_TEMPLATE_DIR")"
     DTS_TEMPLATE="$DTS_TEMPLATE_DIR/$DEFAULT_DTB.dts.in"
+    dts_generate_template "$DTS_TEMPLATE_DIR" "$DEFAULT_DTB"
     DTS_CONFIG="$(dts_extract_config "$DTS_TEMPLATE")"
     read -r MEM_BEGIN MEM_SIZE CLINT_MMIO <<< "$DTS_CONFIG"
     FW_TEXT_START=$((MEM_BEGIN + MEGABYTE))
