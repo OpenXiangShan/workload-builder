@@ -1,6 +1,5 @@
 {
   "fpga-noaia-novec": {
-    "source": "https://github.com/OpenXiangShan/workload-builder/blob/aaf4d8bd7d2da5351fc2640c8d61c9d849d69342/dts/xiangshan-fpga-noAIA-novec.dts.in",
     "memory_size": 2147483648,
     "isa_extensions": [
       "i",
@@ -116,7 +115,6 @@
     }
   },
   "qemu-nemu": {
-    "source": "https://github.com/OpenXiangShan/workload-builder/blob/aaf4d8bd7d2da5351fc2640c8d61c9d849d69342/dts/xiangshan-qemu-nemu-mem2g.dts.in",
     "memory_size": 2147483648,
     "isa_extensions": [
       "i",
@@ -209,7 +207,6 @@
     "legacy_isa": "rv64imafdcvh_smstateen_sscofpmf_zicntr_zihpm_svpbmt_sdtrig_smcsrind_sscsrind_svade"
   },
   "nemu": {
-    "source": "https://github.com/OpenXiangShan/workload-builder/blob/aaf4d8bd7d2da5351fc2640c8d61c9d849d69342/dts/xiangshan.dts.in",
     "memory_size": 134217728,
     "isa_extensions": [
       "i",
