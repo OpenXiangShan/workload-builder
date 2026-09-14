@@ -74,12 +74,11 @@ cp "$DTS_FILE" "$DT_DIR/$ARTIFACT_NAME.dts"
 cp "$SBI_ELF" "$SBI_DIR/fw_jump.elf"
 cp "$SBI_CONFIG" "$SBI_DIR/defconfig"
 
-kernel_min_offset_mb=2
-dtb_offset=$((1792 * 1024))
+kernel_min_offset_mb=4
+dtb_offset=$((2 * 1024 * 1024))
 multihart=false
 if [ "${MULTIHART:-0}" = 1 ]; then
     kernel_min_offset_mb=134
-    dtb_offset=$((2 * 1024 * 1024))
     multihart=true
 fi
 
