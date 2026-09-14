@@ -41,8 +41,8 @@ profiles, FPGA noAIA names, and QEMU `nemu` names of the form
 custom template passed through `--custom-template-dir`; otherwise generation
 fails with an `unsupported DTS basename` error.
 
-For generated FPGA noAIA names, select the ISA declaration independently of
-the basename:
+For generated FPGA noAIA and QEMU `nemu` names, select the ISA declaration
+independently of the basename:
 
 ```sh
 make linux/coremark \
@@ -51,7 +51,8 @@ make linux/coremark \
 ```
 
 `DTS_ISA_CONFIG` accepts `kunminghu-v2` and `kunminghu-v3`, with V3 as the
-default. The `-novec` suffix still controls vector advertisement.
+default. For QEMU `nemu`, V2 uses the intersection of the QEMU and Kunminghu
+V2 ISA declarations. The `-novec` suffix still controls vector advertisement.
 
 ## Direct DTSGen CLI
 

@@ -187,8 +187,8 @@ def render_profile(profile_name, *, nr_harts=1, memory=None,
     profiles = json.loads(PROFILE_FILE.read_text())
     profile = profiles[profile_name]
     if isa_config_name is not None:
-        if profile_name != "fpga-noaia-novec":
-            raise ValueError("--isa-config is supported by the FPGA noAIA profile only")
+        if profile_name not in {"fpga-noaia-novec", "qemu-nemu"}:
+            raise ValueError("--isa-config is supported by the FPGA noAIA and qemu-nemu profiles only")
         isa_config = (profile if isa_config_name == "kunminghu-v3"
                       else profile["isa_configs"][isa_config_name])
     else:
@@ -310,8 +310,9 @@ def render(name, isa_config_name=None):
     is_novec = name.endswith("-novec")
 
     if (isa_config_name not in (None, "kunminghu-v3")
-            and not name.startswith("xiangshan-fpga-noAIA")):
-        raise ValueError("--isa-config is supported by the FPGA noAIA profile only")
+            and not (name.startswith("xiangshan-fpga-noAIA")
+                     or name.startswith("xiangshan-qemu-nemu"))):
+        raise ValueError("--isa-config is supported by the FPGA noAIA and qemu-nemu profiles only")
 
     if name.startswith("xiangshan-fpga-noAIA"):
         return render_profile(
@@ -321,7 +322,7 @@ def render(name, isa_config_name=None):
     elif name.startswith("xiangshan-qemu-nemu"):
         return render_profile(
             "qemu-nemu", nr_harts=nr_harts, memory=memory,
-            isa_config_name=None,
+            isa_config_name=isa_config_name,
             vector_mode="remove" if is_novec else None)
     elif name == "xiangshan":
         gen = DTSGen(compatible="freechips,rocketchip-unknown-dev",

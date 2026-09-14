@@ -61,7 +61,7 @@ def main():
     parser.add_argument("--mmu-type", choices=["riscv,sv39", "riscv,sv48", "riscv,sv57"])
     parser.add_argument("--bootargs")
     parser.add_argument("--isa-config", choices=["kunminghu-v3", "kunminghu-v2"],
-                        help="Named FPGA ISA declaration (default: kunminghu-v3)")
+                        help="Named FPGA or QEMU ISA declaration (default: kunminghu-v3)")
     parser.add_argument("--isa-extensions", nargs="+", help="Replace the profile's ISA list")
     parser.add_argument("--exclude-isa", nargs="+", default=[], help="Remove exact extension names")
     parser.add_argument("--no-vector", action="store_true", help="Remove v and all zv* declarations")

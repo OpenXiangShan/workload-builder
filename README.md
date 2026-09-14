@@ -294,10 +294,12 @@ writes the resulting template to `build/generated-dts` before compiling it.
 To add a custom device tree, place `dts/device_name.dts.in` in the repository
 and select it with the same `DEFAULT_DTB=device_name` interface.
 
-For generated `xiangshan-fpga-noAIA*` templates, the default ISA declaration is
-Kunminghu V3. Select V2 with `DTS_ISA_CONFIG=kunminghu-v2`; the DTB basename
-continues to select hart count, memory size, and vector mode. See the DTS
-README for generator options, validation, provenance, and contributors.
+For generated `xiangshan-fpga-noAIA*` and `xiangshan-qemu-nemu*` templates, the
+default ISA declaration is Kunminghu V3. Select V2 with
+`DTS_ISA_CONFIG=kunminghu-v2`; for QEMU `nemu`, this uses the intersection of
+the QEMU and Kunminghu V2 ISA declarations. The DTB basename continues to
+select hart count, memory size, and vector mode. See the DTS README for
+generator options, validation, provenance, and contributors.
 
 Currently, the memory location of the initramfs containing the workload is passed to the kernel by device tree. So for each workload, device tree files are generated from the template on the fly, because the size of the initramfs cannot be known in advance. You should use the parameters `INITRAMFS_BEGIN` and `INITRAMFS_END` in the device tree template. 
 

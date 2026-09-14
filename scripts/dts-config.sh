@@ -10,7 +10,8 @@ dts_generate_template() {
     local args=(--name "$default_dtb" --output "$output"
                 --custom-template-dir "$custom_dir")
 
-    if [[ "$default_dtb" == xiangshan-fpga-noAIA* ]]; then
+    if [[ "$default_dtb" == xiangshan-fpga-noAIA* ||
+          "$default_dtb" == xiangshan-qemu-nemu* ]]; then
         args+=(--isa-config "${DTS_ISA_CONFIG:-kunminghu-v3}")
     fi
     python3 "$generator" "${args[@]}"
