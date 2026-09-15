@@ -65,9 +65,8 @@ python3 dts/DTSGen.py --nr-harts 2 --memory-size 0x400000000 \
 
 ## Profiles And Validation
 
-Profile data is stored in `workload-builder-profiles.json`. The `source` URLs
-in that file document the historical workload-builder templates from which
-the declarations were derived; generation itself is offline.
+Profile data is stored in `workload-builder-profiles.json`; generation itself is
+offline.
 
 The build invokes the generator and then uses `dtc` to compile the generated
 template. This validates DTS generation, DTB compilation, and image assembly;
