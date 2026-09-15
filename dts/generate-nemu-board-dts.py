@@ -296,6 +296,8 @@ def render_profile(profile_name, *, nr_harts=1, memory=None,
         gen.add_device(debug_controller(nr_harts))
         gen.add_device(serial16550())
     else:
+        if nr_harts > 1:
+            gen.add_device(debug_controller(nr_harts))
         gen.add_device(serial16550())
 
     output = gen.gen_dts()
