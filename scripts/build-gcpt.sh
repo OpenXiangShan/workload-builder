@@ -20,9 +20,10 @@ rm -rf "$GCPT_BUILD_DIR/build"
 
 case "$GCPT_IMPLEMENTATION" in
     alpha)
-        DTS_TEMPLATE_DIR="$(realpath "${DTS_TEMPLATE_DIR:?DTS_TEMPLATE_DIR is required for LibCheckpointAlpha}")"
+        DTS_TEMPLATE_DIR="$(realpath -m "${DTS_TEMPLATE_DIR:?DTS_TEMPLATE_DIR is required for LibCheckpointAlpha}")"
         DEFAULT_DTB="${DEFAULT_DTB:-xiangshan}"
         DTS_TEMPLATE="$DTS_TEMPLATE_DIR/$DEFAULT_DTB.dts.in"
+        dts_generate_template "$DTS_TEMPLATE_DIR" "$DEFAULT_DTB"
         DTS_CONFIG="$(dts_extract_config "$DTS_TEMPLATE")"
         read -r MEM_BEGIN MEM_SIZE CLINT_MMIO <<< "$DTS_CONFIG"
         export CFLAGS="${CFLAGS:-} -DCONFIG_CLINT_MMIO=$CLINT_MMIO -DCONFIG_DRAM_BASE=$MEM_BEGIN"

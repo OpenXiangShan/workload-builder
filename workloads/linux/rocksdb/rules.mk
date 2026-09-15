@@ -1,7 +1,7 @@
 ROCKSDB_WORKLOAD_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 ROCKSDB_REPO_ROOT := $(abspath $(ROCKSDB_WORKLOAD_DIR)/../../..)
 ROCKSDB_SCRIPTS_DIR := $(ROCKSDB_REPO_ROOT)/scripts
-ROCKSDB_DTS_DIR := $(ROCKSDB_REPO_ROOT)/dts
+ROCKSDB_DTS_DIR := $(ROCKSDB_REPO_ROOT)/build/generated-dts
 ROCKSDB_BUILD_DIR ?= $(ROCKSDB_REPO_ROOT)/build/linux-workloads/rocksdb
 ROCKSDB_IMAGE_DIR ?= $(ROCKSDB_REPO_ROOT)/build/images/rocksdb
 ROCKSDB_CASES := readwhilewriting readrandomwriterandom updaterandom seekrandomwhilewriting randomtransaction timeseries mixgraph
@@ -33,14 +33,16 @@ ROCKSDB_OPT_FLAGS ?= -O3 -ftree-vectorize -ftree-loop-vectorize -ftree-slp-vecto
 ROCKSDB_DTC ?= $(ROCKSDB_BUILDROOT_DIR)/output/host/bin/dtc
 ROCKSDB_COMMON_STAMP := $(ROCKSDB_BUILD_DIR)/common.stamp
 ROCKSDB_PACKAGE_HELPER := $(ROCKSDB_WORKLOAD_DIR)/package-case.sh
-ROCKSDB_DTS_SOURCES := $(shell find $(ROCKSDB_DTS_DIR) -type f 2>/dev/null)
+ROCKSDB_DTS_SOURCES := $(ROCKSDB_REPO_ROOT)/dts/generate-nemu-board-dts.py $(ROCKSDB_REPO_ROOT)/dts/generate-workload-builder-dts.py \
+	$(ROCKSDB_REPO_ROOT)/dts/DTSGen.py $(ROCKSDB_REPO_ROOT)/dts/workload-builder-profiles.json \
+	$(wildcard $(ROCKSDB_REPO_ROOT)/dts/$(ROCKSDB_DEFAULT_DTB).dts.in)
 ROCKSDB_NON_COMMON_INPUTS := $(ROCKSDB_WORKLOAD_DIR)/README.md $(ROCKSDB_WORKLOAD_DIR)/links.txt $(ROCKSDB_WORKLOAD_DIR)/rules.mk $(ROCKSDB_PACKAGE_HELPER)
 ROCKSDB_COMMON_INPUTS := $(filter-out $(ROCKSDB_NON_COMMON_INPUTS),$(shell find $(ROCKSDB_WORKLOAD_DIR) -type f 2>/dev/null))
 ROCKSDB_CASE_FIRMWARE := $(foreach case,$(ROCKSDB_CASES),$(ROCKSDB_BUILD_DIR)/$(case)/fw_payload.bin)
 ROCKSDB_COMPILER_ID := $(shell "$(ROCKSDB_CROSS_COMPILE)g++" --version 2>/dev/null | head -n 1)
 ROCKSDB_BUILD_VARS_HASH := $(shell printf '%s\n' 'cross_compile=$(ROCKSDB_CROSS_COMPILE)' 'compiler=$(ROCKSDB_COMPILER_ID)' 'sysroot=$(ROCKSDB_SYSROOT_DIR)' 'march=$(ROCKSDB_MARCH)' 'mabi=$(ROCKSDB_MABI)' 'opt_flags=$(ROCKSDB_OPT_FLAGS)' | sha256sum | cut -d ' ' -f 1)
 ROCKSDB_BUILD_VARS_STAMP := $(ROCKSDB_BUILD_DIR)/rocksdb-build-vars.$(ROCKSDB_BUILD_VARS_HASH).stamp
-ROCKSDB_FIRMWARE_VARS_HASH := $(shell printf '%s\n' 'default_dtb=$(ROCKSDB_DEFAULT_DTB)' | sha256sum | cut -d ' ' -f 1)
+ROCKSDB_FIRMWARE_VARS_HASH := $(shell printf '%s\n' 'default_dtb=$(ROCKSDB_DEFAULT_DTB)' 'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
 ROCKSDB_FIRMWARE_VARS_STAMP := $(ROCKSDB_BUILD_DIR)/rocksdb-firmware-vars.$(ROCKSDB_FIRMWARE_VARS_HASH).stamp
 rocksdb_case_ops = $(if $(strip $(ROCKSDB_OPS)),$(ROCKSDB_OPS),$(ROCKSDB_DEFAULT_OPS_$(1)))
 rocksdb_case_threads = $(if $(filter timeseries,$(1)),2,$(ROCKSDB_THREADS))
