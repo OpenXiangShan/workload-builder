@@ -113,3 +113,15 @@ load/store share, followed by `mixgraph`. `randomtransaction` has the largest
 RVV share and vector-instruction count. A literal 100,000 yi (`100000`
 hundred-million) instructions is `1e13`, not `1e12`; use ten times the listed
 operation count for that target.
+
+## Virtualization
+
+Build one RocksDB case as a nested KVM guest and run the Host firmware with QEMU:
+
+```sh
+make ROCKSDB_CROSS_COMPILE=/path/to/riscv64-unknown-linux-gnu- \
+  linux/rocksdb-readwhilewriting PLATFORM=qemu VIRTUALIZATION=1 -jN
+QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
+  bash scripts/run-qemu.sh \
+  build/virt-linux-workloads/rocksdb-readwhilewriting/host/fw_payload.qemu.bin
+```

@@ -25,6 +25,33 @@ You can also build a single workload with:
 - `make linux/workload_name` for a Linux workload.
 - `make am/workload_name` for an AM workload.
 
+To package a workload as a nested KVM Guest running inside a Linux Host, use
+`make linux/workload_name VIRTUALIZATION=1`, or `make VIRTUALIZATION=1` to build
+the virtual variants of the default set of Linux workloads. The virtual artifact
+is written to `build/virt-linux-workloads/<workload>/`. `PLATFORM` selects the
+simulator that boots the Host, and only that simulator's firmware is produced:
+`PLATFORM=nemu` (the default) emits `host/fw_payload.bin` for NEMU, while
+`PLATFORM=qemu` emits `host/fw_payload.qemu.bin`, which can be run with the
+existing `scripts/run-qemu.sh` launcher. The Guest reports its exit status over
+the Host serial FIFO, and the Host propagates that status with `/bin/nemu-trap`.
+All Linux workloads are supported; `VIRTUALIZATION=1` cannot be combined with
+`MULTIHART=1`.
+
+The images are exported with the usual SPEC CPU2006 image command:
+
+```shell
+make spec2006-images BENCH=bzip2 INPUT=chicken \
+  SPEC2006_ISO=/path/to/cpu2006.iso VIRTUALIZATION=1 -jN
+```
+
+It writes the virtual firmware and its device tree into the regular image
+directory, `build/images/spec2006/bin/<case>.fw_payload.bin`,
+`dt/<case>.dtb`, `dt/<case>.dts` and `manifest/<case>.json`.
+
+`PLATFORM=nemu` uses the FPGA host DTB (`xiangshan-fpga-noAIA-mem16g-novec` by
+default); `PLATFORM=qemu` uses the QEMU `nemu` host DTB
+(`xiangshan-qemu-nemu-mem16g` by default). Override either with `VIRT_HOST_DTB`.
+
 Single-core workloads default to NEMU. QEMU support covers CoreMark, SPEC
 CPU2006, and SPEC CPU2017, which can be assembled with `PLATFORM=qemu`:
 

@@ -103,7 +103,7 @@ $(ROCKSDB_BUILD_DIR)/$(1)/fw_payload.bin: $$(ROCKSDB_DTS_SOURCES) $$(ROCKSDB_FIR
 		"$$(ROCKSDB_GCPT_BIN)" "$$(ROCKSDB_SBI_BUILD_DIR)" "$$(ROCKSDB_DTS_DIR)" \
 		"$$(ROCKSDB_LINUX_IMAGE)" "$$(ROCKSDB_BUILD_DIR)/$(1)"
 
-linux/rocksdb-$(1): $(ROCKSDB_BUILD_DIR)/$(1)/fw_payload.bin
+linux/rocksdb-$(1): $(if $(filter 1,$(VIRTUALIZATION)),,$(ROCKSDB_BUILD_DIR)/$(1)/fw_payload.bin)
 
 $(ROCKSDB_IMAGE_DIR)/bin/$(1).fw_payload.bin: $(ROCKSDB_BUILD_DIR)/$(1)/fw_payload.bin
 	@mkdir -p "$$(@D)"
@@ -114,7 +114,7 @@ endef
 
 $(foreach case,$(ROCKSDB_CASES),$(eval $(call add_rocksdb_case,$(case))))
 
-linux/rocksdb: $(ROCKSDB_CASE_FIRMWARE)
+linux/rocksdb: $(if $(filter 1,$(VIRTUALIZATION)),$(addprefix linux/rocksdb-,$(ROCKSDB_CASES)),$(ROCKSDB_CASE_FIRMWARE))
 
 rocksdb-list:
 	@echo $(ROCKSDB_CASES)

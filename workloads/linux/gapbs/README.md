@@ -45,6 +45,17 @@ make gapbs-images -jN                 # build all 18 images
 
 Images are written to `build/images/gapbs/bin/<case>.fw_payload.bin`.
 
+## Virtualization
+
+Build one GAPBS case as a nested KVM guest and run the Host firmware with QEMU:
+
+```sh
+make linux/gapbs-bfs_road PLATFORM=qemu VIRTUALIZATION=1 -jN
+QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
+  bash scripts/run-qemu.sh \
+  build/virt-linux-workloads/gapbs-bfs_road/host/fw_payload.qemu.bin
+```
+
 ## Graphs
 
 Kernels load a pre-serialized graph with `-f`, so graph construction is not

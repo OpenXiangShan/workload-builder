@@ -19,3 +19,18 @@ The output is `build/linux-workloads/specjbb2015/fw_payload.bin`. The image
 uses one multithreaded JVM shared by all guest harts and the standard
 multi-hart checkpoint memory layout. The selected DTB must match `HARTS` and
 provide enough memory for the configured Java heap.
+
+## Virtualization
+
+Build SPECjbb2015 as a nested KVM guest and run the Host firmware with QEMU:
+
+```sh
+make linux/specjbb2015 \
+  SPECJBB_INPUT=/path/to/SPECjbb2015-1.03.iso \
+  SPECJBB_RV_JDK_INPUT=/path/to/jdk25 \
+  SPECJBB_MODE=COMPOSITE SPECJBB_JVM_XMS=4g SPECJBB_JVM_XMX=4g \
+  PLATFORM=qemu VIRTUALIZATION=1 VIRT_GUEST_HARTS=2 -jN
+QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
+  bash scripts/run-qemu.sh \
+  build/virt-linux-workloads/specjbb2015/host/fw_payload.qemu.bin
+```
