@@ -220,6 +220,16 @@ For GCC 15, select:
 workloads/linux/spec2006/configs/riscv_gcc15_base.cfg
 ```
 
+For NutShell (`DEFAULT_DTB=nutshell`, `nutshell-mem2g`, or `nutshell-fpga`),
+the default is the RV64IMAC/lp64 configuration:
+
+```text
+workloads/linux/spec2006/configs/riscv_gcc16_rv64imac_lp64.cfg
+```
+
+That compiler must be an rv64imac/lp64 `riscv64-unknown-linux-gnu-gcc`, not
+the XiangShan RVA23 toolchain that uses the same triple.
+
 Override it with:
 
 ```sh

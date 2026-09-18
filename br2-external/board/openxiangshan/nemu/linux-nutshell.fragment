@@ -1,0 +1,6 @@
+# NutShell is RV64IMAC. Share linux.config with XiangShan; turn off ISA
+# the core does not implement. linux.config enables KVM.
+# CONFIG_FPU is not set
+# CONFIG_RISCV_ISA_V is not set
+# CONFIG_VIRTUALIZATION is not set
+# CONFIG_KVM is not set
