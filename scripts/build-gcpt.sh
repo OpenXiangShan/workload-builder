@@ -27,7 +27,14 @@ case "$GCPT_IMPLEMENTATION" in
         DTS_CONFIG="$(dts_extract_config "$DTS_TEMPLATE")"
         read -r MEM_BEGIN MEM_SIZE CLINT_MMIO <<< "$DTS_CONFIG"
         export CFLAGS="${CFLAGS:-} -DCONFIG_CLINT_MMIO=$CLINT_MMIO -DCONFIG_DRAM_BASE=$MEM_BEGIN"
-        make -C "$GCPT_BUILD_DIR"
+        case "$DEFAULT_DTB" in
+            nutshell|nutshell-*)
+                make -C "$GCPT_BUILD_DIR" nutshell
+                ;;
+            *)
+                make -C "$GCPT_BUILD_DIR"
+                ;;
+        esac
         ;;
     libcheckpoint)
         if [ -n "$GCPT_SERIAL_PORT" ]; then
