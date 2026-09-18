@@ -1,0 +1,17 @@
+diff --git a/src/restore.S b/src/restore.S
+index 0df909d..634fb6a 100644
+--- a/src/restore.S
++++ b/src/restore.S
+@@ -63,6 +63,10 @@ target_to_payload:
+   li t0, 0x80000000
+   jr t0
+ jump_payload:
++#ifdef GCPT_PAYLOAD_FDT_ADDR
++  csrr a0, mhartid
++  li a1, GCPT_PAYLOAD_FDT_ADDR
++#endif
+   li t0, 0x80100000
+   jr t0
+
+
+

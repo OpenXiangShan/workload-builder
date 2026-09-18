@@ -141,3 +141,15 @@ build/generated-dts/xiangshan-fpga-noAIA-mem64g-novec.dts.in
 
 Re-running `make spec2026-images` rebuilds the export tree so the directory
 layout and contents stay complete and consistent.
+
+## Virtualization
+
+Build one SPEC CPU2026 case as a nested KVM guest and run the Host firmware with QEMU:
+
+```sh
+make linux/spec2026 BENCH=706.stockfish_r \
+  SPEC2026_ISO=/path/to/cpu2026-1.0.1.iso PLATFORM=qemu VIRTUALIZATION=1 -jN
+QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
+  bash scripts/run-qemu.sh \
+  build/virt-linux-workloads/spec2026-706.stockfish_r/host/fw_payload.qemu.bin
+```

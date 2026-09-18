@@ -36,9 +36,11 @@ build/linux-workloads/$(1)/fw_payload.bin: dts/generate-nemu-board-dts.py dts/ge
 	bash scripts/build-firmware-linux.sh $(GCPT_BIN) build/opensbi build/generated-dts $(LINUX_IMAGE) build/linux-workloads/$(1)
 
 linux/$(1):
-	@$$(MAKE) --no-print-directory \
+	@if [ "$(VIRTUALIZATION)" = 1 ]; then :; else \
+		$$(MAKE) --no-print-directory \
 		GCPT_DEFAULT_DTB="$$(GEEKBENCH_DEFAULT_DTB)" \
-		build/linux-workloads/$(1)/fw_payload.bin
+		build/linux-workloads/$(1)/fw_payload.bin; \
+	fi
 
 WORKLOAD_PHONY_TARGETS += linux/$(1)
 WORKLOAD_DIRS += build/linux-workloads/$(1)

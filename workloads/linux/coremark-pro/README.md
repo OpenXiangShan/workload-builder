@@ -14,3 +14,14 @@ The workload downloads and builds the CoreMark-PRO benchmark suite from source. 
 2. Each benchmark is run with parameters `-c1 -w1 -v1` (single thread verification run).
 3. If any benchmark fails, the system halts with the error code from that benchmark.
 4. System is halted with nemu-trap after all benchmarks complete.
+
+## Virtualization
+
+Build CoreMark-PRO as a nested KVM guest and run the Host firmware with QEMU:
+
+```sh
+make linux/coremark-pro PLATFORM=qemu VIRTUALIZATION=1 -jN
+QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
+  bash scripts/run-qemu.sh \
+  build/virt-linux-workloads/coremark-pro/host/fw_payload.qemu.bin
+```

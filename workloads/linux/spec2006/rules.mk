@@ -171,10 +171,20 @@ $(SPEC2006_BUILD_DIR)/$(1)/$(SPEC2006_FIRMWARE_FILENAME): $$(SPEC2006_DTS_SOURCE
 	SPEC2006_PROGRESS_N="$$(SPEC2006_PROGRESS_N)" \
 	bash "$$(SPEC2006_SCRIPTS_DIR)/build-firmware-linux.sh" "$$(SPEC2006_GCPT_BIN)" "$$(SPEC2006_SBI_BUILD_DIR)" "$$(SPEC2006_DTS_DIR)" "$$(SPEC2006_LINUX_IMAGE)" "$(SPEC2006_BUILD_DIR)/$(1)"
 
-linux/$(1): $(SPEC2006_BUILD_DIR)/$(1)/$(SPEC2006_FIRMWARE_FILENAME)
+linux/$(1): $(if $(filter 1,$(VIRTUALIZATION)),,$(SPEC2006_BUILD_DIR)/$(1)/$(SPEC2006_FIRMWARE_FILENAME))
 
 WORKLOAD_PHONY_TARGETS += linux/$(1)
 
+ifeq ($(VIRTUALIZATION),1)
+$(call spec2006_case_image_stamp,$(1)): $(VIRT_ROOT)/$(1)/complete.stamp
+	@printf '$(SPEC2006_PROGRESS_PREFIX) Exporting $(1) virtual artifacts to $(SPEC2006_IMAGE_DIR)\n'
+	@mkdir -p "$(SPEC2006_IMAGE_DIR)/bin" "$(SPEC2006_IMAGE_DIR)/dt" "$(SPEC2006_IMAGE_DIR)/manifest" "$(SPEC2006_IMAGE_DIR)/stamps"
+	@cp -f "$(VIRT_ROOT)/$(1)/host/$(VIRT_HOST_FIRMWARE)" "$(SPEC2006_IMAGE_DIR)/bin/$(1).fw_payload.bin"
+	@cp -f "$(VIRT_ROOT)/$(1)/host/dt/$(VIRT_HOST_DTB).dtb" "$(SPEC2006_IMAGE_DIR)/dt/$(1).dtb"
+	@cp -f "$(VIRT_ROOT)/$(1)/host/dt/$(VIRT_HOST_DTB).dts" "$(SPEC2006_IMAGE_DIR)/dt/$(1).dts"
+	@cp -f "$(VIRT_ROOT)/$(1)/manifest.json" "$(SPEC2006_IMAGE_DIR)/manifest/$(1).json"
+	@touch "$$@"
+else
 $(call spec2006_case_image_stamp,$(1)): $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUILD_DIR)/$(1)/$(SPEC2006_FIRMWARE_FILENAME) $(SPEC2006_GCPT_ELF) $(SPEC2006_GCPT_BIN) $(SPEC2006_LINUX_IMAGE) $(SPEC2006_SBI_BIN) $$(SPEC2006_SCRIPTS_DIR)/export-linux-debug-artifacts.sh $$(SPEC2006_SCRIPTS_DIR)/dts-config.sh | spec2006-check-spec-iso
 	@printf '$(SPEC2006_PROGRESS_PREFIX) Exporting $(1) artifacts to $(SPEC2006_IMAGE_DIR)\n'
 	@run_command="$(SPEC2006_BUILD_DIR)/$(1)/package/spec/run.sh"; \
@@ -189,6 +199,7 @@ $(call spec2006_case_image_stamp,$(1)): $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUI
 	FIRMWARE_IMAGE="$(SPEC2006_BUILD_DIR)/$(1)/$(SPEC2006_FIRMWARE_FILENAME)" \
 	bash "$(SPEC2006_SCRIPTS_DIR)/export-linux-debug-artifacts.sh" "$(SPEC2006_BUILDROOT_DIR)" "$(SPEC2006_SBI_BUILD_DIR)" "$(SPEC2006_BUILD_DIR)/$(1)" "$(SPEC2006_IMAGE_DIR)" "$(1)" "$(SPEC2006_DEFAULT_DTB)" "$(SPEC2006_LINUX_IMAGE)"
 	@touch "$$@"
+endif
 endef
 
 $(foreach case,$(SPEC2006_ALL_CASES),$(eval $(call add_spec2006_case,$(case))))
@@ -199,7 +210,11 @@ linux/spec2006: spec2006-check-spec-iso
 		echo "   or: make linux/spec2006 BENCH=astar_biglakes SPEC2006_ISO=/path/to/cpu2006.iso -jN"; \
 		exit 1; \
 	fi
-	@$(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2006_DEFAULT_DTB)" $(SPEC2006_BUILD_DIR)/$(SPEC2006_CASE)/$(SPEC2006_FIRMWARE_FILENAME)
+	@if [ "$(VIRTUALIZATION)" = 1 ]; then \
+		$(MAKE) --no-print-directory VIRTUALIZATION=1 BENCH="$(BENCH)" INPUT="$(INPUT)" linux/$(SPEC2006_CASE); \
+	else \
+		$(MAKE) --no-print-directory -f "$(SPEC2006_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2006_DEFAULT_DTB)" $(SPEC2006_BUILD_DIR)/$(SPEC2006_CASE)/$(SPEC2006_FIRMWARE_FILENAME); \
+	fi
 
 spec2006-elf: spec2006-check-spec-iso
 	@if [ -z "$(BENCH)" ]; then \

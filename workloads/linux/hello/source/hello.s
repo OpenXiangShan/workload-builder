@@ -20,8 +20,18 @@ _start:
     bne a0, t0, fail
 
     li a0, 0              # Exit status = 0
+.ifdef VIRTUALIZATION
+    li a7, 93             # Linux exit syscall
+    ecall
+.else
     .word 0x0000006b      # NEMU trap instruction
+.endif
 
 fail:
     li a0, 1
+.ifdef VIRTUALIZATION
+    li a7, 93
+    ecall
+.else
     .word 0x0000006b
+.endif

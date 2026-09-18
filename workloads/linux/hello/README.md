@@ -16,3 +16,14 @@ The main reason of this it that a workload is needed to test `riscv64-nutshell_d
 - It is possible to use the same kernel on RISC-V devices with or without hardware floating point. The kernel itself will decide which ISA extensions to use, based on information provided by the device tree.
 
 So the solution for a Linux smoke test on nutshell is an assembly program installed as `/init`.
+
+## Virtualization
+
+Build Hello as a nested KVM guest and run the Host firmware with QEMU:
+
+```sh
+make linux/hello PLATFORM=qemu VIRTUALIZATION=1 -jN
+QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
+  bash scripts/run-qemu.sh \
+  build/virt-linux-workloads/hello/host/fw_payload.qemu.bin
+```
