@@ -1,3 +1,4 @@
+# XiangShan/NEMU. NutShell uses nutshell_defconfig.
 BR2_riscv=y
 BR2_RISCV_ISA_RVC=y
 BR2_TOOLCHAIN_EXTERNAL=y

@@ -47,6 +47,9 @@ endif
 # from it through the print-buildroot-version target, so a bump here is enough.
 BUILDROOT_VERSION := 2026.08
 BUILDROOT_DIR := build/buildroot
+# DEFAULT_DTB=nutshell or nutshell-* -> nutshell_defconfig; otherwise nemu_defconfig.
+BUILDROOT_DEFCONFIG := $(if $(filter nutshell nutshell-%,$(DEFAULT_DTB)),nutshell_defconfig,nemu_defconfig)
+BUILDROOT_CONFIG_STAMP := build/buildroot-config/$(BUILDROOT_DEFCONFIG)
 $(BUILDROOT_DIR)/Makefile:
 	mkdir -p build
 	wget https://buildroot.org/downloads/buildroot-$(BUILDROOT_VERSION).tar.gz -O build/buildroot.tar.gz
@@ -56,17 +59,22 @@ $(BUILDROOT_DIR)/Makefile:
 print-buildroot-version:
 	@echo $(BUILDROOT_VERSION)
 
+$(BUILDROOT_CONFIG_STAMP): br2-external/configs/$(BUILDROOT_DEFCONFIG) $(BUILDROOT_DIR)/Makefile
+	mkdir -p "$(@D)"
+	rm -f build/buildroot-config/*
+	touch $@
+
 # Prepare buildroot SDK
 TOOLCHAIN_WRAPPER := $(BUILDROOT_DIR)/output/host/bin/toolchain-wrapper
-$(TOOLCHAIN_WRAPPER): br2-external/configs/nemu_defconfig $(BUILDROOT_DIR)/Makefile
-	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) nemu_defconfig
+$(TOOLCHAIN_WRAPPER): $(BUILDROOT_CONFIG_STAMP)
+	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) $(BUILDROOT_DEFCONFIG)
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) prepare-sdk
 	touch $(TOOLCHAIN_WRAPPER)
 
 # Build Linux kernel
 LINUX_IMAGE := $(BUILDROOT_DIR)/output/images/Image
-$(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) br2-external/configs/nemu_defconfig br2-external/board/openxiangshan/nemu/linux.config
-	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) nemu_defconfig
+$(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) $(BUILDROOT_CONFIG_STAMP) br2-external/board/openxiangshan/nemu/linux.config $(if $(filter nutshell_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-nutshell.fragment)
+	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) $(BUILDROOT_DEFCONFIG)
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external)
 
 # Build GCPT. Single-core firmware keeps LibCheckpointAlpha; LibCheckpoint is
@@ -217,7 +225,7 @@ prepare-sdk: $(TOOLCHAIN_WRAPPER)
 
 # Download all source files needed by buildroot
 source: $(BUILDROOT_DIR)/Makefile
-	make -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) nemu_defconfig
+	make -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) $(BUILDROOT_DEFCONFIG)
 	make -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) source
 
 # Build all all-in-one firmware images

@@ -41,6 +41,9 @@ profiles, FPGA noAIA names, and QEMU `nemu` names of the form
 custom template passed through `--custom-template-dir`; otherwise generation
 fails with an `unsupported DTS basename` error.
 
+Linux images with `DEFAULT_DTB=nutshell` or `nutshell-*` use
+`nutshell_defconfig` (RV64IMAC/LP64) instead of `nemu_defconfig`.
+
 For generated FPGA noAIA and QEMU `nemu` names, select the ISA declaration
 independently of the basename:
 
