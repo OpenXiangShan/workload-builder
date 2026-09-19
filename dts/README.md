@@ -41,6 +41,19 @@ profiles, FPGA noAIA names, and QEMU `nemu` names of the form
 custom template passed through `--custom-template-dir`; otherwise generation
 fails with an `unsupported DTS basename` error.
 
+`nutshell` is the 128 MiB machine description used by NEMU's
+`riscv64-nutshell_defconfig`: uartlite at `0x40600000`, no PLIC.
+NutShell simulation uses the same map. `nutshell-mem2g` keeps that
+MMIO and enlarges DRAM to 2 GiB. `nutshell-fpga` describes NutShell
+FPGA: UART16550 @ `0x310b0000`, PLIC @ `0x3c000000`, 2 GiB.
+
+All three names emit `riscv,isa = "rv64imac_zicsr_zifencei"` to match
+`riscv,isa-extensions`. NutShell implements Zicsr and Zifencei; it
+does not implement Zicntr or Zihpm.
+
+Pass them as `DEFAULT_DTB=nutshell`, `DEFAULT_DTB=nutshell-mem2g`, or
+`DEFAULT_DTB=nutshell-fpga`.
+
 For generated FPGA noAIA and QEMU `nemu` names, select the ISA declaration
 independently of the basename:
 
