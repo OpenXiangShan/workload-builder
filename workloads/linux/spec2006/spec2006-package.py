@@ -329,41 +329,49 @@ def shell_command(binary_name, args):
     return cmd
 
 
-def write_runtime_files(pkg_dir, case_name, binary_name, args):
+def write_runtime_files(pkg_dir, case_name, binary_name, args, profiling="1", multihart="0"):
     spec_root = pkg_dir / "spec"
     command = shell_command(binary_name, args)
     run_sh = spec_root / "run.sh"
-    run_sh.write_text(
-        "\n".join(
-            [
-                "#!/bin/sh",
-                "set -e",
-                'SPEC_ROOT="${SPEC_ROOT:-/spec}"',
-                "export SPEC_ROOT",
-                "ulimit -s unlimited 2>/dev/null || true",
-                'cd "$SPEC_ROOT"',
-                f"echo '======== BEGIN {case_name} ========'",
-                f"md5sum ./{shlex.quote(binary_name)}",
-                "date -R || true",
-                f"spec_cmd={shlex.quote(command)}",
-                "echo \"CMD: $spec_cmd\"",
-                "set +e",
-                "sh -c \"$spec_cmd\"",
-                "status=$?",
-                "set -e",
-                "date -R || true",
-                f"echo '======== END   {case_name} ========'",
-                "exit $status",
-                "",
-            ]
-        ),
-        encoding="utf-8",
+    lines = [
+        "#!/bin/sh",
+        "set -e",
+        'SPEC_ROOT="${SPEC_ROOT:-/spec}"',
+        "export SPEC_ROOT",
+        "ulimit -s unlimited 2>/dev/null || true",
+        'cd "$SPEC_ROOT"',
+        f"echo '======== BEGIN {case_name} ========'",
+        f"md5sum ./{shlex.quote(binary_name)}",
+        "date -R || true",
+        f"spec_cmd={shlex.quote(command)}",
+        "echo \"CMD: $spec_cmd\"",
+        "set +e",
+    ]
+    if profiling == "1" and multihart != "1":
+        lines.extend(["nemu-trap 256", "nemu-trap 257"])
+    lines.extend(
+        [
+            "sh -c \"$spec_cmd\"",
+            "status=$?",
+            "set -e",
+        ]
     )
+    if multihart != "1":
+        lines.append("nemu-trap \"$status\"")
+    lines.extend(
+        [
+            "date -R || true",
+            f"echo '======== END   {case_name} ========'",
+            "exit $status",
+            "",
+        ]
+    )
+    run_sh.write_text("\n".join(lines), encoding="utf-8")
     run_sh.chmod(0o755)
 
     etc = pkg_dir / "etc"
     etc.mkdir(parents=True, exist_ok=True)
-    (etc / "inittab").write_text("::sysinit:nemu-exec /bin/sh /spec/run.sh\n", encoding="utf-8")
+    (etc / "inittab").write_text("::once:/bin/sh /spec/run.sh\n", encoding="utf-8")
 
 
 def export_elf_artifact(elf, case_name, out_dir):
@@ -631,7 +639,7 @@ def package_case(args):
     install_case_files(case, stage_root, pkg_dir / "spec")
     apply_benchmark_post_setup(bench_dir, pkg_dir / "spec", elf, spec_cfg)
     install_runtime_binary(elf, base_name, pkg_dir)
-    write_runtime_files(pkg_dir, args.case, base_name, case.get("args", []))
+    write_runtime_files(pkg_dir, args.case, base_name, case.get("args", []), args.profiling, args.multihart)
 
 
 def main():
@@ -652,6 +660,8 @@ def main():
     parser.add_argument("--tune", default="base")
     parser.add_argument("--jobs", default=str(os.cpu_count() or 1))
     parser.add_argument("--elf-only", action="store_true")
+    parser.add_argument("--profiling", choices=("0", "1"), default="1")
+    parser.add_argument("--multihart", choices=("0", "1"), default="0")
     args = parser.parse_args()
 
     if args.list_cases:

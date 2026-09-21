@@ -20,6 +20,7 @@ SPEC2006_COMPILER_ROOT ?=
 SPEC2006_GNU_TOOLCHAIN_ROOT ?=
 SPEC2006_JEMALLOC_ROOT ?=
 SPEC2006_MULTIHART ?= $(MULTIHART)
+SPEC2006_PROFILING ?= $(if $(PROFILING),$(PROFILING),1)
 SPEC2006_HARTS ?= $(if $(HARTS),$(HARTS),2)
 PLATFORM ?= $(if $(filter 1,$(SPEC2006_MULTIHART)),qemu,nemu)
 ifeq ($(filter $(PLATFORM),nemu qemu),)
@@ -62,7 +63,7 @@ SPEC2006_DTS_SOURCES := $(SPEC2006_REPO_ROOT)/dts/generate-nemu-board-dts.py $(S
 	$(wildcard $(SPEC2006_REPO_ROOT)/dts/$(SPEC2006_DEFAULT_DTB).dts.in)
 SPEC2006_CFG_HASH := $(shell if [ -f "$(abspath $(SPEC2006_CFG))" ]; then sha256sum "$(abspath $(SPEC2006_CFG))" | cut -d ' ' -f 1; else printf 'missing'; fi)
 SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$(SPEC2006_DEFAULT_DTB)" "$(DTS_ISA_CONFIG)" | sha256sum | cut -d ' ' -f 1)
-SPEC2006_BUILD_VARS_HASH := $(shell printf '%s\n' '$(SPEC2006_INPUT)' '$(SPEC2006_TUNE)' '$(SPEC2006_JOBS)' '$(SPEC2006_CROSS_COMPILE)' 'multihart=$(SPEC2006_MULTIHART)' 'harts=$(SPEC2006_HARTS)' | sha256sum | cut -d ' ' -f 1)
+SPEC2006_BUILD_VARS_HASH := $(shell printf '%s\n' '$(SPEC2006_PROFILING)' '$(SPEC2006_INPUT)' '$(SPEC2006_TUNE)' '$(SPEC2006_JOBS)' '$(SPEC2006_CROSS_COMPILE)' 'multihart=$(SPEC2006_MULTIHART)' 'harts=$(SPEC2006_HARTS)' | sha256sum | cut -d ' ' -f 1)
 spec2006_case_image_stamp = $(SPEC2006_IMAGE_DIR)/stamps/$(1).images.stamp
 
 WORKLOAD_DIRS += $(SPEC2006_BUILD_DIR)
@@ -88,6 +89,10 @@ spec2006-check-spec-iso:
 	case "$(SPEC2006_INPUT)" in \
 		ref|train|test|all) ;; \
 		*) echo "SPEC2006_INPUT must be one of: ref, train, test, all"; exit 1 ;; \
+	esac; \
+	case "$(SPEC2006_PROFILING)" in \
+		0|1) ;; \
+		*) echo "SPEC2006_PROFILING/PROFILING must be 0 or 1"; exit 1 ;; \
 	esac
 
 spec2006-prepare: $(SPEC2006_PREPARE_STAMP)
@@ -112,7 +117,7 @@ $(SPEC2006_BUILD_DIR)/$(1)/download/sentinel:
 $(SPEC2006_BUILD_DIR)/$(1)/build-vars.$(SPEC2006_BUILD_VARS_HASH).stamp:
 	@mkdir -p "$$(@D)"
 	@rm -f "$$(@D)"/build-vars.*.stamp
-	@printf '%s\n' "input=$(SPEC2006_INPUT)" "tune=$(SPEC2006_TUNE)" "jobs=$(SPEC2006_JOBS)" "cross_compile=$(SPEC2006_CROSS_COMPILE)" "multihart=$(SPEC2006_MULTIHART)" "harts=$(SPEC2006_HARTS)" > "$$@"
+	@printf '%s\n' "profiling=$(SPEC2006_PROFILING)" "input=$(SPEC2006_INPUT)" "tune=$(SPEC2006_TUNE)" "jobs=$(SPEC2006_JOBS)" "cross_compile=$(SPEC2006_CROSS_COMPILE)" "multihart=$(SPEC2006_MULTIHART)" "harts=$(SPEC2006_HARTS)" > "$$@"
 
 $(SPEC2006_BUILD_DIR)/$(1)/cfg.stamp: spec2006-force
 	@mkdir -p "$$(@D)"
@@ -138,6 +143,8 @@ $(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BU
 	SPEC2006_JEMALLOC_ROOT="$$(SPEC2006_JEMALLOC_ROOT)" \
 	SPEC2006_TUNE="$$(SPEC2006_TUNE)" \
 	SPEC2006_JOBS="$$(SPEC2006_JOBS)" \
+	SPEC2006_PROFILING="$$(SPEC2006_PROFILING)" \
+	SPEC2006_MULTIHART="$$(SPEC2006_MULTIHART)" \
 	SPEC2006_ELF_ONLY=1 \
 	bash "$$(abspath $$(SPEC2006_WORKLOAD_DIR))/build.sh"
 
@@ -154,6 +161,8 @@ $(SPEC2006_BUILD_DIR)/$(1)/rootfs.cpio: $(SPEC2006_PREPARE_STAMP) $(SPEC2006_BUI
 	SPEC2006_JEMALLOC_ROOT="$$(SPEC2006_JEMALLOC_ROOT)" \
 	SPEC2006_TUNE="$$(SPEC2006_TUNE)" \
 	SPEC2006_JOBS="$$(SPEC2006_JOBS)" \
+	SPEC2006_PROFILING="$$(SPEC2006_PROFILING)" \
+	SPEC2006_MULTIHART="$$(SPEC2006_MULTIHART)" \
 	MULTIHART="$$(SPEC2006_MULTIHART)" \
 	HARTS="$$(SPEC2006_HARTS)" \
 	MULTIHART_PAYLOAD_DIR=spec \
