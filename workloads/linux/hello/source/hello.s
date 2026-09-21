@@ -24,7 +24,7 @@ _start:
     li a7, 93             # Linux exit syscall
     ecall
 .else
-    .word 0x0000006b      # NEMU trap instruction
+    .word 0x0005006b      # NEMU trap instruction with rs1 = a0
 .endif
 
 fail:
@@ -33,5 +33,5 @@ fail:
     li a7, 93
     ecall
 .else
-    .word 0x0000006b
+    .word 0x0005006b
 .endif
