@@ -220,6 +220,12 @@ For GCC 15, select:
 workloads/linux/spec2006/configs/riscv_gcc15_base.cfg
 ```
 
+For NutShell, select the RV64IMAC/lp64 configuration:
+
+```text
+workloads/linux/spec2006/configs/riscv_gcc16_rv64imac_lp64.cfg
+```
+
 Override it with:
 
 ```sh

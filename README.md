@@ -147,6 +147,10 @@ hardware floating point, which is not supported by nutshell. RVV related workloa
 require the vector ISA extension, and hypervisor related workloads require the
 hypervisor ISA extension.
 
+NutShell uses the RV64IMAC/LP64 software stack. See the
+[SPEC2006 configuration](workloads/linux/spec2006/README.md#configuration)
+section for `riscv_gcc16_rv64imac_lp64.cfg`.
+
 ## Build Requirements
 
 Any modern Linux distributions should be okay. The build system of this project is using the toolchain provided by buildroot, so you do not have to set up the toolchains manually to build most workloads. Some workloads require additional toolchians not provided by buildroot. Please refer to the README file of each workload (`README.md` in the workload directory) for details.
