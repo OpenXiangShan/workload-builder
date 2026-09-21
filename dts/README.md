@@ -41,6 +41,9 @@ profiles, FPGA noAIA names, and QEMU `nemu` names of the form
 custom template passed through `--custom-template-dir`; otherwise generation
 fails with an `unsupported DTS basename` error.
 
+Linux images with `DEFAULT_DTB=nutshell` or `nutshell-*` use
+`nutshell_defconfig` (RV64IMAC/LP64) instead of `xiangshan_defconfig`.
+
 `nutshell` is the 128 MiB machine description used by NEMU's
 `riscv64-nutshell_defconfig`: uartlite at `0x40600000`, no PLIC.
 NutShell simulation uses the same map. `nutshell-mem2g` keeps that

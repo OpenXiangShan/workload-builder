@@ -114,13 +114,20 @@ builds default `GCPT_SERIAL_PORT` to the QEMU 16550A TX register at
 ## Workload Compatibility
 
 Not all workloads can run on all NEMU or QEMU configurations. QEMU support is
-limited to `linux/coremark`, `linux/spec2006`, and `linux/spec2017`; the only workload supported by
-`riscv64-nutshell_defconfig` is `linux/hello`, since all other workloads require
-hardware floating point, which is not supported by nutshell. RVV related workloads
-require the vector ISA extension, and hypervisor related workloads require the
-hypervisor ISA extension.
+limited to `linux/coremark`, `linux/spec2006`, and `linux/spec2017`. RVV related
+workloads require the vector ISA extension, and hypervisor related workloads
+require the hypervisor ISA extension.
 
-NutShell uses the RV64IMAC/LP64 software stack. See the
+`xiangshan_defconfig` is the XiangShan/NEMU Buildroot tree. NutShell is RV64IMAC;
+Linux images use `nutshell_defconfig` (lp64) when `DEFAULT_DTB` is `nutshell`,
+`nutshell-mem2g`, or `nutshell-fpga`:
+
+```sh
+make linux/hello DEFAULT_DTB=nutshell
+make linux/spec2006 BENCH=mcf DEFAULT_DTB=nutshell-mem2g SPEC2006_ISO=/path/to/cpu2006.iso
+```
+
+See the
 [SPEC2006 configuration](workloads/linux/spec2006/README.md#configuration)
 section for `riscv_gcc16_rv64imac_lp64.cfg`.
 
