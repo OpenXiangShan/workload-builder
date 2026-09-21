@@ -94,6 +94,26 @@ make linux/spec2006 BENCH=astar INPUT=biglakes \
   SPEC2006_ISO=/path/to/cpu2006.iso -jN
 ```
 
+For single-hart images, the generated run script emits NEMU profiling traps by
+default:
+
+```text
+echo "CMD: ..."
+nemu-trap 256
+nemu-trap 257
+<benchmark command>
+nemu-trap <status>
+```
+
+Disable the begin profiling traps with:
+
+```sh
+PROFILING=0 make linux/spec2006 BENCH=mcf INPUT=ref \
+  SPEC2006_ISO=/path/to/cpu2006.iso -jN
+```
+
+The final `nemu-trap <status>` is always emitted for single-hart images.
+
 ## Build a multi-hart workload
 
 Add `MULTIHART=1 HARTS=<count>`, where `<count>` matches the QEMU checkpoint

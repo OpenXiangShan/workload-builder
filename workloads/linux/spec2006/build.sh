@@ -12,6 +12,8 @@ set -euo pipefail
 : "${SPEC2006_JEMALLOC_COMMIT:=1a15fe33a48c52bfe26ea83e49f0d317a47da3ea}"
 : "${SPEC2006_DOWNLOAD_RETRIES:=3}"
 : "${SPEC2006_ELF_ONLY:=false}"
+: "${SPEC2006_PROFILING:=1}"
+: "${SPEC2006_MULTIHART:=0}"
 : "${SPEC2006_LOG_DIR:=$WORKLOAD_BUILD_DIR/logs}"
 : "${PKG_DIR:=$WORKLOAD_BUILD_DIR/package}"
 
@@ -232,4 +234,6 @@ python3 "$WORKLOAD_DIR/spec2006-package.py" \
   --log-dir "$SPEC2006_LOG_DIR" \
   --tune "$SPEC2006_TUNE" \
   --jobs "$SPEC2006_JOBS" \
+  --profiling "$SPEC2006_PROFILING" \
+  --multihart "$SPEC2006_MULTIHART" \
   "${python_args[@]}"
