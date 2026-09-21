@@ -1,0 +1,1 @@
+::sysinit:nemu-exec /usr/bin/emu -i /verilator/workload.bin --no-diff --ram-size=@RAM_SIZE@ -C @MAX_CYCLES@
