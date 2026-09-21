@@ -103,13 +103,11 @@ VIRT_HOST_IMAGE := $(VIRT_HOST_BUILDROOT_DIR)/images/Image
 VIRT_HOST_ROOTFS := $(VIRT_HOST_BUILDROOT_DIR)/images/rootfs.cpio
 VIRT_HOST_QEMU := $(VIRT_HOST_BUILDROOT_DIR)/target/usr/bin/qemu-system-riscv64
 VIRT_FAKEROOT := $(BUILDROOT_DIR)/output/host/bin/fakeroot
-VIRT_SBI_FDT_ADDR := 0x80200000
 VIRT_GCPT_BUILD_DIR := build/LibCheckpointAlpha-virt
 VIRT_GCPT_BIN := $(VIRT_GCPT_BUILD_DIR)/build/gcpt.bin
-VIRT_GCPT_PATCH := bootloader/LibCheckpointAlpha-virt-fdt.patch
 VIRT_GCPT_SOURCES := $(shell find bootloader/LibCheckpointAlpha -path '*/.git' -prune -o -type f -print 2>/dev/null)
 VIRT_GCPT_DTS_SOURCES := dts/generate-nemu-board-dts.py dts/DTSGen.py dts/workload-builder-profiles.json
-VIRT_GCPT_CONFIG_STAMP := build/LibCheckpointAlpha-virt-config/config.$(shell printf '%s\n' '$(VIRT_HOST_DTB)' '$(VIRT_SBI_FDT_ADDR)' | sha256sum | cut -d ' ' -f 1)
+VIRT_GCPT_CONFIG_STAMP := build/LibCheckpointAlpha-virt-config/config.$(shell printf '%s\n' '$(VIRT_HOST_DTB)' | sha256sum | cut -d ' ' -f 1)
 VIRT_BUILD_VARS_CONTENT := platform=$(PLATFORM)\nguest_harts=$(VIRT_GUEST_HARTS)\nguest_memory=$(VIRT_GUEST_MEMORY)\nqemu_start_timeout=$(VIRT_QEMU_START_TIMEOUT)\ninner_qemu_version=$(VIRT_INNER_QEMU_VERSION)\nhost_dtb=$(VIRT_HOST_DTB)\nhost_min_memory=$(VIRT_HOST_MIN_MEMORY_BYTES)
 VIRT_BUILD_VARS_HASH := $(shell printf '%b' '$(VIRT_BUILD_VARS_CONTENT)' | sha256sum | cut -d ' ' -f 1)
 
@@ -132,8 +130,8 @@ $(VIRT_GCPT_CONFIG_STAMP):
 	rm -f "$(@D)"/config.*
 	touch "$@"
 
-$(VIRT_GCPT_BIN): scripts/build-gcpt.sh scripts/dts-config.sh $(VIRT_GCPT_PATCH) $(TOOLCHAIN_WRAPPER) $(VIRT_GCPT_CONFIG_STAMP) $(VIRT_GCPT_SOURCES) $(VIRT_GCPT_DTS_SOURCES)
-	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" GCPT_IMPLEMENTATION=alpha DEFAULT_DTB="$(VIRT_HOST_DTB)" GCPT_SOURCE_PATCH="$(abspath $(VIRT_GCPT_PATCH))" GCPT_PAYLOAD_FDT_ADDR=$(VIRT_SBI_FDT_ADDR) DTS_TEMPLATE_DIR="$(abspath $(DTS_DIR))" bash scripts/build-gcpt.sh bootloader/LibCheckpointAlpha $(VIRT_GCPT_BUILD_DIR)
+$(VIRT_GCPT_BIN): scripts/build-gcpt.sh scripts/dts-config.sh $(TOOLCHAIN_WRAPPER) $(VIRT_GCPT_CONFIG_STAMP) $(VIRT_GCPT_SOURCES) $(VIRT_GCPT_DTS_SOURCES)
+	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" GCPT_IMPLEMENTATION=alpha DEFAULT_DTB="$(VIRT_HOST_DTB)" DTS_TEMPLATE_DIR="$(abspath $(DTS_DIR))" bash scripts/build-gcpt.sh bootloader/LibCheckpointAlpha $(VIRT_GCPT_BUILD_DIR)
 
 define add_virtual_linux_case
 VIRT_$(subst -,_,$(1))_DIR := $(VIRT_ROOT)/$(3)

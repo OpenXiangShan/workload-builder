@@ -8,12 +8,6 @@ GCPT_IMPLEMENTATION="${GCPT_IMPLEMENTATION:-alpha}"
 GCPT_CONFIGURE_MODE="${GCPT_CONFIGURE_MODE:-normal}"
 GCPT_PAYLOAD_PATH="${GCPT_PAYLOAD_PATH:-${3:-}}"
 GCPT_SERIAL_PORT="${GCPT_SERIAL_PORT:-}"
-GCPT_SOURCE_PATCH="${GCPT_SOURCE_PATCH:-}"
-GCPT_PAYLOAD_FDT_ADDR="${GCPT_PAYLOAD_FDT_ADDR:-}"
-
-if [ -n "$GCPT_SOURCE_PATCH" ]; then
-    GCPT_SOURCE_PATCH="$(realpath "$GCPT_SOURCE_PATCH")"
-fi
 
 source "$(dirname "${BASH_SOURCE[0]}")/dts-config.sh"
 
@@ -23,9 +17,6 @@ cp -r "$GCPT_SOURCE_DIR" "$GCPT_BUILD_DIR"
 # Source worktrees may contain ignored build output. Never reuse it when the
 # configure mode or embedded payload changes.
 rm -rf "$GCPT_BUILD_DIR/build"
-if [ -n "$GCPT_SOURCE_PATCH" ]; then
-    patch -d "$GCPT_BUILD_DIR" -p1 < "$GCPT_SOURCE_PATCH"
-fi
 
 case "$GCPT_IMPLEMENTATION" in
     alpha)
@@ -36,13 +27,6 @@ case "$GCPT_IMPLEMENTATION" in
         DTS_CONFIG="$(dts_extract_config "$DTS_TEMPLATE")"
         read -r MEM_BEGIN MEM_SIZE CLINT_MMIO <<< "$DTS_CONFIG"
         export CFLAGS="${CFLAGS:-} -DCONFIG_CLINT_MMIO=$CLINT_MMIO -DCONFIG_DRAM_BASE=$MEM_BEGIN"
-        if [ -n "$GCPT_PAYLOAD_FDT_ADDR" ]; then
-            if ! printf '%s\n' "$GCPT_PAYLOAD_FDT_ADDR" | grep -Eq '^(0x[0-9a-fA-F]+|[1-9][0-9]*)$'; then
-                echo "Invalid GCPT payload FDT address: $GCPT_PAYLOAD_FDT_ADDR" >&2
-                exit 1
-            fi
-            export CFLAGS="$CFLAGS -DGCPT_PAYLOAD_FDT_ADDR=$GCPT_PAYLOAD_FDT_ADDR"
-        fi
         make -C "$GCPT_BUILD_DIR"
         ;;
     libcheckpoint)
