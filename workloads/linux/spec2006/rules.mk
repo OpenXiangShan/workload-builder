@@ -176,12 +176,19 @@ linux/$(1): $(if $(filter 1,$(VIRTUALIZATION)),,$(SPEC2006_BUILD_DIR)/$(1)/$(SPE
 WORKLOAD_PHONY_TARGETS += linux/$(1)
 
 ifeq ($(VIRTUALIZATION),1)
-$(call spec2006_case_image_stamp,$(1)): $(VIRT_ROOT)/$(1)/complete.stamp
+$(call spec2006_case_image_stamp,$(1)): $(VIRT_ROOT)/$(1)/complete.stamp $$(SPEC2006_SCRIPTS_DIR)/export-linux-debug-artifacts.sh
 	@printf '$(SPEC2006_PROGRESS_PREFIX) Exporting $(1) virtual artifacts to $(SPEC2006_IMAGE_DIR)\n'
-	@mkdir -p "$(SPEC2006_IMAGE_DIR)/bin" "$(SPEC2006_IMAGE_DIR)/dt" "$(SPEC2006_IMAGE_DIR)/manifest" "$(SPEC2006_IMAGE_DIR)/stamps"
-	@cp -f "$(VIRT_ROOT)/$(1)/host/$(VIRT_HOST_FIRMWARE)" "$(SPEC2006_IMAGE_DIR)/bin/$(1).fw_payload.bin"
-	@cp -f "$(VIRT_ROOT)/$(1)/host/dt/$(VIRT_HOST_DTB).dtb" "$(SPEC2006_IMAGE_DIR)/dt/$(1).dtb"
-	@cp -f "$(VIRT_ROOT)/$(1)/host/dt/$(VIRT_HOST_DTB).dts" "$(SPEC2006_IMAGE_DIR)/dt/$(1).dts"
+	@run_command="$(SPEC2006_BUILD_DIR)/$(1)/package/spec/run.sh"; \
+	if [ ! -f "$$$$run_command" ]; then run_command="$(SPEC2006_BUILD_DIR)/$(1)/package/spec_common/launch_multihart.sh"; fi; \
+	MULTIHART=0 \
+	WORKLOAD_ELF="$(SPEC2006_BUILD_DIR)/$(1)/elf/$(1).elf" \
+	BUILD_LOG="$(SPEC2006_BUILD_DIR)/$(1)/logs/build_elf/build.log" \
+	RUN_COMMAND="$$$$run_command" \
+	SPEC_CONFIG="$(SPEC2006_CFG)" \
+	GCPT_ELF="$(VIRT_GCPT_BUILD_DIR)/build/gcpt" \
+	GCPT_BIN="$(VIRT_GCPT_BIN)" \
+	FIRMWARE_IMAGE="$(VIRT_ROOT)/$(1)/host/$(VIRT_HOST_FIRMWARE)" \
+	bash "$(SPEC2006_SCRIPTS_DIR)/export-linux-debug-artifacts.sh" "$(VIRT_HOST_BUILDROOT_DIR)" "$(SPEC2006_SBI_BUILD_DIR)" "$(VIRT_ROOT)/$(1)/host" "$(SPEC2006_IMAGE_DIR)" "$(1)" "$(VIRT_HOST_DTB)" "$(VIRT_ROOT)/$(1)/host/Image"
 	@cp -f "$(VIRT_ROOT)/$(1)/manifest.json" "$(SPEC2006_IMAGE_DIR)/manifest/$(1).json"
 	@touch "$$@"
 else
@@ -242,7 +249,7 @@ spec2006-images: spec2006-check-spec-iso
 		echo "No SPEC2006 cases selected by SPEC2006_INPUT=$(SPEC2006_INPUT)"; \
 		exit 1; \
 	fi; \
-	rm -rf "$(SPEC2006_IMAGE_DIR)/bin" "$(SPEC2006_IMAGE_DIR)/kernel" "$(SPEC2006_IMAGE_DIR)/rootfs" "$(SPEC2006_IMAGE_DIR)/elf" "$(SPEC2006_IMAGE_DIR)/cmd" "$(SPEC2006_IMAGE_DIR)/cfg" "$(SPEC2006_IMAGE_DIR)/gcpt" "$(SPEC2006_IMAGE_DIR)/dt" "$(SPEC2006_IMAGE_DIR)/manifest" "$(SPEC2006_IMAGE_DIR)/logs" "$(SPEC2006_IMAGE_DIR)/stamps"; \
+	rm -rf "$(SPEC2006_IMAGE_DIR)/bin" "$(SPEC2006_IMAGE_DIR)/kernel" "$(SPEC2006_IMAGE_DIR)/opensbi" "$(SPEC2006_IMAGE_DIR)/rootfs" "$(SPEC2006_IMAGE_DIR)/elf" "$(SPEC2006_IMAGE_DIR)/cmd" "$(SPEC2006_IMAGE_DIR)/cfg" "$(SPEC2006_IMAGE_DIR)/gcpt" "$(SPEC2006_IMAGE_DIR)/dt" "$(SPEC2006_IMAGE_DIR)/manifest" "$(SPEC2006_IMAGE_DIR)/logs" "$(SPEC2006_IMAGE_DIR)/stamps"; \
 	total="$(words $(SPEC2006_IMAGE_CASES))"; \
 	i=0; \
 	for case in $(SPEC2006_IMAGE_CASES); do \
