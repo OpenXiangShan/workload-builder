@@ -168,7 +168,7 @@ $(SPEC2026_BUILD_DIR)/$(1)/fw_payload.bin: $$(SPEC2026_DTS_SOURCES) $(SPEC2026_B
 	SPEC2026_PROGRESS_N="$$(SPEC2026_PROGRESS_N)" \
 	bash "$$(SPEC2026_SCRIPTS_DIR)/build-firmware-linux.sh" "$$(SPEC2026_GCPT_BIN)" "$$(SPEC2026_SBI_BUILD_DIR)" "$$(SPEC2026_DTS_DIR)" "$$(SPEC2026_LINUX_IMAGE)" "$(SPEC2026_BUILD_DIR)/$(1)"
 
-linux/$(1): $(if $(filter 1,$(VIRTUALIZATION)),,$(SPEC2026_BUILD_DIR)/$(1)/fw_payload.bin)
+linux/$(1): $(SPEC2026_BUILD_DIR)/$(1)/fw_payload.bin
 
 WORKLOAD_PHONY_TARGETS += linux/$(1)
 
@@ -192,11 +192,7 @@ linux/spec2026: spec2026-check-spec-iso
 		echo "Usage: make linux/spec2026 BENCH=706.stockfish_r SPEC2026_ISO=/path/to/cpu2026-1.0.1.iso -jN"; \
 		exit 1; \
 	fi
-	@if [ "$(VIRTUALIZATION)" = 1 ]; then \
-		$(MAKE) --no-print-directory VIRTUALIZATION=1 BENCH="$(BENCH)" INPUT="$(INPUT)" MODE="$(MODE)" linux/$(BENCH); \
-	else \
-		$(MAKE) --no-print-directory -f "$(SPEC2026_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2026_DEFAULT_DTB)" $(SPEC2026_BUILD_DIR)/$(BENCH)/fw_payload.bin; \
-	fi
+	@$(MAKE) --no-print-directory -f "$(SPEC2026_RECURSE_MAKEFILE)" GCPT_DEFAULT_DTB="$(SPEC2026_DEFAULT_DTB)" $(SPEC2026_BUILD_DIR)/$(BENCH)/fw_payload.bin
 
 spec2026-elf: spec2026-check-spec-iso
 	@if [ -z "$(BENCH)" ]; then \

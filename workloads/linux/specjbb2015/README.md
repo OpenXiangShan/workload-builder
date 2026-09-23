@@ -29,8 +29,9 @@ make linux/specjbb2015 \
   SPECJBB_INPUT=/path/to/SPECjbb2015-1.03.iso \
   SPECJBB_RV_JDK_INPUT=/path/to/jdk25 \
   SPECJBB_MODE=COMPOSITE SPECJBB_JVM_XMS=4g SPECJBB_JVM_XMX=4g \
-  PLATFORM=qemu VIRTUALIZATION=1 VIRT_GUEST_HARTS=2 -jN
+  PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/specjbb2015/fw_payload.qemu.bin VIRT_GUEST_HARTS=2
 QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
   bash scripts/run-qemu.sh \
-  build/virt-linux-workloads/specjbb2015/host/fw_payload.qemu.bin
+  build/virt/specjbb2015/host/fw_payload.qemu.bin
 ```

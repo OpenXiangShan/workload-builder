@@ -63,8 +63,9 @@ QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=8G \
 Build CoreMark as a nested KVM guest and run the Host firmware with QEMU:
 
 ```bash
-make linux/coremark PLATFORM=qemu VIRTUALIZATION=1 -jN
+make linux/coremark PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/coremark/fw_payload.qemu.bin
 QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
   bash scripts/run-qemu.sh \
-  build/virt-linux-workloads/coremark/host/fw_payload.qemu.bin
+  build/virt/coremark/host/fw_payload.qemu.bin
 ```

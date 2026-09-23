@@ -19,8 +19,9 @@ The workload builds multiple vector-optimized benchmarks from source. It uses an
 Build RVV-Bench as a nested KVM guest and run the Host firmware with QEMU:
 
 ```sh
-make linux/rvv-bench PLATFORM=qemu VIRTUALIZATION=1 -jN
+make linux/rvv-bench PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/rvv-bench/fw_payload.qemu.bin
 QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
   bash scripts/run-qemu.sh \
-  build/virt-linux-workloads/rvv-bench/host/fw_payload.qemu.bin
+  build/virt/rvv-bench/host/fw_payload.qemu.bin
 ```

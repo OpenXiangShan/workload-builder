@@ -11,8 +11,9 @@ This is a Linux workload.
 Build the litmus tests as a nested KVM guest and run the Host firmware with QEMU:
 
 ```sh
-make linux/litmus-tests-riscv PLATFORM=qemu VIRTUALIZATION=1 -jN
+make linux/litmus-tests-riscv PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/litmus-tests-riscv/fw_payload.qemu.bin
 QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
   bash scripts/run-qemu.sh \
-  build/virt-linux-workloads/litmus-tests-riscv/host/fw_payload.qemu.bin
+  build/virt/litmus-tests-riscv/host/fw_payload.qemu.bin
 ```

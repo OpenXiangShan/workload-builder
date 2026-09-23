@@ -53,11 +53,9 @@ $(GAPBS_BUILD_DIR)/$(1)/fw_payload.bin: $$(GAPBS_DTS_SOURCES) $$(GAPBS_FIRMWARE_
 	bash "$$(GAPBS_SCRIPTS_DIR)/build-firmware-linux.sh" "$$(GAPBS_GCPT_BIN)" "$$(GAPBS_SBI_BUILD_DIR)" "$$(GAPBS_DTS_DIR)" "$$(GAPBS_LINUX_IMAGE)" "$(GAPBS_BUILD_DIR)/$(1)"
 
 linux/gapbs-$(1):
-	@if [ "$(VIRTUALIZATION)" = 1 ]; then :; else \
-		$$(MAKE) --no-print-directory -f "$$(GAPBS_RECURSE_MAKEFILE)" \
+	@$$(MAKE) --no-print-directory -f "$$(GAPBS_RECURSE_MAKEFILE)" \
 		GCPT_DEFAULT_DTB="$$(GAPBS_DEFAULT_DTB)" \
-		"$(GAPBS_BUILD_DIR)/$(1)/fw_payload.bin"; \
-	fi
+		"$(GAPBS_BUILD_DIR)/$(1)/fw_payload.bin"
 
 WORKLOAD_PHONY_TARGETS += linux/gapbs-$(1)
 

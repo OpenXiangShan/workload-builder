@@ -20,8 +20,9 @@ The workload downloads and builds the CoreMark-PRO benchmark suite from source. 
 Build CoreMark-PRO as a nested KVM guest and run the Host firmware with QEMU:
 
 ```sh
-make linux/coremark-pro PLATFORM=qemu VIRTUALIZATION=1 -jN
+make linux/coremark-pro PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/coremark-pro/fw_payload.qemu.bin
 QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
   bash scripts/run-qemu.sh \
-  build/virt-linux-workloads/coremark-pro/host/fw_payload.qemu.bin
+  build/virt/coremark-pro/host/fw_payload.qemu.bin
 ```

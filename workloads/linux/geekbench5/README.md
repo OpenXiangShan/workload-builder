@@ -72,8 +72,9 @@ the generated image.
 Build Geekbench 5 as a nested KVM guest and run the Host firmware with QEMU:
 
 ```sh
-make linux/geekbench5 PLATFORM=qemu VIRTUALIZATION=1 -jN
+make linux/geekbench5 PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/geekbench5/fw_payload.qemu.bin
 QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
   bash scripts/run-qemu.sh \
-  build/virt-linux-workloads/geekbench5/host/fw_payload.qemu.bin
+  build/virt/geekbench5/host/fw_payload.qemu.bin
 ```

@@ -1,7 +1,7 @@
 SPECJBB2015_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SPECJBB2015_BUILD_DIR := build/linux-workloads/specjbb2015
 SPECJBB2015_MULTIHART ?= $(MULTIHART)
-SPECJBB2015_HARTS ?= $(if $(filter 1,$(VIRTUALIZATION)),$(VIRT_GUEST_HARTS),$(if $(HARTS),$(HARTS),2))
+SPECJBB2015_HARTS ?= $(if $(HARTS),$(HARTS),2)
 SPECJBB2015_DEFAULT_DTB ?= $(DEFAULT_DTB)
 
 ifeq ($(filter 1,$(SPECJBB2015_MULTIHART)),1)
@@ -47,6 +47,6 @@ $(SPECJBB2015_BUILD_DIR)/fw_payload.bin: dts/generate-nemu-board-dts.py dts/gene
 	  MULTIHART="$(SPECJBB2015_MULTIHART)" HARTS="$(SPECJBB2015_HARTS)" \
 	  bash scripts/build-firmware-linux.sh $(GCPT_BIN) $(SBI_BUILD_DIR) build/generated-dts $(LINUX_IMAGE) $(SPECJBB2015_BUILD_DIR)
 
-linux/specjbb2015: $(if $(filter 1,$(VIRTUALIZATION)),,$(SPECJBB2015_BUILD_DIR)/fw_payload.bin)
+linux/specjbb2015: $(SPECJBB2015_BUILD_DIR)/fw_payload.bin
 WORKLOAD_PHONY_TARGETS += linux/specjbb2015
 WORKLOAD_DIRS += $(SPECJBB2015_BUILD_DIR)

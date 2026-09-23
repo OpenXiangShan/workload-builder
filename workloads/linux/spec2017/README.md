@@ -252,8 +252,9 @@ Build one SPEC CPU2017 case as a nested KVM guest and run the Host firmware with
 
 ```sh
 make linux/spec2017 BENCH=mcf MODE=rate INPUT=ref \
-  SPEC2017_ISO=/path/to/cpu2017.iso PLATFORM=qemu VIRTUALIZATION=1 -jN
+  SPEC2017_ISO=/path/to/cpu2017.iso PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/spec2017/mcf_rate_refrate/fw_payload.qemu.bin
 QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
   bash scripts/run-qemu.sh \
-  build/virt-linux-workloads/spec2017-mcf_rate_refrate/host/fw_payload.qemu.bin
+  build/virt/mcf_rate_refrate/host/fw_payload.qemu.bin
 ```

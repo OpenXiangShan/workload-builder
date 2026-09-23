@@ -20,8 +20,9 @@ NEMU profiling mode is not turned on in this workload as it can cause problems w
 Build kvmtool as a nested KVM guest and run the Host firmware with QEMU:
 
 ```sh
-make linux/kvmtool PLATFORM=qemu VIRTUALIZATION=1 -jN
+make linux/kvmtool PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/kvmtool/fw_payload.qemu.bin
 QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
   bash scripts/run-qemu.sh \
-  build/virt-linux-workloads/kvmtool/host/fw_payload.qemu.bin
+  build/virt/kvmtool/host/fw_payload.qemu.bin
 ```

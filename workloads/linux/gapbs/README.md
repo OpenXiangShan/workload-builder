@@ -50,10 +50,11 @@ Images are written to `build/images/gapbs/bin/<case>.fw_payload.bin`.
 Build one GAPBS case as a nested KVM guest and run the Host firmware with QEMU:
 
 ```sh
-make linux/gapbs-bfs_road PLATFORM=qemu VIRTUALIZATION=1 -jN
+make linux/gapbs-bfs_road PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/gapbs/bfs_road/fw_payload.qemu.bin
 QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
   bash scripts/run-qemu.sh \
-  build/virt-linux-workloads/gapbs-bfs_road/host/fw_payload.qemu.bin
+  build/virt/bfs_road/host/fw_payload.qemu.bin
 ```
 
 ## Graphs
