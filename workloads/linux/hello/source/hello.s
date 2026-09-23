@@ -20,7 +20,7 @@ _start:
     bne a0, t0, fail
 
     li a0, 0              # Exit status = 0
-    .word 0x0005006b      # NEMU trap instruction
+    .word 0x0005006b      # NEMU trap instruction with rs1 = a0
 
 fail:
     li a0, 1

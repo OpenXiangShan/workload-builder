@@ -323,3 +323,16 @@ SPEC2006 builds keep console output concise. Detailed logs are written to:
   redirected into the case-local `runspec-output` directory via `output_root`.
 - The source cfg in this repository is never passed to `runspec` directly;
   `runspec` is allowed to rewrite only the generated local cfg copy.
+
+## Virtualization
+
+Build one SPEC CPU2006 case as a nested KVM guest and run the Host firmware with QEMU:
+
+```sh
+make linux/spec2006 BENCH=astar INPUT=biglakes \
+  SPEC2006_ISO=/path/to/cpu2006.iso PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/spec2006/astar_biglakes/fw_payload.qemu.bin
+QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
+  bash scripts/run-qemu.sh \
+  build/virt/astar_biglakes/host/fw_payload.qemu.bin
+```
