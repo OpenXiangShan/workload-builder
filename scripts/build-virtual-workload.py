@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and describe Host/Guest initramfs pairs for virtual Linux workloads."""
+"""Build and describe Host/Guest pairs for virtual workload inputs."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import re
 import shlex
 import shutil
 import stat
+import struct
 import subprocess
 import tempfile
 from pathlib import Path
@@ -25,10 +26,268 @@ HOST_FIRMWARE_NAMES = {"nemu": "fw_payload.bin", "qemu": "fw_payload.qemu.bin"}
 HOST_ENTROPY_SEED = hashlib.sha256(
     b"workload-builder virt host deterministic seed v1"
 ).digest()
+FDT_MAGIC = 0xD00DFEED
+FDT_BEGIN_NODE = 1
+FDT_END_NODE = 2
+FDT_PROP = 3
+FDT_NOP = 4
+FDT_END = 9
+RISCV_IMAGE_MAGIC = b"RSC\x05"
+
+
+class InputKind:
+    LINUX = "linux"
+    BAREMETAL = "baremetal"
+
+
+def read_be32(data: bytes, offset: int) -> int:
+    return int.from_bytes(data[offset : offset + 4], "big")
+
+
+def read_be_cells(data: bytes, offset: int, cells: int) -> int:
+    end = offset + cells * 4
+    if end > len(data):
+        raise ValueError("truncated FDT cell array")
+    value = 0
+    for index in range(cells):
+        value = (value << 32) | read_be32(data, offset + index * 4)
+    return value
+
+
+def fdt_strings(data: bytes, offset: int, size: int) -> bytes:
+    end = offset + size
+    if offset < 0 or end > len(data):
+        raise ValueError("truncated FDT strings block")
+    return data[offset:end]
+
+
+def fdt_string(strings: bytes, offset: int) -> str:
+    if offset < 0 or offset >= len(strings):
+        raise ValueError("invalid FDT property name offset")
+    end = strings.find(b"\0", offset)
+    if end < 0:
+        raise ValueError("unterminated FDT property name")
+    return strings[offset:end].decode("ascii")
+
+
+def parse_fdt(data: bytes, offset: int) -> dict[str, int] | None:
+    if offset < 0 or offset + 40 > len(data) or read_be32(data, offset) != FDT_MAGIC:
+        return None
+    totalsize = read_be32(data, offset + 4)
+    struct_offset = read_be32(data, offset + 8)
+    strings_offset = read_be32(data, offset + 12)
+    version = read_be32(data, offset + 20)
+    struct_size = read_be32(data, offset + 36)
+    strings_size = read_be32(data, offset + 32)
+    if version < 16 or totalsize < 40 or offset + totalsize > len(data):
+        return None
+    strings = fdt_strings(data, offset + strings_offset, strings_size)
+    struct_start = offset + struct_offset
+    struct_end = struct_start + struct_size
+    if struct_start < offset or struct_end > offset + totalsize:
+        return None
+
+    stack: list[str] = []
+    address_cells = 2
+    size_cells = 2
+    memory_base = None
+    memory_size = None
+    initrd_start = None
+    initrd_end = None
+    cursor = struct_start
+    try:
+        while cursor < struct_end:
+            token = read_be32(data, cursor)
+            cursor += 4
+            if token == FDT_BEGIN_NODE:
+                end = data.find(b"\0", cursor, struct_end)
+                if end < 0:
+                    return None
+                stack.append(data[cursor:end].decode("ascii"))
+                cursor = (end + 4) & ~3
+            elif token == FDT_END_NODE:
+                if not stack:
+                    return None
+                stack.pop()
+            elif token == FDT_PROP:
+                if cursor + 8 > struct_end:
+                    return None
+                length = read_be32(data, cursor)
+                name_offset = read_be32(data, cursor + 4)
+                cursor += 8
+                value_end = cursor + length
+                if value_end > struct_end:
+                    return None
+                name = fdt_string(strings, name_offset)
+                path = "/" + "/".join(part for part in stack if part)
+                if path == "/" and name == "#address-cells" and length >= 4:
+                    address_cells = read_be32(data, cursor)
+                elif path == "/" and name == "#size-cells" and length >= 4:
+                    size_cells = read_be32(data, cursor)
+                elif path == "/chosen" and name == "linux,initrd-start":
+                    initrd_start = read_be_cells(data, cursor, length // 4)
+                elif path == "/chosen" and name == "linux,initrd-end":
+                    initrd_end = read_be_cells(data, cursor, length // 4)
+                elif stack and stack[-1].startswith("memory@") and name == "reg":
+                    if length >= (address_cells + size_cells) * 4:
+                        memory_base = read_be_cells(data, cursor, address_cells)
+                        memory_size = read_be_cells(
+                            data, cursor + address_cells * 4, size_cells
+                        )
+                cursor = (value_end + 3) & ~3
+            elif token == FDT_NOP:
+                continue
+            elif token == FDT_END:
+                break
+            else:
+                return None
+    except (UnicodeDecodeError, ValueError):
+        return None
+    if None in (memory_base, memory_size, initrd_start, initrd_end):
+        return None
+    if initrd_end <= initrd_start or memory_size <= 0:
+        return None
+    return {
+        "dtb_offset": offset,
+        "dtb_size": totalsize,
+        "memory_base": int(memory_base),
+        "memory_size": int(memory_size),
+        "initrd_start": int(initrd_start),
+        "initrd_end": int(initrd_end),
+    }
+
+
+def find_linux_layout(firmware: Path) -> dict[str, int] | None:
+    data = firmware.read_bytes()
+    images: list[tuple[int, int]] = []
+    cursor = 0
+    while True:
+        marker = data.find(RISCV_IMAGE_MAGIC, cursor)
+        if marker < 56:
+            break
+        image_offset = marker - 56
+        if image_offset + 64 <= len(data):
+            text_offset = int.from_bytes(data[image_offset + 8 : image_offset + 16], "little")
+            image_size = int.from_bytes(data[image_offset + 16 : image_offset + 24], "little")
+            if image_size > 0 and image_offset + image_size <= len(data):
+                images.append((image_offset, image_size))
+        cursor = marker + 4
+    candidates: list[dict[str, int]] = []
+    marker = FDT_MAGIC.to_bytes(4, "big")
+    offset = data.find(marker)
+    while offset >= 0:
+        fdt = parse_fdt(data, offset)
+        if fdt is not None:
+            initrd_start = fdt["initrd_start"] - fdt["memory_base"]
+            initrd_end = fdt["initrd_end"] - fdt["memory_base"]
+            if 0 <= initrd_start < initrd_end <= len(data):
+                for image_offset, image_size in images:
+                    if image_offset < initrd_start <= len(data) and image_offset + image_size <= initrd_start:
+                        candidates.append(
+                            {
+                                **fdt,
+                                "image_offset": image_offset,
+                                "image_size": image_size,
+                                "initrd_offset": initrd_start,
+                                "initrd_size": initrd_end - initrd_start,
+                            }
+                        )
+        offset = data.find(marker, offset + 4)
+    if len(candidates) != 1:
+        return None
+    return candidates[0]
+
+
+def resolve_input_elf(bin_path: Path, explicit: Path | None = None) -> Path | None:
+    case = bin_path.name
+    for suffix in (".fw_payload.qemu.bin", ".fw_payload.bin", ".bin"):
+        if case.endswith(suffix):
+            case = case[: -len(suffix)]
+            break
+    if case in {"fw_payload", "fw_payload.qemu"}:
+        case = bin_path.parent.name
+    candidates = []
+    if explicit is not None:
+        candidates.append(explicit)
+    else:
+        candidates.extend(
+            (
+                bin_path.parent / "elf" / f"{case}.elf",
+                bin_path.parent.parent / "elf" / f"{case}.elf",
+            )
+        )
+    elf = next((candidate for candidate in candidates if candidate.is_file() and candidate.stat().st_size), None)
+    if elf is None:
+        return None
+    header = subprocess.check_output(["readelf", "-h", str(elf)], text=True)
+    if "Machine:" not in header or "RISC-V" not in header:
+        raise ValueError(f"input ELF is not RISC-V: {elf}")
+    return elf
+
+
+def classify_input(
+    bin_path: Path, elf: Path | None = None
+) -> tuple[str, Path | None, dict[str, int] | None]:
+    require_file(bin_path)
+    layout = find_linux_layout(bin_path)
+    if layout is not None:
+        resolved_elf = resolve_input_elf(bin_path, elf)
+        if resolved_elf is None:
+            raise FileNotFoundError("matching ELF is required for Linux firmware")
+        return InputKind.LINUX, resolved_elf, layout
+    if bin_path.read_bytes().find(RISCV_IMAGE_MAGIC) >= 0:
+        raise ValueError(
+            f"Linux Image marker found but no unique DTB/initrd layout was found: {bin_path}"
+        )
+    if bin_path.suffix == ".bin":
+        resolved_elf = resolve_input_elf(bin_path, elf)
+        return InputKind.BAREMETAL, resolved_elf, None
+    raise ValueError(
+        f"input is neither a recognized Linux firmware nor a bare-metal .bin: {bin_path}"
+    )
 
 
 def run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[Any]:
     return subprocess.run(command, check=True, **kwargs)
+
+
+def make_raw_bin_elf(binary: Path, destination: Path) -> None:
+    data_size = binary.stat().st_size
+    file_offset = 0x1000
+    ident = b"\x7fELF" + bytes((2, 1, 1, 0)) + bytes(8)
+    elf_header = struct.pack(
+        "<16sHHIQQQIHHHHHH",
+        ident,
+        2,
+        0xF3,
+        1,
+        0x80000000,
+        64,
+        0,
+        0,
+        64,
+        56,
+        1,
+        0,
+        0,
+        0,
+    )
+    program_header = struct.pack(
+        "<IIQQQQQQ",
+        1,
+        7,
+        file_offset,
+        0x80000000,
+        0x80000000,
+        data_size,
+        data_size,
+        0x1000,
+    )
+    with destination.open("wb") as output, binary.open("rb") as source:
+        output.write(elf_header)
+        output.write(program_header)
+        output.write(bytes(file_offset - output.tell()))
+        shutil.copyfileobj(source, output)
 
 
 def extract_cpio(archive: Path, destination: Path) -> None:
@@ -231,8 +490,10 @@ def assemble_guest_rootfs(
     install_guest_exit_adapter(destination)
 
 
-def qemu_argv(guest_harts: int, guest_memory: str) -> list[str]:
-    return [
+def qemu_argv(
+    guest_harts: int, guest_memory: str, baremetal: bool = False
+) -> list[str]:
+    argv = [
         "/usr/bin/qemu-system-riscv64",
         "-machine",
         "virt,aia=none",
@@ -255,20 +516,28 @@ def qemu_argv(guest_harts: int, guest_memory: str) -> list[str]:
         "-no-reboot",
         "-kernel",
         "/guest/Image",
-        "-initrd",
-        "/guest/rootfs.cpio",
-        "-append",
-        "console=ttyS0 earlycon=sbi panic=1",
     ]
+    if not baremetal:
+        argv.extend(
+            [
+                "-initrd",
+                "/guest/rootfs.cpio",
+                "-append",
+                "console=ttyS0 earlycon=sbi panic=1",
+            ]
+        )
+    return argv
 
 
 def host_init_script(
     guest_harts: int,
     guest_memory: str,
     start_timeout: int = 120,
+    baremetal: bool = False,
 ) -> str:
     qemu_arguments = " ".join(
-        shlex.quote(arg) for arg in qemu_argv(guest_harts, guest_memory)[1:]
+        shlex.quote(arg)
+        for arg in qemu_argv(guest_harts, guest_memory, baremetal)[1:]
     )
     return "\n".join(
         [
@@ -425,6 +694,116 @@ def package(args: argparse.Namespace) -> None:
         pack_cpio(host_root, host_dir / "rootfs.cpio")
 
 
+def package_input(args: argparse.Namespace) -> None:
+    kind, workload_elf, layout = classify_input(args.input_bin, args.input_elf)
+    if kind == InputKind.BAREMETAL:
+        if workload_elf is None:
+            with tempfile.TemporaryDirectory(prefix="virt-raw-elf-") as temp:
+                workload_elf = Path(temp) / "workload.elf"
+                make_raw_bin_elf(args.input_bin, workload_elf)
+                package_baremetal(args, workload_elf)
+                copy_file(workload_elf, args.out_dir / "guest" / "workload.elf")
+        else:
+            package_baremetal(args, workload_elf)
+            copy_file(workload_elf, args.out_dir / "guest" / "workload.elf")
+        (args.out_dir / "input.json").write_text(
+            json.dumps(
+                {
+                    "kind": kind,
+                    "bin": str(args.input_bin),
+                    "bin_sha256": sha256(args.input_bin),
+                    "elf": str(args.out_dir / "guest" / "workload.elf"),
+                    "elf_sha256": sha256(args.out_dir / "guest" / "workload.elf"),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return
+    assert layout is not None
+    firmware_data = args.input_bin.read_bytes()
+    with tempfile.TemporaryDirectory(prefix="virt-input-") as temp:
+        temp_root = Path(temp)
+        guest_image = temp_root / "Image"
+        guest_rootfs = temp_root / "rootfs.cpio"
+        guest_image.write_bytes(
+            firmware_data[layout["image_offset"] : layout["image_offset"] + layout["image_size"]]
+        )
+        guest_rootfs.write_bytes(
+            firmware_data[layout["initrd_offset"] : layout["initrd_offset"] + layout["initrd_size"]]
+        )
+        package(
+            argparse.Namespace(
+                guest_rootfs=guest_rootfs,
+                host_rootfs=args.host_rootfs,
+                guest_image=guest_image,
+                host_image=args.host_image,
+                guest_buildroot_output=args.guest_buildroot_output,
+                host_buildroot_output=args.host_buildroot_output,
+                out_dir=args.out_dir,
+                guest_harts=args.guest_harts,
+                guest_memory=args.guest_memory,
+                qemu_start_timeout=args.qemu_start_timeout,
+            )
+        )
+    copy_file(workload_elf, args.out_dir / "guest" / "workload.elf")
+    (args.out_dir / "input.json").write_text(
+        json.dumps(
+            {
+                "kind": kind,
+                "bin": str(args.input_bin),
+                "elf": str(workload_elf),
+                "layout": layout,
+                "bin_sha256": sha256(args.input_bin),
+                "elf_sha256": sha256(workload_elf),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def package_baremetal(args: argparse.Namespace, guest_image: Path) -> None:
+    guest_harts, guest_memory = validate_resources(args.guest_harts, args.guest_memory)
+    start_timeout = validate_qemu_start_timeout(args.qemu_start_timeout)
+    for path in (guest_image, args.host_rootfs, args.host_image):
+        require_file(path)
+
+    output = args.out_dir
+    guest_dir = output / "guest"
+    host_dir = output / "host"
+    guest_dir.mkdir(parents=True, exist_ok=True)
+    host_dir.mkdir(parents=True, exist_ok=True)
+    copy_file(guest_image, guest_dir / "Image")
+    copy_file(args.host_image, host_dir / "Image")
+    copy_file(find_vmlinux(args.host_buildroot_output), host_dir / "vmlinux")
+
+    with tempfile.TemporaryDirectory(prefix="virt-host-") as temp:
+        host_root = Path(temp) / "rootfs"
+        extract_cpio(args.host_rootfs, host_root)
+        qemu = host_root / "usr" / "bin" / "qemu-system-riscv64"
+        require_file(qemu)
+        seed = host_root / "var" / "lib" / "seedrng" / "seed.credit"
+        seed.parent.mkdir(parents=True, exist_ok=True)
+        seed.write_bytes(HOST_ENTROPY_SEED)
+        seed.chmod(0o400)
+        guest = host_root / "guest"
+        guest.mkdir(parents=True, exist_ok=True)
+        copy_file(guest_dir / "Image", guest / "Image")
+        init_script = host_root / "etc" / "init.d" / "S99virt-workload"
+        init_script.parent.mkdir(parents=True, exist_ok=True)
+        init_script.write_text(
+            host_init_script(guest_harts, guest_memory, start_timeout, baremetal=True),
+            encoding="utf-8",
+        )
+        init_script.chmod(0o755)
+        pack_cpio(host_root, host_dir / "rootfs.cpio")
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -528,12 +907,24 @@ def write_manifest(args: argparse.Namespace) -> None:
     output = args.out_dir
     guest = output / "guest"
     host = output / "host"
+    input_metadata = output / "input.json"
+    input_data = (
+        json.loads(input_metadata.read_text(encoding="utf-8"))
+        if input_metadata.is_file()
+        else None
+    )
+    baremetal = input_data is not None and input_data.get("kind") == InputKind.BAREMETAL
     dtb = host / "dt" / f"{args.host_dtb}.dtb"
     firmware_name = HOST_FIRMWARE_NAMES[args.platform]
     host_kernel_config = find_vmlinux(args.host_buildroot_output).parent / ".config"
-    guest_kernel_config = find_vmlinux(args.guest_buildroot_output).parent / ".config"
-    guest_buildroot_config = buildroot_config(args.guest_buildroot_output)
+    guest_kernel_config = None
+    guest_buildroot_config = None
+    if not baremetal:
+        guest_kernel_config = find_vmlinux(args.guest_buildroot_output).parent / ".config"
+        guest_buildroot_config = buildroot_config(args.guest_buildroot_output)
     host_buildroot_config = buildroot_config(args.host_buildroot_output)
+    opensbi_root = args.opensbi.parents[4]
+    opensbi_config = opensbi_root / "platform" / "generic" / "configs" / "defconfig"
 
     with tempfile.TemporaryDirectory(prefix="virt-manifest-") as temp:
         host_root = Path(temp) / "rootfs"
@@ -546,20 +937,30 @@ def write_manifest(args: argparse.Namespace) -> None:
             f"inner QEMU version mismatch: expected {args.inner_qemu_version}, found {qemu_version}"
         )
 
-    argv = qemu_argv(guest_harts, guest_memory)
+    argv = qemu_argv(guest_harts, guest_memory, baremetal)
+    guest_data: dict[str, Any] = {
+        "harts": guest_harts,
+        "memory": guest_memory,
+        "Image": component(guest / "Image", "guest/Image"),
+    }
+    if baremetal:
+        guest_data["kind"] = InputKind.BAREMETAL
+        guest_data["workload_elf"] = component(guest / "workload.elf", "guest/workload.elf")
+    else:
+        assert guest_kernel_config is not None and guest_buildroot_config is not None
+        guest_data.update(
+            {
+                "vmlinux": component(guest / "vmlinux", "guest/vmlinux"),
+                "rootfs": component(guest / "rootfs.cpio", "guest/rootfs.cpio"),
+                "buildroot_config": config_record(guest_buildroot_config),
+                "kernel_config": config_record(guest_kernel_config),
+            }
+        )
     data = {
         "schema_version": 2,
         "workload": args.workload_name,
         "platform": args.platform,
-        "guest": {
-            "harts": guest_harts,
-            "memory": guest_memory,
-            "Image": component(guest / "Image", "guest/Image"),
-            "vmlinux": component(guest / "vmlinux", "guest/vmlinux"),
-            "rootfs": component(guest / "rootfs.cpio", "guest/rootfs.cpio"),
-            "buildroot_config": config_record(guest_buildroot_config),
-            "kernel_config": config_record(guest_kernel_config),
-        },
+        "guest": guest_data,
         "host": {
             "dtb_name": args.host_dtb,
             "minimum_memory_bytes": int(args.host_min_memory_bytes),
@@ -572,6 +973,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             "dtb": component(dtb, f"host/dt/{args.host_dtb}.dtb"),
             "gcpt": component(args.gcpt, str(args.gcpt)),
             "opensbi": component(args.opensbi, str(args.opensbi)),
+            "opensbi_config": config_record(opensbi_config),
             "defconfig": config_record(args.host_defconfig),
             "linux_config": config_record(args.host_linux_config),
             "buildroot_config": config_record(host_buildroot_config),
@@ -596,6 +998,12 @@ def write_manifest(args: argparse.Namespace) -> None:
             "source": str(args.buildroot_source),
         },
     }
+    workload_elf = guest / "workload.elf"
+    if workload_elf.is_file():
+        data["guest"]["workload_elf"] = component(workload_elf, "guest/workload.elf")
+    input_metadata = output / "input.json"
+    if input_metadata.is_file():
+        data["input"] = json.loads(input_metadata.read_text(encoding="utf-8"))
     if args.platform == "qemu":
         outer_qemu_harts, outer_qemu_memory = validate_resources(
             args.outer_qemu_harts, args.outer_qemu_memory
@@ -640,6 +1048,15 @@ def add_resource_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--qemu-start-timeout", default="120")
 
 
+def add_package_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--host-rootfs", type=Path, required=True)
+    parser.add_argument("--host-image", type=Path, required=True)
+    parser.add_argument("--guest-buildroot-output", type=Path, required=True)
+    parser.add_argument("--host-buildroot-output", type=Path, required=True)
+    parser.add_argument("--out-dir", type=Path, required=True)
+    add_resource_args(parser)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="action", required=True)
@@ -653,6 +1070,11 @@ def main() -> int:
     package_parser.add_argument("--host-buildroot-output", type=Path, required=True)
     package_parser.add_argument("--out-dir", type=Path, required=True)
     add_resource_args(package_parser)
+
+    input_parser = subparsers.add_parser("input-package")
+    input_parser.add_argument("--input-bin", type=Path, required=True)
+    input_parser.add_argument("--input-elf", type=Path)
+    add_package_args(input_parser)
 
     manifest_parser = subparsers.add_parser("manifest")
     manifest_parser.add_argument("--out-dir", type=Path, required=True)
@@ -681,6 +1103,8 @@ def main() -> int:
     try:
         if args.action == "package":
             package(args)
+        elif args.action == "input-package":
+            package_input(args)
         else:
             write_manifest(args)
     except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as exc:

@@ -25,28 +25,57 @@ You can also build a single workload with:
 - `make linux/workload_name` for a Linux workload.
 - `make am/workload_name` for an AM workload.
 
-To package a workload as a nested KVM Guest running inside a Linux Host, use
-`make linux/workload_name VIRTUALIZATION=1`, or `make VIRTUALIZATION=1` to build
-the virtual variants of the default set of Linux workloads. The virtual artifact
-is written to `build/virt-linux-workloads/<workload>/`. `PLATFORM` selects the
-simulator that boots the Host, and only that simulator's firmware is produced:
-`PLATFORM=nemu` (the default) emits `host/fw_payload.bin` for NEMU, while
-`PLATFORM=qemu` emits `host/fw_payload.qemu.bin`, which can be run with the
-existing `scripts/run-qemu.sh` launcher. The Guest reports its exit status over
-the Host serial FIFO, and the Host propagates that status with `/bin/nemu-trap`.
-All Linux workloads are supported; `VIRTUALIZATION=1` cannot be combined with
-`MULTIHART=1`.
+To package an already-built Linux firmware, or a bare-metal binary linked for
+the standard QEMU `virt` machine, as a nested KVM Guest, pass its bin explicitly
+to the independent `virt` target. A directory processes each direct child
+`*.bin` input independently:
+
+```shell
+make spec2006-images BENCH=bzip2 INPUT=chicken SPEC2006_ISO=/path/to/cpu2006.iso
+make virt bin=build/images/spec2006/bin/bzip2_chicken.fw_payload.bin
+make virt bin=build/images/spec2006/bin
+```
+
+To combine an existing image export and its matching virtual packages into a
+new image directory, run:
+
+```shell
+make virt-images \
+  IMAGE_DIR=build/images/spec2006 \
+  VIRT_DIR=build/virt \
+  VIRT_IMAGE_DIR=build/images/spec2006-virt
+```
+
+The output keeps the original image layout. For each virtual case, `bin/`
+contains the Host firmware, `kernel/`, `rootfs/`, and `dt/` contain its Host
+components, while the workload ELF, command, configuration, and logs come from
+the original image directory. Host GCPT and OpenSBI artifacts replace their
+Guest counterparts. `manifest/<case>.json` describes the reorganized files and
+links to the full virtual manifest under `manifest/virt/`. Virtual packages
+without a matching `bin/<case>.fw_payload.bin` in `IMAGE_DIR` are ignored.
+Neither source directory is modified. By default, the three paths above are
+`build/images/spec2006`, `build/virt`, and `build/images/spec2006-virt`
+respectively. `VIRT_IMAGE_DIR` must not already exist.
+
+For Linux firmware, `virt` scans the supplied image for its RISC-V Linux Image,
+FDT and initramfs addresses; it does not assume a fixed 4 MiB guest-image
+offset. A bare-metal `.bin` is booted directly as the Guest kernel and must
+already target QEMU `virt`, write its terminal status as
+`VIRT_WORKLOAD_EXIT=<0..255>`. If a matching ELF is not present in the sibling
+`elf/` directory, `virt` creates a minimal ELF load wrapper at `0x80000000` and
+records it in `build/virt/<case>/`.
+The input bin/ELF are consumed as-is and are never rebuilt by `virt`.
 
 The images are exported with the usual SPEC CPU2006 image command:
 
 ```shell
 make spec2006-images BENCH=bzip2 INPUT=chicken \
-  SPEC2006_ISO=/path/to/cpu2006.iso VIRTUALIZATION=1 -jN
+  SPEC2006_ISO=/path/to/cpu2006.iso -jN
 ```
 
-It writes the virtual firmware and its device tree into the regular image
-directory, `build/images/spec2006/bin/<case>.fw_payload.bin`,
-`dt/<case>.dtb`, `dt/<case>.dts` and `manifest/<case>.json`.
+It writes the virtual Host firmware, device tree and manifest into
+`build/virt/<case>/`. Inputs with the same case name share that output
+directory.
 
 `PLATFORM=nemu` uses the FPGA host DTB (`xiangshan-fpga-noAIA-mem16g-novec` by
 default); `PLATFORM=qemu` uses the QEMU `nemu` host DTB
