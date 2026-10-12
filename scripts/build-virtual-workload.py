@@ -491,12 +491,12 @@ def assemble_guest_rootfs(
 
 
 def qemu_argv(
-    guest_harts: int, guest_memory: str, baremetal: bool = False
+    guest_harts: int, guest_memory: str, baremetal: bool = False, sting: bool = False
 ) -> list[str]:
     argv = [
         "/usr/bin/qemu-system-riscv64",
         "-machine",
-        "virt,aia=none,kvm-m-mode=on,kvm-nested=on" if baremetal else "virt,aia=none",
+        "virt,aia=none,kvm-m-mode=on,kvm-nested=on" if sting else "virt,aia=none",
         "-bios",
         "none",
         "-accel",
@@ -512,7 +512,7 @@ def qemu_argv(
         "-monitor",
         "none",
         "-serial",
-        "none" if baremetal else "stdio",
+        "none" if sting else "stdio",
         "-no-reboot",
         "-kernel",
         "/guest/Image",
@@ -534,10 +534,24 @@ def host_init_script(
     guest_memory: str,
     start_timeout: int = 120,
     baremetal: bool = False,
+    sting: bool = False,
 ) -> str:
     qemu_arguments = " ".join(
         shlex.quote(arg)
-        for arg in qemu_argv(guest_harts, guest_memory, baremetal)[1:]
+        for arg in qemu_argv(guest_harts, guest_memory, baremetal, sting)[1:]
+    )
+    completion_pattern = (
+        r"*STING\ Test\ Status:\ PASS*|*STING\ Test\ Status:\ FAIL*|*ERROR\ MESSAGE\ STARTS*|*ERROR\ MESSAGE\ ENDS*"
+        if sting else
+        "VIRT_WORKLOAD_EXIT=[0-9]|VIRT_WORKLOAD_EXIT=[0-9][0-9]|VIRT_WORKLOAD_EXIT=[0-9][0-9][0-9]"
+    )
+    completion_status = (
+        [
+            '                case "$line" in',
+            r"                    *STING\ Test\ Status:\ PASS*) workload_status=0 ;;",
+            "                    *) workload_status=1 ;;",
+            "                esac",
+        ] if sting else ["                workload_status=${line#VIRT_WORKLOAD_EXIT=}"]
     )
     return "\n".join(
         [
@@ -549,16 +563,14 @@ def host_init_script(
             "nemu_trap=${VIRT_NEMU_TRAP:-/bin/nemu-trap}",
             "mkdir -p \"$run_dir\"",
             "kmsg() { printf '%s\\n' \"$1\" >> \"$kmsg_dev\"; }",
-            f"baremetal={int(baremetal)}",
-            "kmsg 'VIRT_HOST: launching QEMU KVM guest'",
+            "kmsg 'VIRT_HOST: launching QEMU KVM guest'" if sting else
+            "kmsg 'VIRT_HOST: launching KVM guest'",
             "rm -f \"$run_dir/virt-qemu.pipe\" \"$run_dir/virt-qemu.log\" \"$run_dir/virt-qemu.start-timeout\" \"$run_dir/virt-qemu.started\" \"$run_dir/virt-qemu.pid\" \"$run_dir/virt-qemu.completed\"",
             ": > \"$run_dir/virt-qemu.log\"",
             "mkfifo \"$run_dir/virt-qemu.pipe\"",
             f"start_timeout=${{VIRT_QEMU_START_TIMEOUT:-{start_timeout}}}",
             "cr=$(printf '\\r')",
-            "if [ \"$baremetal\" -eq 1 ]; then",
-            "    printf '%s\\n' 0 > /sys/module/kvm/parameters/sting_5006b_shutdown",
-            "fi",
+            *(["printf '%s\\n' 0 > /sys/module/kvm/parameters/sting_5006b_shutdown"] if sting else []),
             f'"$qemu_bin" {qemu_arguments} </dev/null > "$run_dir/virt-qemu.pipe" 2>&1 &',
             "qemu_pid=$!",
             "(",
@@ -570,33 +582,21 @@ def host_init_script(
             "        printf '%s\\n' \"$line\" >> \"$kmsg_dev\"",
             "        printf '%s\\n' 1 > \"$run_dir/virt-qemu.started\"",
             "        case \"$line\" in",
-            "            *STING\\ Test\\ Status:\\ PASS*)",
-            "                [ \"$baremetal\" -eq 1 ] || continue",
+            f"            {completion_pattern})",
             "                marker_count=$((marker_count + 1))",
-            "                workload_status=0",
+            *completion_status,
+            "                if [ \"$marker_count\" -eq 1 ]; then",
+            "                    printf '%s\\n' 1 > \"$run_dir/virt-qemu.completed\"",
+            "                    kill -9 \"$qemu_pid\" 2>/dev/null || true",
+            "                fi",
             "                ;;",
-            "            *STING\\ Test\\ Status:\\ FAIL*|*ERROR\\ MESSAGE\\ STARTS*|*ERROR\\ MESSAGE\\ ENDS*)",
-            "                [ \"$baremetal\" -eq 1 ] || continue",
-            "                marker_count=$((marker_count + 1))",
-            "                workload_status=1",
-            "                ;;",
-            "            VIRT_WORKLOAD_EXIT=[0-9]|VIRT_WORKLOAD_EXIT=[0-9][0-9]|VIRT_WORKLOAD_EXIT=[0-9][0-9][0-9])",
-            "                [ \"$baremetal\" -eq 0 ] || continue",
-            "                marker_count=$((marker_count + 1))",
-            "                workload_status=${line#VIRT_WORKLOAD_EXIT=}",
-            "                ;;",
-            "            *) continue ;;",
             "        esac",
-            "        if [ \"$marker_count\" -eq 1 ]; then",
-            "            printf '%s\\n' 1 > \"$run_dir/virt-qemu.completed\"",
-            "            kill -9 \"$qemu_pid\" 2>/dev/null || true",
-            "        fi",
             "    done < \"$run_dir/virt-qemu.pipe\"",
             "    result=1",
             "    if [ -s \"$run_dir/virt-qemu.start-timeout\" ]; then",
             "        kmsg \"VIRT_HOST: QEMU/KVM produced no output within ${start_timeout}s\"",
             "    elif [ \"$marker_count\" -ne 1 ]; then",
-            "        kmsg \"VIRT_HOST: expected one Guest completion status, found $marker_count\"",
+            "        kmsg \"VIRT_HOST: expected one Guest exit marker, found $marker_count\"",
             "    elif [ -z \"$workload_status\" ] || [ \"$workload_status\" -gt 255 ] 2>/dev/null; then",
             "        kmsg 'VIRT_HOST: invalid Guest exit marker'",
             "    else",
@@ -712,6 +712,8 @@ def package(args: argparse.Namespace) -> None:
 
 def package_input(args: argparse.Namespace) -> None:
     kind, workload_elf, layout = classify_input(args.input_bin, args.input_elf)
+    if args.sting and kind != InputKind.BAREMETAL:
+        raise ValueError("STING virtualization requires a bare-metal input")
     if kind == InputKind.BAREMETAL:
         if workload_elf is None:
             with tempfile.TemporaryDirectory(prefix="virt-raw-elf-") as temp:
@@ -813,7 +815,7 @@ def package_baremetal(args: argparse.Namespace, guest_image: Path) -> None:
         init_script = host_root / "etc" / "init.d" / "S99virt-workload"
         init_script.parent.mkdir(parents=True, exist_ok=True)
         init_script.write_text(
-            host_init_script(guest_harts, guest_memory, start_timeout, baremetal=True),
+            host_init_script(guest_harts, guest_memory, start_timeout, baremetal=True, sting=args.sting),
             encoding="utf-8",
         )
         init_script.chmod(0o755)
@@ -953,7 +955,7 @@ def write_manifest(args: argparse.Namespace) -> None:
             f"inner QEMU version mismatch: expected {args.inner_qemu_version}, found {qemu_version}"
         )
 
-    argv = qemu_argv(guest_harts, guest_memory, baremetal)
+    argv = qemu_argv(guest_harts, guest_memory, baremetal, args.sting)
     guest_data: dict[str, Any] = {
         "harts": guest_harts,
         "memory": guest_memory,
@@ -1090,9 +1092,11 @@ def main() -> int:
     input_parser = subparsers.add_parser("input-package")
     input_parser.add_argument("--input-bin", type=Path, required=True)
     input_parser.add_argument("--input-elf", type=Path)
+    input_parser.add_argument("--sting", action="store_true")
     add_package_args(input_parser)
 
     manifest_parser = subparsers.add_parser("manifest")
+    manifest_parser.add_argument("--sting", action="store_true")
     manifest_parser.add_argument("--out-dir", type=Path, required=True)
     manifest_parser.add_argument("--workload-name", required=True)
     manifest_parser.add_argument("--platform", choices=("nemu", "qemu"), required=True)

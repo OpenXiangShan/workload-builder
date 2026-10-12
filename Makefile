@@ -104,6 +104,10 @@ virt:
 	fi
 endif
 
+.PHONY: sting-virt
+sting-virt:
+	$(MAKE) --no-print-directory VIRT_STING=1 virt
+
 # Combine an existing image export with the per-case virtual packages without
 # changing either source tree.
 IMAGE_DIR ?= build/images/spec2006
@@ -118,11 +122,22 @@ VIRT_GUEST_HARTS ?= 1
 VIRT_GUEST_MEMORY ?= 8G
 VIRT_QEMU_START_TIMEOUT ?= 120
 VIRT_INNER_QEMU_VERSION := 11.0.0
+ifeq ($(VIRT_STING),1)
+VIRT_NAME := sting-virt
 VIRT_HOST_BUILDROOT_DIR ?= build/buildroot-virt-host-sting
-VIRT_HOST_CONFIG := $(VIRT_HOST_BUILDROOT_DIR)/.config
+VIRT_HOST_DEFCONFIG := br2-external-sting/configs/nemu_sting_host_defconfig
+VIRT_HOST_EXTERNAL := $(abspath br2-external):$(abspath br2-external-sting)
+VIRT_HOST_PATCHES := $(wildcard br2-external-sting/patches/qemu/$(VIRT_INNER_QEMU_VERSION)/*.patch br2-external-sting/patches/linux/*/*.patch)
+VIRT_HOST_EXTERNAL_FILES := br2-external-sting/external.mk br2-external-sting/external.desc br2-external-sting/Config.in
+VIRT_STING_ARGS := --sting
+else
+VIRT_NAME := virt
+VIRT_HOST_BUILDROOT_DIR ?= build/buildroot-virt-host
 VIRT_HOST_DEFCONFIG := br2-external/configs/nemu_virt_host_defconfig
+VIRT_HOST_EXTERNAL := $(abspath br2-external)
+endif
+VIRT_HOST_CONFIG := $(VIRT_HOST_BUILDROOT_DIR)/.config
 VIRT_HOST_LINUX_CONFIG := br2-external/board/openxiangshan/nemu/linux-virt-host.config
-VIRT_HOST_PATCHES := $(wildcard br2-external/patches/qemu/$(VIRT_INNER_QEMU_VERSION)/*.patch br2-external/patches/linux/*/*.patch)
 ifeq ($(filter qemu,$(PLATFORM)),qemu)
 VIRT_HOST_DTB ?= xiangshan-qemu-nemu-mem16g
 VIRT_OUTER_QEMU_ARGS := --outer-qemu-machine nemu --outer-qemu-cpu rv64,h=true,sstc=false --outer-qemu-harts 1 --outer-qemu-memory 16G
@@ -137,21 +152,21 @@ VIRT_HOST_IMAGE := $(VIRT_HOST_BUILDROOT_DIR)/images/Image
 VIRT_HOST_ROOTFS := $(VIRT_HOST_BUILDROOT_DIR)/images/rootfs.cpio
 VIRT_HOST_QEMU := $(VIRT_HOST_BUILDROOT_DIR)/target/usr/bin/qemu-system-riscv64
 VIRT_FAKEROOT := $(BUILDROOT_DIR)/output/host/bin/fakeroot
-VIRT_GCPT_BUILD_DIR := build/LibCheckpointAlpha-virt
+VIRT_GCPT_BUILD_DIR := build/LibCheckpointAlpha-$(VIRT_NAME)
 VIRT_GCPT_BIN := $(VIRT_GCPT_BUILD_DIR)/build/gcpt.bin
 VIRT_GCPT_SOURCES := $(shell find bootloader/LibCheckpointAlpha -path '*/.git' -prune -o -type f -print 2>/dev/null)
 VIRT_GCPT_DTS_SOURCES := dts/generate-nemu-board-dts.py dts/DTSGen.py dts/workload-builder-profiles.json
-VIRT_GCPT_CONFIG_STAMP := build/LibCheckpointAlpha-virt-config/config.$(shell printf '%s\n' '$(VIRT_HOST_DTB)' | sha256sum | cut -d ' ' -f 1)
+VIRT_GCPT_CONFIG_STAMP := build/LibCheckpointAlpha-$(VIRT_NAME)-config/config.$(shell printf '%s\n' '$(VIRT_HOST_DTB)' | sha256sum | cut -d ' ' -f 1)
 VIRT_BUILD_VARS_CONTENT := input=$(abspath $(bin))\nelf=$(if $(elf),$(abspath $(elf)))\nplatform=$(PLATFORM)\nguest_harts=$(VIRT_GUEST_HARTS)\nguest_memory=$(VIRT_GUEST_MEMORY)\nqemu_start_timeout=$(VIRT_QEMU_START_TIMEOUT)\ninner_qemu_version=$(VIRT_INNER_QEMU_VERSION)\nhost_dtb=$(VIRT_HOST_DTB)\nhost_min_memory=$(VIRT_HOST_MIN_MEMORY_BYTES)
 VIRT_BUILD_VARS_HASH := $(shell printf '%b' '$(VIRT_BUILD_VARS_CONTENT)' | sha256sum | cut -d ' ' -f 1)
 
-$(VIRT_HOST_CONFIG): $(BUILDROOT_DIR)/Makefile $(VIRT_HOST_DEFCONFIG) $(VIRT_HOST_LINUX_CONFIG) $(VIRT_HOST_PATCHES) br2-external/external.mk
+$(VIRT_HOST_CONFIG): $(BUILDROOT_DIR)/Makefile $(VIRT_HOST_DEFCONFIG) $(VIRT_HOST_LINUX_CONFIG) $(VIRT_HOST_PATCHES) $(VIRT_HOST_EXTERNAL_FILES) br2-external/external.mk
 	mkdir -p "$(VIRT_HOST_BUILDROOT_DIR)"
-	@if test -f "$@"; then $(MAKE) -C $(BUILDROOT_DIR) O=$(abspath $(VIRT_HOST_BUILDROOT_DIR)) BR2_EXTERNAL=$(abspath br2-external) linux-dirclean qemu-dirclean; fi
-	$(MAKE) -C $(BUILDROOT_DIR) O=$(abspath $(VIRT_HOST_BUILDROOT_DIR)) BR2_EXTERNAL=$(abspath br2-external) nemu_virt_host_defconfig
+	@if test -f "$@"; then $(MAKE) -C $(BUILDROOT_DIR) O=$(abspath $(VIRT_HOST_BUILDROOT_DIR)) BR2_EXTERNAL="$(VIRT_HOST_EXTERNAL)" linux-dirclean qemu-dirclean; fi
+	$(MAKE) -C $(BUILDROOT_DIR) O=$(abspath $(VIRT_HOST_BUILDROOT_DIR)) BR2_EXTERNAL="$(VIRT_HOST_EXTERNAL)" $(notdir $(VIRT_HOST_DEFCONFIG))
 
-$(VIRT_HOST_BUILD_STAMP): $(VIRT_HOST_CONFIG) $(VIRT_HOST_DEFCONFIG) $(VIRT_HOST_LINUX_CONFIG) $(VIRT_HOST_PATCHES) br2-external/external.mk
-	$(MAKE) -C $(BUILDROOT_DIR) O=$(abspath $(VIRT_HOST_BUILDROOT_DIR)) BR2_EXTERNAL=$(abspath br2-external)
+$(VIRT_HOST_BUILD_STAMP): $(VIRT_HOST_CONFIG) $(VIRT_HOST_DEFCONFIG) $(VIRT_HOST_LINUX_CONFIG) $(VIRT_HOST_PATCHES) $(VIRT_HOST_EXTERNAL_FILES) br2-external/external.mk
+	$(MAKE) -C $(BUILDROOT_DIR) O=$(abspath $(VIRT_HOST_BUILDROOT_DIR)) BR2_EXTERNAL="$(VIRT_HOST_EXTERNAL)"
 	test -s "$(VIRT_HOST_IMAGE)"
 	test -s "$(VIRT_HOST_ROOTFS)"
 	test -x "$(VIRT_HOST_QEMU)"
@@ -169,7 +184,7 @@ $(VIRT_GCPT_BIN): scripts/build-gcpt.sh scripts/dts-config.sh $(TOOLCHAIN_WRAPPE
 
 VIRT_INPUT_NAME := $(notdir $(bin))
 VIRT_INPUT_CASE := $(if $(filter fw_payload.bin fw_payload.qemu.bin,$(VIRT_INPUT_NAME)),$(notdir $(patsubst %/,%,$(dir $(bin)))),$(if $(filter %.fw_payload.qemu.bin,$(VIRT_INPUT_NAME)),$(patsubst %.fw_payload.qemu.bin,%,$(VIRT_INPUT_NAME)),$(if $(filter %.fw_payload.bin,$(VIRT_INPUT_NAME)),$(patsubst %.fw_payload.bin,%,$(VIRT_INPUT_NAME)),$(patsubst %.bin,%,$(VIRT_INPUT_NAME)))))
-VIRT_INPUT_DIR := build/virt/$(VIRT_INPUT_CASE)
+VIRT_INPUT_DIR := build/$(VIRT_NAME)/$(VIRT_INPUT_CASE)
 VIRT_INPUT_VARS := $(VIRT_INPUT_DIR)/vars.$(VIRT_BUILD_VARS_HASH).stamp
 VIRT_INPUT_PACKAGE := $(VIRT_INPUT_DIR)/package.stamp
 VIRT_INPUT_FIRMWARE := $(VIRT_INPUT_DIR)/host/$(VIRT_HOST_FIRMWARE)
@@ -182,17 +197,17 @@ $(VIRT_INPUT_VARS):
 $(VIRT_INPUT_PACKAGE): $(bin) $(if $(elf),$(abspath $(elf))) $(VIRT_HOST_BUILD_STAMP) $(VIRT_INPUT_VARS) scripts/build-virtual-workload.py
 	@test -n "$(bin)" || { echo 'Usage: make virt bin=<input.bin>' >&2; exit 2; }
 	@mkdir -p "$(VIRT_INPUT_DIR)"
-	@$(VIRT_FAKEROOT) -- python3 scripts/build-virtual-workload.py input-package --input-bin "$(abspath $(bin))" $(if $(elf),--input-elf "$(abspath $(elf))") --host-rootfs "$(VIRT_HOST_ROOTFS)" --host-image "$(VIRT_HOST_IMAGE)" --guest-buildroot-output "$(BUILDROOT_DIR)/output" --host-buildroot-output "$(VIRT_HOST_BUILDROOT_DIR)" --out-dir "$(VIRT_INPUT_DIR)" --guest-harts "$(VIRT_GUEST_HARTS)" --guest-memory "$(VIRT_GUEST_MEMORY)" --qemu-start-timeout "$(VIRT_QEMU_START_TIMEOUT)"
+	@$(VIRT_FAKEROOT) -- python3 scripts/build-virtual-workload.py input-package $(VIRT_STING_ARGS) --input-bin "$(abspath $(bin))" $(if $(elf),--input-elf "$(abspath $(elf))") --host-rootfs "$(VIRT_HOST_ROOTFS)" --host-image "$(VIRT_HOST_IMAGE)" --guest-buildroot-output "$(BUILDROOT_DIR)/output" --host-buildroot-output "$(VIRT_HOST_BUILDROOT_DIR)" --out-dir "$(VIRT_INPUT_DIR)" --guest-harts "$(VIRT_GUEST_HARTS)" --guest-memory "$(VIRT_GUEST_MEMORY)" --qemu-start-timeout "$(VIRT_QEMU_START_TIMEOUT)"
 	@touch "$@"
 
 $(VIRT_INPUT_FIRMWARE): $(VIRT_INPUT_PACKAGE) $(VIRT_GCPT_BIN) $(SBI_BIN) $(VIRT_GCPT_DTS_SOURCES) scripts/build-firmware-linux.sh scripts/dts-config.sh
 	@CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" DTC="$(abspath $(BUILDROOT_DIR)/output/host/bin/dtc)" DEFAULT_DTB="$(VIRT_HOST_DTB)" DTB_MIN_MEMORY_BYTES="$(VIRT_HOST_MIN_MEMORY_BYTES)" INITRAMFS_OFFSET_ALIGNMENT_MB=2 MULTIHART=0 HARTS=1 FIRMWARE_OUTPUT="$@" bash scripts/build-firmware-linux.sh "$(VIRT_GCPT_BIN)" "$(SBI_BUILD_DIR)" "$(DTS_DIR)" "$(VIRT_INPUT_DIR)/host/Image" "$(VIRT_INPUT_DIR)/host"
 
 $(VIRT_INPUT_DIR)/manifest.json: $(VIRT_INPUT_PACKAGE) $(VIRT_INPUT_FIRMWARE) scripts/build-virtual-workload.py
-	@$(VIRT_FAKEROOT) -- python3 scripts/build-virtual-workload.py manifest --out-dir "$(VIRT_INPUT_DIR)" --workload-name "$(VIRT_INPUT_CASE)" --platform "$(PLATFORM)" --guest-harts "$(VIRT_GUEST_HARTS)" --guest-memory "$(VIRT_GUEST_MEMORY)" --qemu-start-timeout "$(VIRT_QEMU_START_TIMEOUT)" --inner-qemu-version "$(VIRT_INNER_QEMU_VERSION)" --host-dtb "$(VIRT_HOST_DTB)" --host-min-memory-bytes "$(VIRT_HOST_MIN_MEMORY_BYTES)" $(VIRT_OUTER_QEMU_ARGS) --gcpt "$(VIRT_GCPT_BIN)" --opensbi "$(SBI_BIN)" --host-linux-revision "buildroot-selected" --opensbi-source bootloader/opensbi --opensbi-revision "$(shell git -C bootloader/opensbi rev-parse HEAD 2>/dev/null || printf unknown)" --host-defconfig "$(VIRT_HOST_DEFCONFIG)" --host-linux-config "$(VIRT_HOST_LINUX_CONFIG)" --guest-buildroot-output "$(BUILDROOT_DIR)/output" --host-buildroot-output "$(VIRT_HOST_BUILDROOT_DIR)" --buildroot-source "$(BUILDROOT_DIR)"
+	@$(VIRT_FAKEROOT) -- python3 scripts/build-virtual-workload.py manifest $(VIRT_STING_ARGS) --out-dir "$(VIRT_INPUT_DIR)" --workload-name "$(VIRT_INPUT_CASE)" --platform "$(PLATFORM)" --guest-harts "$(VIRT_GUEST_HARTS)" --guest-memory "$(VIRT_GUEST_MEMORY)" --qemu-start-timeout "$(VIRT_QEMU_START_TIMEOUT)" --inner-qemu-version "$(VIRT_INNER_QEMU_VERSION)" --host-dtb "$(VIRT_HOST_DTB)" --host-min-memory-bytes "$(VIRT_HOST_MIN_MEMORY_BYTES)" $(VIRT_OUTER_QEMU_ARGS) --gcpt "$(VIRT_GCPT_BIN)" --opensbi "$(SBI_BIN)" --host-linux-revision "buildroot-selected" --opensbi-source bootloader/opensbi --opensbi-revision "$(shell git -C bootloader/opensbi rev-parse HEAD 2>/dev/null || printf unknown)" --host-defconfig "$(VIRT_HOST_DEFCONFIG)" --host-linux-config "$(VIRT_HOST_LINUX_CONFIG)" --guest-buildroot-output "$(BUILDROOT_DIR)/output" --host-buildroot-output "$(VIRT_HOST_BUILDROOT_DIR)" --buildroot-source "$(BUILDROOT_DIR)"
 
 virt-inner: $(VIRT_INPUT_DIR)/manifest.json
-	@printf '[virt] Output written to %s\n' "$(abspath $(VIRT_INPUT_DIR))"
+	@printf '[%s] Output written to %s\n' "$(VIRT_NAME)" "$(abspath $(VIRT_INPUT_DIR))"
 
 endif
 
