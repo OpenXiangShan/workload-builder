@@ -1,0 +1,378 @@
+From: STING virtualization port
+Subject: [PATCH] riscv: enable STING software M-mode and nested KVM on virt
+
+Port the XiangShan devel KVM userspace interface and the working STING
+virt-board support onto official QEMU 11.0.0. Requires the paired
+XiangShan Linux 6.18.34 devel kernel with STING runtime fixes.
+
+diff --git a/hw/riscv/Kconfig b/hw/riscv/Kconfig
+--- a/hw/riscv/Kconfig
++++ b/hw/riscv/Kconfig
+@@ -43,6 +43,7 @@
+ 
+ config RISCV_VIRT
+     bool
++    select XILINX
+     default y
+     depends on RISCV32 || RISCV64
+     imply PCI_DEVICES
+diff --git a/hw/riscv/virt.c b/hw/riscv/virt.c
+--- a/hw/riscv/virt.c
++++ b/hw/riscv/virt.c
+@@ -28,6 +28,7 @@
+ #include "hw/core/sysbus.h"
+ #include "hw/core/qdev-properties.h"
+ #include "hw/char/serial-mm.h"
++#include "hw/char/xilinx_uartlite.h"
+ #include "target/riscv/cpu.h"
+ #include "hw/core/sysbus-fdt.h"
+ #include "target/riscv/pmu.h"
+@@ -1483,8 +1484,9 @@
+     riscv_boot_info_init(&boot_info, &s->soc[0]);
+ 
+     if (machine->kernel_filename && !kernel_entry) {
+-        kernel_start_addr = riscv_calc_kernel_start_addr(&boot_info,
+-                                                         firmware_end_addr);
++        /* Software M-mode payloads start at the DRAM base. */
++        kernel_start_addr = s->kvm_m_mode ? s->memmap[VIRT_DRAM].base :
++            riscv_calc_kernel_start_addr(&boot_info, firmware_end_addr);
+         riscv_load_kernel(machine, &boot_info, kernel_start_addr,
+                           true, NULL);
+         kernel_entry = boot_info.image_low_addr;
+@@ -1526,6 +1528,15 @@
+     int i, base_hartid, hart_count;
+     int socket_count = riscv_socket_count(machine);
+ 
++    if (s->kvm_m_mode && !kvm_enabled()) {
++        error_report("'kvm-m-mode' requires KVM acceleration");
++        exit(1);
++    }
++    if (s->kvm_nested && !kvm_enabled()) {
++        error_report("'kvm-nested' requires KVM acceleration");
++        exit(1);
++    }
++
+     s->memmap = virt_memmap;
+ 
+     /* Check socket count limit */
+@@ -1535,7 +1546,7 @@
+         exit(1);
+     }
+ 
+-    if (!virt_aclint_allowed() && s->have_aclint) {
++    if (!virt_aclint_allowed() && s->have_aclint && !s->kvm_m_mode) {
+         error_report("'aclint' is only available with TCG acceleration");
+         exit(1);
+     }
+@@ -1572,7 +1583,22 @@
+                                 hart_count, &error_abort);
+         sysbus_realize(SYS_BUS_DEVICE(&s->soc[i]), &error_fatal);
+ 
+-        if (virt_aclint_allowed() && s->have_aclint) {
++#ifdef CONFIG_KVM_NESTED
++        if (s->kvm_nested) {
++            int cpu;
++            for (cpu = 0; cpu < hart_count; cpu++) {
++                RISCVCPU *vcpu = &s->soc[i].harts[cpu];
++
++                riscv_cpu_set_misa_ext(&vcpu->env,
++                                       vcpu->env.misa_ext | RVH);
++                if (!vcpu->env.geilen) {
++                    vcpu->env.geilen = VIRT_IRQCHIP_MAX_GUESTS;
++                }
++            }
++        }
++#endif
++
++        if ((virt_aclint_allowed() && s->have_aclint) || s->kvm_m_mode) {
+             if (s->aia_type == VIRT_AIA_TYPE_APLIC_IMSIC) {
+                 /* Per-socket ACLINT MTIMER */
+                 riscv_aclint_mtimer_create(s->memmap[VIRT_CLINT].base +
+@@ -1693,6 +1719,20 @@
+ 
+     create_platform_bus(s, mmio_irqchip);
+ 
++    if (s->kvm_m_mode) {
++        /* STING uses UARTLite TX at 0x40600004; run with -serial none. */
++        DeviceState *uartlite = qdev_new(TYPE_XILINX_UARTLITE);
++        Chardev *chr = qemu_chr_new("sting.uartlite", "stdio", NULL);
++
++        if (!chr) {
++            exit(1);
++        }
++        qdev_prop_set_enum(uartlite, "endianness", ENDIAN_MODE_LITTLE);
++        qdev_prop_set_chr(uartlite, "chardev", chr);
++        sysbus_realize_and_unref(SYS_BUS_DEVICE(uartlite), &error_fatal);
++        sysbus_mmio_map(SYS_BUS_DEVICE(uartlite), 0, 0x40600000);
++    }
++
+     serial_mm_init(system_memory, s->memmap[VIRT_UART0].base,
+         0, qdev_get_gpio_in(mmio_irqchip, UART0_IRQ), 399193,
+         serial_hd(0), DEVICE_LITTLE_ENDIAN);
+@@ -1706,6 +1746,20 @@
+                                   drive_get(IF_PFLASH, 0, i));
+     }
+     virt_flash_map(s, system_memory);
++
++    /*
++     * STING requires Smrnmi. Under KVM the host may not advertise it, but
++     * software M-mode emulates the MN* CSRs in the kernel — still advertise
++     * smrnmi in the guest FDT so platform discovery succeeds.
++     */
++    if (s->kvm_m_mode) {
++        for (i = 0; i < socket_count; i++) {
++            int cpu;
++            for (cpu = 0; cpu < s->soc[i].num_harts; cpu++) {
++                s->soc[i].harts[cpu].cfg.ext_smrnmi = true;
++            }
++        }
++    }
+ 
+     /* load/create device tree */
+     if (machine->dtb) {
+@@ -1757,6 +1811,30 @@
+     s->iommu_sys = ON_OFF_AUTO_AUTO;
+ }
+ 
++#ifdef CONFIG_KVM_M_MODE
++static bool virt_get_kvm_m_mode(Object *obj, Error **errp)
++{
++    return RISCV_VIRT_MACHINE(obj)->kvm_m_mode;
++}
++
++static void virt_set_kvm_m_mode(Object *obj, bool value, Error **errp)
++{
++    RISCV_VIRT_MACHINE(obj)->kvm_m_mode = value;
++}
++#endif
++
++#ifdef CONFIG_KVM_NESTED
++static bool virt_get_kvm_nested(Object *obj, Error **errp)
++{
++    return RISCV_VIRT_MACHINE(obj)->kvm_nested;
++}
++
++static void virt_set_kvm_nested(Object *obj, bool value, Error **errp)
++{
++    RISCV_VIRT_MACHINE(obj)->kvm_nested = value;
++}
++#endif
++
+ static char *virt_get_aia_guests(Object *obj, Error **errp)
+ {
+     RISCVVirtState *s = RISCV_VIRT_MACHINE(obj);
+@@ -1977,6 +2055,21 @@
+                               NULL, NULL);
+     object_class_property_set_description(oc, "iommu-sys",
+                                           "Enable IOMMU platform device");
++
++#ifdef CONFIG_KVM_M_MODE
++    object_class_property_add_bool(oc, "kvm-m-mode",
++                                   virt_get_kvm_m_mode, virt_set_kvm_m_mode);
++    object_class_property_set_description(oc, "kvm-m-mode",
++                                          "Enable KVM software M-mode "
++                                          "(STING / bare-metal payloads)");
++#endif
++#ifdef CONFIG_KVM_NESTED
++    object_class_property_add_bool(oc, "kvm-nested",
++                                   virt_get_kvm_nested, virt_set_kvm_nested);
++    object_class_property_set_description(oc, "kvm-nested",
++                                          "Enable KVM nested virtualization "
++                                          "(expose H to the guest)");
++#endif
+ }
+ 
+ static const TypeInfo virt_machine_typeinfo = {
+diff --git a/include/hw/riscv/virt.h b/include/hw/riscv/virt.h
+--- a/include/hw/riscv/virt.h
++++ b/include/hw/riscv/virt.h
+@@ -64,6 +64,8 @@
+     struct GPEXHost *gpex_host;
+     OnOffAuto iommu_sys;
+     uint16_t pci_iommu_bdf;
++    bool kvm_m_mode;
++    bool kvm_nested;
+ };
+ 
+ enum {
+diff --git a/linux-headers/asm-riscv/kvm.h b/linux-headers/asm-riscv/kvm.h
+--- a/linux-headers/asm-riscv/kvm.h
++++ b/linux-headers/asm-riscv/kvm.h
+@@ -20,8 +20,16 @@
+ #define KVM_COALESCED_MMIO_PAGE_OFFSET 1
+ #define KVM_DIRTY_LOG_PAGE_OFFSET 64
+ 
++/* Private capabilities in the paired XiangShan devel kernel. */
++#define KVM_CAP_RISCV_M_MODE 245
++#define KVM_CAP_RISCV_NESTED 246
++
+ #define KVM_INTERRUPT_SET	-1U
+ #define KVM_INTERRUPT_UNSET	-2U
++#define KVM_RISCV_INTERRUPT_UNSET_FLAG	(1U << 31)
++#define KVM_RISCV_INTERRUPT_SET(irq)	((__u32)(irq))
++#define KVM_RISCV_INTERRUPT_UNSET(irq)	\
++	(KVM_RISCV_INTERRUPT_UNSET_FLAG | (__u32)(irq))
+ 
+ #define KVM_EXIT_FAIL_ENTRY_NO_VSFILE	(1ULL << 0)
+ 
+diff --git a/meson.build b/meson.build
+--- a/meson.build
++++ b/meson.build
+@@ -2489,6 +2489,8 @@
+ config_host_data.set('CONFIG_LINUX_IO_URING', linux_io_uring.found())
+ config_host_data.set('CONFIG_LIBPMEM', libpmem.found())
+ config_host_data.set('CONFIG_MODULES', enable_modules)
++config_host_data.set('CONFIG_KVM_M_MODE', get_option('kvm_m_mode').enabled())
++config_host_data.set('CONFIG_KVM_NESTED', get_option('kvm_nested').enabled())
+ config_host_data.set('CONFIG_NUMA', numa.found())
+ if numa.found()
+   config_host_data.set('HAVE_NUMA_HAS_PREFERRED_MANY',
+@@ -4806,6 +4808,8 @@
+ summary_info = {}
+ if have_system
+   summary_info += {'KVM support':       config_all_accel.has_key('CONFIG_KVM')}
++  summary_info += {'KVM M-mode support': get_option('kvm_m_mode').enabled()}
++  summary_info += {'KVM nested support': get_option('kvm_nested').enabled()}
+   summary_info += {'Nitro support':     config_all_accel.has_key('CONFIG_NITRO')}
+   summary_info += {'HVF support':       config_all_accel.has_key('CONFIG_HVF')}
+   summary_info += {'WHPX support':      config_all_accel.has_key('CONFIG_WHPX')}
+diff --git a/meson_options.txt b/meson_options.txt
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -73,6 +73,10 @@
+ 
+ option('kvm', type: 'feature', value: 'auto',
+        description: 'KVM acceleration support')
++option('kvm_m_mode', type : 'feature', value : 'disabled',
++       description: 'RISC-V KVM software M-mode support')
++option('kvm_nested', type : 'feature', value : 'disabled',
++       description: 'RISC-V KVM nested virtualization support')
+ option('mshv', type: 'feature', value: 'auto',
+        description: 'MSHV acceleration support')
+ option('whpx', type: 'feature', value: 'auto',
+diff --git a/scripts/meson-buildoptions.sh b/scripts/meson-buildoptions.sh
+--- a/scripts/meson-buildoptions.sh
++++ b/scripts/meson-buildoptions.sh
+@@ -134,6 +134,8 @@
+   printf "%s\n" '  jack            JACK sound support'
+   printf "%s\n" '  keyring         Linux keyring support'
+   printf "%s\n" '  kvm             KVM acceleration support'
++  printf "%s\n" '  kvm-m-mode      RISC-V KVM software M-mode support'
++  printf "%s\n" '  kvm-nested      RISC-V KVM nested virtualization support'
+   printf "%s\n" '  l2tpv3          l2tpv3 network backend support'
+   printf "%s\n" '  libcbor         libcbor support'
+   printf "%s\n" '  libdaxctl       libdaxctl support'
+@@ -363,6 +365,10 @@
+     --disable-keyring) printf "%s" -Dkeyring=disabled ;;
+     --enable-kvm) printf "%s" -Dkvm=enabled ;;
+     --disable-kvm) printf "%s" -Dkvm=disabled ;;
++    --enable-kvm-m-mode) printf "%s" -Dkvm_m_mode=enabled ;;
++    --disable-kvm-m-mode) printf "%s" -Dkvm_m_mode=disabled ;;
++    --enable-kvm-nested) printf "%s" -Dkvm_nested=enabled ;;
++    --disable-kvm-nested) printf "%s" -Dkvm_nested=disabled ;;
+     --enable-l2tpv3) printf "%s" -Dl2tpv3=enabled ;;
+     --disable-l2tpv3) printf "%s" -Dl2tpv3=disabled ;;
+     --enable-libcbor) printf "%s" -Dlibcbor=enabled ;;
+diff --git a/target/riscv/kvm/kvm-cpu.c b/target/riscv/kvm/kvm-cpu.c
+--- a/target/riscv/kvm/kvm-cpu.c
++++ b/target/riscv/kvm/kvm-cpu.c
+@@ -58,6 +58,9 @@
+ }
+ 
+ static bool cap_has_mp_state;
++#ifdef CONFIG_KVM_M_MODE
++static bool kvm_m_mode;
++#endif
+ 
+ #define KVM_RISCV_REG_ID_U32(type, idx) (KVM_REG_RISCV | KVM_REG_SIZE_U32 | \
+                                          type | idx)
+@@ -1397,7 +1400,12 @@
+ 
+     if (KVM_PUT_RESET_STATE == level) {
+         RISCVCPU *cpu = RISCV_CPU(cs);
+-        if (cs->cpu_index == 0) {
++        bool runnable = cs->cpu_index == 0;
++
++#ifdef CONFIG_KVM_M_MODE
++        runnable |= kvm_m_mode;
++#endif
++        if (runnable) {
+             ret = kvm_riscv_sync_mpstate_to_kvm(cpu, KVM_MP_STATE_RUNNABLE);
+         } else {
+             ret = kvm_riscv_sync_mpstate_to_kvm(cpu, KVM_MP_STATE_STOPPED);
+@@ -1534,6 +1542,42 @@
+ int kvm_arch_init(MachineState *ms, KVMState *s)
+ {
+     cap_has_mp_state = kvm_check_extension(s, KVM_CAP_MP_STATE);
++#ifdef CONFIG_KVM_M_MODE
++    kvm_m_mode = object_property_find(OBJECT(ms), "kvm-m-mode") &&
++                 object_property_get_bool(OBJECT(ms), "kvm-m-mode",
++                                          &error_abort);
++    if (kvm_m_mode) {
++        int ret;
++
++        if (!kvm_check_extension(s, KVM_CAP_RISCV_M_MODE)) {
++            error_report("KVM does not support RISC-V software M-mode");
++            return -ENOTSUP;
++        }
++        ret = kvm_vm_enable_cap(s, KVM_CAP_RISCV_M_MODE, 0);
++        if (ret) {
++            error_report("Unable to enable RISC-V software M-mode: %s",
++                         strerror(-ret));
++            return ret;
++        }
++    }
++#endif
++#ifdef CONFIG_KVM_NESTED
++    if (object_property_find(OBJECT(ms), "kvm-nested") &&
++        object_property_get_bool(OBJECT(ms), "kvm-nested", &error_abort)) {
++        int ret;
++
++        if (!kvm_check_extension(s, KVM_CAP_RISCV_NESTED)) {
++            error_report("KVM does not support RISC-V nested virtualization");
++            return -ENOTSUP;
++        }
++        ret = kvm_vm_enable_cap(s, KVM_CAP_RISCV_NESTED, 0);
++        if (ret) {
++            error_report("Unable to enable RISC-V nested virtualization: %s",
++                         strerror(-ret));
++            return ret;
++        }
++    }
++#endif
+     return 0;
+ }
+ 
+@@ -1743,15 +1787,28 @@
+     env->gpr[11] = cpu->env.fdt_addr;          /* a1 */
+ 
+     kvm_riscv_reset_regs_csr(env);
++#ifdef CONFIG_KVM_M_MODE
++    if (kvm_m_mode) {
++        env->priv = PRV_M;
++    }
++#endif
+ }
+ 
+ void kvm_riscv_set_irq(RISCVCPU *cpu, int irq, int level)
+ {
+     int ret;
+-    unsigned virq = level ? KVM_INTERRUPT_SET : KVM_INTERRUPT_UNSET;
+-
+-    if (irq != IRQ_S_EXT) {
+-        perror("kvm riscv set irq != IRQ_S_EXT\n");
++    unsigned virq;
++
++    if (irq == IRQ_S_EXT) {
++        virq = level ? KVM_INTERRUPT_SET : KVM_INTERRUPT_UNSET;
++#ifdef CONFIG_KVM_M_MODE
++    } else if (kvm_m_mode && (irq == IRQ_M_SOFT || irq == IRQ_M_TIMER ||
++                             irq == IRQ_M_EXT)) {
++        virq = level ? KVM_RISCV_INTERRUPT_SET(irq) :
++                       KVM_RISCV_INTERRUPT_UNSET(irq);
++#endif
++    } else {
++        error_report("Unsupported RISC-V KVM interrupt %d", irq);
+         abort();
+     }
+ 

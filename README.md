@@ -25,8 +25,8 @@ You can also build a single workload with:
 - `make linux/workload_name` for a Linux workload.
 - `make am/workload_name` for an AM workload.
 
-To package an already-built Linux firmware, or a bare-metal binary linked for
-the standard QEMU `virt` machine, as a nested KVM Guest, pass its bin explicitly
+To package an already-built Linux firmware or a STING bare-metal binary
+as a KVM Guest, pass its bin explicitly
 to the independent `virt` target. A directory processes each direct child
 `*.bin` input independently:
 
@@ -35,6 +35,21 @@ make spec2006-images BENCH=bzip2 INPUT=chicken SPEC2006_ISO=/path/to/cpu2006.iso
 make virt bin=build/images/spec2006/bin/bzip2_chicken.fw_payload.bin
 make virt bin=build/images/spec2006/bin
 ```
+
+STING uses public QEMU 11.0.0 with the repository's M-mode/nested patch and
+XiangShan Linux 6.18.34 pinned at `9a299927d0b8` with its runtime fixes.
+Buildroot downloads and patches both sources; local source overrides are not
+required. The Host build is separate at `build/buildroot-virt-host-sting/`.
+See [the patch notes](br2-external/patches/README.md) for the source contract.
+
+```shell
+proxychains make virt bin=/path/to/sting_00013.bin
+"$NEMU_HOME/build/riscv64-nemu-interpreter" -b build/virt/sting_00013/host/fw_payload.bin
+```
+
+STING success requires UART `STING Test Status: PASS`, Host workload exit 0
+and NEMU `HIT GOOD TRAP`. The original `sting_00001.bin` and `sting_00013.bin`
+have passed this path with unchanged payload bytes.
 
 To combine an existing image export and its matching virtual packages into a
 new image directory, run:
@@ -59,9 +74,9 @@ respectively. `VIRT_IMAGE_DIR` must not already exist.
 
 For Linux firmware, `virt` scans the supplied image for its RISC-V Linux Image,
 FDT and initramfs addresses; it does not assume a fixed 4 MiB guest-image
-offset. A bare-metal `.bin` is booted directly as the Guest kernel and must
-already target QEMU `virt`, write its terminal status as
-`VIRT_WORKLOAD_EXIT=<0..255>`. If a matching ELF is not present in the sibling
+offset. A STING bare-metal `.bin` boots directly as the Guest kernel and
+reports PASS/FAIL through UARTLite at `0x40600000`. If a matching ELF is not
+present in the sibling
 `elf/` directory, `virt` creates a minimal ELF load wrapper at `0x80000000` and
 records it in `build/virt/<case>/`.
 The input bin/ELF are consumed as-is and are never rebuilt by `virt`.

@@ -1,0 +1,296 @@
+diff --git a/arch/riscv/include/asm/kvm_host.h b/arch/riscv/include/asm/kvm_host.h
+index 6e9330fb1f89..c932e0051737 100644
+--- a/arch/riscv/include/asm/kvm_host.h
++++ b/arch/riscv/include/asm/kvm_host.h
+@@ -222,6 +222,7 @@ struct kvm_vcpu_mmode {
+ 	unsigned long mstateen1;
+ 	unsigned long mstateen2;
+ 	unsigned long mstateen3;
++	unsigned long miselect;
+ 	unsigned long mcountinhibit;
+ 	unsigned long mhpmcounter[29];
+ 	unsigned long mhpmevent[29];
+@@ -231,6 +232,7 @@ struct kvm_vcpu_mmode {
+ 	unsigned long sstateen1;
+ 	unsigned long sstateen2;
+ 	unsigned long sstateen3;
++	unsigned long siselect;
+ 	unsigned long hstatus;
+ 	unsigned long hcounteren;
+ 	unsigned long hedeleg;
+@@ -245,9 +247,13 @@ struct kvm_vcpu_mmode {
+ 	unsigned long vstimecmp;
+ 	unsigned long mtinst;
+ 	unsigned long mtval2;
+-	unsigned long pmpcfg0;
+-	unsigned long pmpcfg2;
+-	unsigned long pmpaddr[16];
++	/* SMRNMI (Smrnmi) */
++	unsigned long mnscratch;
++	unsigned long mnepc;
++	unsigned long mncause;
++	unsigned long mnstatus;
++	unsigned long pmpcfg[4];
++	unsigned long pmpaddr[32];
+ };
+ 
+ struct kvm_vcpu_hmode_vs {
+diff --git a/arch/riscv/kvm/vcpu_exit.c b/arch/riscv/kvm/vcpu_exit.c
+index f1b24699bdb8..cad10f01b76e 100644
+--- a/arch/riscv/kvm/vcpu_exit.c
++++ b/arch/riscv/kvm/vcpu_exit.c
+@@ -7,6 +7,7 @@
+  */
+ 
+ #include <linux/kvm_host.h>
++#include <asm/cacheflush.h>
+ #include <asm/csr.h>
+ #include <asm/insn-def.h>
+ #include <asm/insn.h>
+@@ -492,6 +493,8 @@ static int mmode_mprv_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 	struct kvm_cpu_trap utrap = { 0 }, access_trap = { 0 };
+ 	unsigned long fault_addr, insn, val = 0;
+ 	bool load = false, sign_extend = false, emulate;
++	bool cbo_zero = false, cbo_manage = false;
++	unsigned long access_size;
+ 	int len = 0, insn_len;
+ 
+ 	emulate = kvm_riscv_vcpu_mmode_mprv_active(vcpu);
+@@ -511,7 +514,19 @@ static int mmode_mprv_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 	}
+ 	insn_len = INSN_LEN(insn);
+ 
+-	if ((insn & INSN_MASK_LB) == INSN_MATCH_LB) {
++	if ((insn & 0xfff07fff) == 0x0040200f && emulate) {
++		/* CBO.ZERO stores a whole aligned block at MPRV privilege. */
++		cbo_zero = true;
++		fault_addr &= ~(riscv_cboz_block_size - 1UL);
++		len = sizeof(unsigned long);
++	} else if (emulate && ((insn & 0xfff07fff) == 0x0000200f ||
++			       (insn & 0xfff07fff) == 0x0010200f ||
++			       (insn & 0xfff07fff) == 0x0020200f)) {
++		/* INVAL/CLEAN/FLUSH probe access without modifying memory. */
++		cbo_manage = true;
++		fault_addr &= ~(riscv_cbom_block_size - 1UL);
++		len = 1;
++	} else if ((insn & INSN_MASK_LB) == INSN_MATCH_LB) {
+ 		load = sign_extend = true;
+ 		len = 1;
+ 	} else if ((insn & INSN_MASK_LBU) == INSN_MATCH_LBU) {
+@@ -586,7 +601,14 @@ static int mmode_mprv_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 				fault_addr);
+ 		return gstage_page_fault(vcpu, run, trap);
+ 	}
+-	if (!(emulate ? mmode_mprv_pmp_check(vcpu, fault_addr, len,
++	access_size = cbo_zero ? riscv_cboz_block_size :
++		      (cbo_manage ? riscv_cbom_block_size : len);
++	if (cbo_manage) {
++		if (!mmode_mprv_pmp_check(vcpu, fault_addr, access_size, PMP_R) &&
++		    !mmode_mprv_pmp_check(vcpu, fault_addr, access_size, PMP_W))
++			return mmode_trap_info(vcpu, trap, EXC_STORE_ACCESS,
++					       fault_addr);
++	} else if (!(emulate ? mmode_mprv_pmp_check(vcpu, fault_addr, access_size,
+ 						    load ? PMP_R : PMP_W) :
+ 		      kvm_riscv_vcpu_mmode_pmp_check(vcpu, fault_addr, len,
+ 						       load ? PMP_R : PMP_W)))
+@@ -594,9 +616,27 @@ static int mmode_mprv_fault(struct kvm_vcpu *vcpu, struct kvm_run *run,
+ 			load ? EXC_LOAD_ACCESS : EXC_STORE_ACCESS, fault_addr);
+ 	if (!emulate)
+ 		return gstage_page_fault(vcpu, run, trap);
+-	if (load) {
++	if (cbo_manage) {
++		mmode_mprv_read(vcpu, fault_addr, len, false, &access_trap);
++		/* Cache management reports store faults even on a read probe. */
++		if (access_trap.scause == EXC_LOAD_PAGE_FAULT)
++			access_trap.scause = EXC_STORE_PAGE_FAULT;
++		else if (access_trap.scause == EXC_LOAD_ACCESS)
++			access_trap.scause = EXC_STORE_ACCESS;
++		else if (access_trap.scause == EXC_LOAD_GUEST_PAGE_FAULT)
++			access_trap.scause = EXC_STORE_GUEST_PAGE_FAULT;
++	} else if (load) {
+ 		val = mmode_mprv_read(vcpu, fault_addr, len, sign_extend,
+ 				      &access_trap);
++	} else if (cbo_zero) {
++		unsigned int offset;
++
++		for (offset = 0; offset < riscv_cboz_block_size; offset += len) {
++			mmode_mprv_write(vcpu, fault_addr + offset, len, 0,
++					 &access_trap);
++			if (access_trap.scause)
++				break;
++		}
+ 	} else {
+ 		if (insn_len == 4)
+ 			val = GET_RS2(insn, ct);
+diff --git a/arch/riscv/kvm/vcpu_hmode.c b/arch/riscv/kvm/vcpu_hmode.c
+index 6a1e343dfcbb..12e08ef67de6 100644
+--- a/arch/riscv/kvm/vcpu_hmode.c
++++ b/arch/riscv/kvm/vcpu_hmode.c
+@@ -113,7 +113,8 @@ static void hmode_save_vs(struct kvm_vcpu_hmode_vs *vs)
+ 	vs->vscause = ncsr_read(CSR_VSCAUSE);
+ 	vs->vstval = ncsr_read(CSR_VSTVAL);
+ 	vs->vsatp = ncsr_read(CSR_VSATP);
+-	vs->vsiselect = ncsr_read(CSR_VSISELECT);
++	if (kvm_riscv_aia_available())
++		vs->vsiselect = ncsr_read(CSR_VSISELECT);
+ 	if (riscv_isa_extension_available(NULL, SSTC))
+ 		vs->vstimecmp = ncsr_read(CSR_VSTIMECMP);
+ }
+@@ -128,7 +129,8 @@ static void hmode_load_vs(const struct kvm_vcpu_hmode_vs *vs)
+ 	ncsr_write(CSR_VSCAUSE, vs->vscause);
+ 	ncsr_write(CSR_VSTVAL, vs->vstval);
+ 	ncsr_write(CSR_VSATP, vs->vsatp);
+-	ncsr_write(CSR_VSISELECT, vs->vsiselect);
++	if (kvm_riscv_aia_available())
++		ncsr_write(CSR_VSISELECT, vs->vsiselect);
+ 	if (riscv_isa_extension_available(NULL, SSTC))
+ 		ncsr_write(CSR_VSTIMECMP, vs->vstimecmp);
+ }
+diff --git a/arch/riscv/kvm/vcpu_insn.c b/arch/riscv/kvm/vcpu_insn.c
+index 8a14a4542b0c..c0a27e9e748f 100644
+--- a/arch/riscv/kvm/vcpu_insn.c
++++ b/arch/riscv/kvm/vcpu_insn.c
+@@ -564,7 +564,7 @@ static int csr_insn(struct kvm_vcpu *vcpu, struct kvm_run *run, ulong insn)
+ 	     (vcpu->arch.mmode.active && (csr_num & 0xf00) == 0x200) ||
+ 	     (vcpu->arch.mmode.active && (csr_num & 0xf00) == 0x600) ||
+ 	     (vcpu->arch.mmode.active && csr_num >= CSR_CYCLE &&
+-	      csr_num <= CSR_INSTRET))) {
++	      csr_num <= CSR_CYCLE + 31))) {
+ 		rc = kvm_riscv_vcpu_mmode_csr_rmw(vcpu, csr_num, &val,
+ 						   new_val, wr_mask);
+ 		if (rc == KVM_INSN_CONTINUE_NEXT_SEPC) {
+diff --git a/arch/riscv/kvm/vcpu_mmode.c b/arch/riscv/kvm/vcpu_mmode.c
+index 8a91ab90eb8f..46a7f66071d4 100644
+--- a/arch/riscv/kvm/vcpu_mmode.c
++++ b/arch/riscv/kvm/vcpu_mmode.c
+@@ -13,7 +13,6 @@
+ #define KVM_RISCV_MSTATUS_MPV		BIT(39)
+ #define KVM_RISCV_CSR_MTINST		0x34a
+ #define KVM_RISCV_CSR_MTVAL2		0x34b
+-#define KVM_RISCV_CSR_PMPCFG2		0x3a2
+ #define KVM_RISCV_CSR_MHPMCOUNTER3	0xb03
+ #define KVM_RISCV_CSR_MHPMEVENT3	0x323
+ #define KVM_RISCV_CSR_MHPMEVENT31	0x33f
+@@ -26,6 +25,19 @@
+ #define KVM_RISCV_CSR_SSTATEEN1		0x10d
+ #define KVM_RISCV_CSR_SSTATEEN2		0x10e
+ #define KVM_RISCV_CSR_SSTATEEN3		0x10f
++#define KVM_RISCV_CSR_TSELECT		0x7a0
++#define KVM_RISCV_CSR_TDATA1		0x7a1
++/* Smrnmi */
++#define KVM_RISCV_CSR_MNSCRATCH		0x740
++#define KVM_RISCV_CSR_MNEPC		0x741
++#define KVM_RISCV_CSR_MNCAUSE		0x742
++#define KVM_RISCV_CSR_MNSTATUS		0x744
++#define KVM_RISCV_MNSTATUS_NMIE		(1UL << 3)
++#define KVM_RISCV_MNSTATUS_MNPV		(1UL << 7)
++#define KVM_RISCV_MNSTATUS_MNPP		(3UL << 11)
++#define KVM_RISCV_MNSTATUS_WMASK	(KVM_RISCV_MNSTATUS_NMIE | \
++					 KVM_RISCV_MNSTATUS_MNPV | \
++					 KVM_RISCV_MNSTATUS_MNPP)
+ #define KVM_RISCV_MISA_B		BIT('b' - 'a')
+ #define KVM_RISCV_MISA_G		BIT('g' - 'a')
+ #define KVM_RISCV_MISA_S		BIT('s' - 'a')
+@@ -75,7 +87,7 @@ static unsigned long mmode_rmw(unsigned long old, unsigned long new_val,
+ 
+ static u8 mmode_pmpcfg_entry(struct kvm_vcpu_mmode *m, unsigned int index)
+ {
+-	unsigned long cfg = index < 8 ? m->pmpcfg0 : m->pmpcfg2;
++	unsigned long cfg = m->pmpcfg[index / 8];
+ 
+ 	return cfg >> ((index & 7) * 8);
+ }
+@@ -579,6 +591,11 @@ int kvm_riscv_vcpu_mmode_csr_rmw(struct kvm_vcpu *vcpu,
+ 	case CSR_MSECCFG:
+ 		*val = 0;
+ 		return KVM_INSN_CONTINUE_NEXT_SEPC;
++	case KVM_RISCV_CSR_TSELECT:
++	case KVM_RISCV_CSR_TDATA1:
++		/* No software M-mode triggers: type 0, writes are WARL-zero. */
++		*val = 0;
++		return KVM_INSN_CONTINUE_NEXT_SEPC;
+ 	case CSR_MENVCFG:
+ 		supported = mmode_supported_envcfg(vcpu);
+ 		*val = m->menvcfg;
+@@ -606,9 +623,18 @@ int kvm_riscv_vcpu_mmode_csr_rmw(struct kvm_vcpu *vcpu,
+ 	case KVM_RISCV_CSR_MSTATEEN3:
+ 		reg = &m->mstateen3;
+ 		break;
++	case CSR_MISELECT:
++		reg = &m->miselect;
++		break;
++	case CSR_SISELECT:
++		reg = &m->siselect;
++		break;
+ 	case KVM_RISCV_CSR_MHPMCOUNTER3 ... 0xb1f:
+ 		reg = &m->mhpmcounter[csr_num - KVM_RISCV_CSR_MHPMCOUNTER3];
+ 		break;
++	case CSR_CYCLE + 3 ... CSR_CYCLE + 31:
++		*val = m->mhpmcounter[csr_num - CSR_CYCLE - 3];
++		return KVM_INSN_CONTINUE_NEXT_SEPC;
+ 	case KVM_RISCV_CSR_MHPMEVENT3 ... KVM_RISCV_CSR_MHPMEVENT31:
+ 		reg = &m->mhpmevent[csr_num - KVM_RISCV_CSR_MHPMEVENT3];
+ 		break;
+@@ -621,6 +647,23 @@ int kvm_riscv_vcpu_mmode_csr_rmw(struct kvm_vcpu *vcpu,
+ 	case KVM_RISCV_CSR_MTVAL2:
+ 		reg = &m->mtval2;
+ 		break;
++	case KVM_RISCV_CSR_MNSCRATCH:
++		reg = &m->mnscratch;
++		break;
++	case KVM_RISCV_CSR_MNEPC:
++		reg = &m->mnepc;
++		break;
++	case KVM_RISCV_CSR_MNCAUSE:
++		reg = &m->mncause;
++		break;
++	case KVM_RISCV_CSR_MNSTATUS:
++		old = m->mnstatus;
++		*val = old;
++		m->mnstatus = mmode_rmw(old, new_val, wr_mask) &
++			      KVM_RISCV_MNSTATUS_WMASK;
++		if (old & KVM_RISCV_MNSTATUS_NMIE)
++			m->mnstatus |= KVM_RISCV_MNSTATUS_NMIE;
++		return KVM_INSN_CONTINUE_NEXT_SEPC;
+ 	case CSR_HSTATUS:
+ 		reg = &m->hstatus;
+ 		break;
+@@ -812,21 +855,17 @@ int kvm_riscv_vcpu_mmode_csr_rmw(struct kvm_vcpu *vcpu,
+ 			supported &= ~0x3UL;
+ 		mmode_vs_csr_write(csr_num, supported);
+ 		return KVM_INSN_CONTINUE_NEXT_SEPC;
+-	case CSR_PMPCFG0:
+-		old = m->pmpcfg0;
+-		*val = old;
+-		m->pmpcfg0 = mmode_pmpcfg_rmw(old, new_val, wr_mask);
+-		if (old != m->pmpcfg0 && m->active)
+-			kvm_riscv_mmu_flush(vcpu);
+-		return KVM_INSN_CONTINUE_NEXT_SEPC;
+-	case KVM_RISCV_CSR_PMPCFG2:
+-		old = m->pmpcfg2;
++	case CSR_PMPCFG0 ... CSR_PMPCFG0 + 6:
++		if (csr_num & 1)
++			return KVM_INSN_ILLEGAL_TRAP;
++		pmp_index = (csr_num - CSR_PMPCFG0) / 2;
++		old = m->pmpcfg[pmp_index];
+ 		*val = old;
+-		m->pmpcfg2 = mmode_pmpcfg_rmw(old, new_val, wr_mask);
+-		if (old != m->pmpcfg2 && m->active)
++		m->pmpcfg[pmp_index] = mmode_pmpcfg_rmw(old, new_val, wr_mask);
++		if (old != m->pmpcfg[pmp_index] && m->active)
+ 			kvm_riscv_mmu_flush(vcpu);
+ 		return KVM_INSN_CONTINUE_NEXT_SEPC;
+-	case CSR_PMPADDR0 ... CSR_PMPADDR0 + 15:
++	case CSR_PMPADDR0 ... CSR_PMPADDR0 + 31:
+ 		pmp_index = csr_num - CSR_PMPADDR0;
+ 		old = m->pmpaddr[pmp_index];
+ 		*val = mmode_pmpaddr_readback(m, pmp_index);
+@@ -846,6 +885,8 @@ int kvm_riscv_vcpu_mmode_csr_rmw(struct kvm_vcpu *vcpu,
+ 		*reg &= KVM_RISCV_MCOUNTINHIBIT_MASK;
+ 	if (csr_num == CSR_MEPC)
+ 		m->mepc &= ~1UL;
++	if (csr_num == KVM_RISCV_CSR_MNEPC)
++		m->mnepc &= ~1UL;
+ 	if (csr_num == CSR_MTVEC && (m->mtvec & 0x3) > 1)
+ 		m->mtvec &= ~0x3UL;
+ 	return KVM_INSN_CONTINUE_NEXT_SEPC;

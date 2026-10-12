@@ -118,10 +118,11 @@ VIRT_GUEST_HARTS ?= 1
 VIRT_GUEST_MEMORY ?= 8G
 VIRT_QEMU_START_TIMEOUT ?= 120
 VIRT_INNER_QEMU_VERSION := 11.0.0
-VIRT_HOST_BUILDROOT_DIR ?= build/buildroot-virt-host
+VIRT_HOST_BUILDROOT_DIR ?= build/buildroot-virt-host-sting
 VIRT_HOST_CONFIG := $(VIRT_HOST_BUILDROOT_DIR)/.config
 VIRT_HOST_DEFCONFIG := br2-external/configs/nemu_virt_host_defconfig
 VIRT_HOST_LINUX_CONFIG := br2-external/board/openxiangshan/nemu/linux-virt-host.config
+VIRT_HOST_PATCHES := $(wildcard br2-external/patches/qemu/$(VIRT_INNER_QEMU_VERSION)/*.patch br2-external/patches/linux/*/*.patch)
 ifeq ($(filter qemu,$(PLATFORM)),qemu)
 VIRT_HOST_DTB ?= xiangshan-qemu-nemu-mem16g
 VIRT_OUTER_QEMU_ARGS := --outer-qemu-machine nemu --outer-qemu-cpu rv64,h=true,sstc=false --outer-qemu-harts 1 --outer-qemu-memory 16G
@@ -144,12 +145,12 @@ VIRT_GCPT_CONFIG_STAMP := build/LibCheckpointAlpha-virt-config/config.$(shell pr
 VIRT_BUILD_VARS_CONTENT := input=$(abspath $(bin))\nelf=$(if $(elf),$(abspath $(elf)))\nplatform=$(PLATFORM)\nguest_harts=$(VIRT_GUEST_HARTS)\nguest_memory=$(VIRT_GUEST_MEMORY)\nqemu_start_timeout=$(VIRT_QEMU_START_TIMEOUT)\ninner_qemu_version=$(VIRT_INNER_QEMU_VERSION)\nhost_dtb=$(VIRT_HOST_DTB)\nhost_min_memory=$(VIRT_HOST_MIN_MEMORY_BYTES)
 VIRT_BUILD_VARS_HASH := $(shell printf '%b' '$(VIRT_BUILD_VARS_CONTENT)' | sha256sum | cut -d ' ' -f 1)
 
-$(VIRT_HOST_CONFIG): $(BUILDROOT_DIR)/Makefile $(VIRT_HOST_DEFCONFIG) $(VIRT_HOST_LINUX_CONFIG)
+$(VIRT_HOST_CONFIG): $(BUILDROOT_DIR)/Makefile $(VIRT_HOST_DEFCONFIG) $(VIRT_HOST_LINUX_CONFIG) $(VIRT_HOST_PATCHES) br2-external/external.mk
 	mkdir -p "$(VIRT_HOST_BUILDROOT_DIR)"
 	@if test -f "$@"; then $(MAKE) -C $(BUILDROOT_DIR) O=$(abspath $(VIRT_HOST_BUILDROOT_DIR)) BR2_EXTERNAL=$(abspath br2-external) linux-dirclean qemu-dirclean; fi
 	$(MAKE) -C $(BUILDROOT_DIR) O=$(abspath $(VIRT_HOST_BUILDROOT_DIR)) BR2_EXTERNAL=$(abspath br2-external) nemu_virt_host_defconfig
 
-$(VIRT_HOST_BUILD_STAMP): $(VIRT_HOST_CONFIG) $(VIRT_HOST_DEFCONFIG) $(VIRT_HOST_LINUX_CONFIG)
+$(VIRT_HOST_BUILD_STAMP): $(VIRT_HOST_CONFIG) $(VIRT_HOST_DEFCONFIG) $(VIRT_HOST_LINUX_CONFIG) $(VIRT_HOST_PATCHES) br2-external/external.mk
 	$(MAKE) -C $(BUILDROOT_DIR) O=$(abspath $(VIRT_HOST_BUILDROOT_DIR)) BR2_EXTERNAL=$(abspath br2-external)
 	test -s "$(VIRT_HOST_IMAGE)"
 	test -s "$(VIRT_HOST_ROOTFS)"
