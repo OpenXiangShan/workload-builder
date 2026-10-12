@@ -39,7 +39,7 @@ make virt bin=build/images/spec2006/bin
 STING has a separate entry and output directory:
 
 ```shell
-proxychains make sting-virt bin=/path/to/sting_00013.bin
+make sting-virt bin=/path/to/sting_00013.bin
 "$NEMU_HOME/build/riscv64-nemu-interpreter" -b build/sting-virt/sting_00013/host/fw_payload.bin
 ```
 

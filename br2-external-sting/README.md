@@ -3,8 +3,8 @@
 Use the separate entry for one STING bin or a directory of bins:
 
 ```shell
-proxychains make sting-virt bin=/path/to/sting_00013.bin
-proxychains make sting-virt bin=/path/to/sting-bins
+make sting-virt bin=/path/to/sting_00013.bin
+make sting-virt bin=/path/to/sting-bins
 "$NEMU_HOME/build/riscv64-nemu-interpreter" -b build/sting-virt/sting_00013/host/fw_payload.bin
 ```
 
