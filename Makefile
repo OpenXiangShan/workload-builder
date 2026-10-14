@@ -174,11 +174,15 @@ build/am-workloads/$(1)/download/sentinel: $$(shell find $$(abspath workloads/am
 	bash scripts/download-files.sh workloads/am/$(1) build/am-workloads/$(1)/download
 
 # Build and pack workload
-build/am-workloads/$(1)/sentinel: $$(shell find $$(abspath workloads/am/$(1))) $(TOOLCHAIN_WRAPPER) build/am-workloads/$(1)/download/sentinel scripts/build-workload-am.sh
+# The runner checks content and toolchain fingerprints even when timestamps match.
+build/am-workloads/$(1)/sentinel: am-check-inputs $$(shell find $$(abspath workloads/am/$(1))) $(TOOLCHAIN_WRAPPER) build/am-workloads/$(1)/download/sentinel scripts/build-workload-am.sh scripts/am-build-fingerprint.py
 	CROSS_COMPILE="$$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	SYSROOT_DIR="$$(abspath $(BUILDROOT_DIR)/output/staging)" \
 	ARCH="$(ARCH)" \
+	AM_ARCH="$$(AM_ARCH)" \
 	CPPFLAGS="$(CPPFLAGS)" \
+	CFLAGS="$$(CFLAGS)" CXXFLAGS="$$(CXXFLAGS)" ASFLAGS="$$(ASFLAGS)" LDFLAGS="$$(LDFLAGS)" \
+	$$(if $$(strip $$(MARCH)),MARCH="$$(MARCH)",) $$(if $$(strip $$(CC_OPT)),CC_OPT="$$(CC_OPT)",) mainargs="$$(mainargs)" \
 	bash scripts/build-workload-am.sh workloads/am/$(1) build/am-workloads/$(1) nexus-am
 
 am/$(1): build/am-workloads/$(1)/sentinel
@@ -217,6 +221,9 @@ build/workloads.tar.zstd: $(WORKLOADS_LINUX) $(WORKLOADS_AM_SENTINEL)
 
 # PHONY targets
 
+AM_ARCH ?= $(if $(strip $(ARCH)),$(ARCH),riscv64-xs)
+am-check-inputs:
+
 init:
 	git submodule update --init --recursive
 
@@ -245,4 +252,4 @@ clean-kernel:
 clean-workloads:
 	rm -rf $(WORKLOAD_DIRS) build/workloads.tar.zstd build/rootfs.tar.zstd
 
-.PHONY: all $(WORKLOAD_PHONY_TARGETS) init prepare-sdk source workloads rootfs tarball clean-kernel clean-workloads print-buildroot-version
+.PHONY: all $(WORKLOAD_PHONY_TARGETS) init prepare-sdk source workloads rootfs tarball clean-kernel clean-workloads print-buildroot-version am-check-inputs
