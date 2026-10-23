@@ -67,3 +67,15 @@ To embed another supported device tree, pass its template basename:
 ```sh
 make linux/stress-ng DEFAULT_DTB=xiangshan-fpga-noAIA-novec -jN
 ```
+
+## Virtualization
+
+Build stress-ng as a nested KVM guest and run the Host firmware with QEMU:
+
+```sh
+make linux/stress-ng PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/stress-ng/fw_payload.qemu.bin
+QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
+  bash scripts/run-qemu.sh \
+  build/virt/stress-ng/host/fw_payload.qemu.bin
+```

@@ -236,7 +236,7 @@ spec2006-images: spec2006-check-spec-iso
 		echo "No SPEC2006 cases selected by SPEC2006_INPUT=$(SPEC2006_INPUT)"; \
 		exit 1; \
 	fi; \
-	rm -rf "$(SPEC2006_IMAGE_DIR)/bin" "$(SPEC2006_IMAGE_DIR)/kernel" "$(SPEC2006_IMAGE_DIR)/rootfs" "$(SPEC2006_IMAGE_DIR)/elf" "$(SPEC2006_IMAGE_DIR)/cmd" "$(SPEC2006_IMAGE_DIR)/cfg" "$(SPEC2006_IMAGE_DIR)/gcpt" "$(SPEC2006_IMAGE_DIR)/dt" "$(SPEC2006_IMAGE_DIR)/manifest" "$(SPEC2006_IMAGE_DIR)/logs" "$(SPEC2006_IMAGE_DIR)/stamps"; \
+	rm -rf "$(SPEC2006_IMAGE_DIR)/bin" "$(SPEC2006_IMAGE_DIR)/kernel" "$(SPEC2006_IMAGE_DIR)/opensbi" "$(SPEC2006_IMAGE_DIR)/rootfs" "$(SPEC2006_IMAGE_DIR)/elf" "$(SPEC2006_IMAGE_DIR)/cmd" "$(SPEC2006_IMAGE_DIR)/cfg" "$(SPEC2006_IMAGE_DIR)/gcpt" "$(SPEC2006_IMAGE_DIR)/dt" "$(SPEC2006_IMAGE_DIR)/manifest" "$(SPEC2006_IMAGE_DIR)/logs" "$(SPEC2006_IMAGE_DIR)/stamps"; \
 	total="$(words $(SPEC2006_IMAGE_CASES))"; \
 	i=0; \
 	for case in $(SPEC2006_IMAGE_CASES); do \

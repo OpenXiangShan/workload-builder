@@ -16,9 +16,13 @@ GCPT_ELF="$(realpath "${GCPT_ELF:?GCPT_ELF must be set}")"
 GCPT_BIN="$(realpath "${GCPT_BIN:?GCPT_BIN must be set}")"
 source "$(dirname "${BASH_SOURCE[0]}")/dts-config.sh"
 
-mapfile -t vmlinux_files < <(find "$BUILDROOT_DIR/output/build" -path '*/vmlinux' -type f -print | sort)
+BUILDROOT_OUTPUT_DIR="$BUILDROOT_DIR/output"
+if [ ! -d "$BUILDROOT_OUTPUT_DIR/build" ]; then
+    BUILDROOT_OUTPUT_DIR="$BUILDROOT_DIR"
+fi
+mapfile -t vmlinux_files < <(find "$BUILDROOT_OUTPUT_DIR/build" -path '*/vmlinux' -type f -print | sort)
 if [ "${#vmlinux_files[@]}" -ne 1 ]; then
-    echo "Expected exactly one vmlinux under $BUILDROOT_DIR/output/build, found ${#vmlinux_files[@]}" >&2
+    echo "Expected exactly one vmlinux under $BUILDROOT_OUTPUT_DIR/build, found ${#vmlinux_files[@]}" >&2
     exit 1
 fi
 
