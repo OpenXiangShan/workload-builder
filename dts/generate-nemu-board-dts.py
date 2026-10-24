@@ -51,6 +51,7 @@ def parse_name(name):
         "yanqihu": (1, 128 << 20),
         "yanqihu-2core": (2, 128 << 20),
         "boom-mem2g": (1, 2 << 30),
+        "boom-fpga-mem2g": (1, 2 << 30),
         "xiangshan-fpga-AIA-mem16g": (1, 16 << 30),
     }
     if name in fixed:
@@ -100,8 +101,8 @@ def cache_properties(nemu=False, timebase=False):
     return "\n".join(result)
 
 
-def serial16550():
-    return """uart0: serial@310b0000 {
+def serial16550(label="uart0"):
+    return f"""{label}: serial@310b0000 {{
     compatible = "ns16550a";
     reg = <0x0 0x310b0000 0x0 0x10000>;
     reg-shift = <2>;
@@ -109,7 +110,7 @@ def serial16550():
     clock-frequency = <50000000>;
     current-speed = <115200>;
     status = "okay";
-};"""
+}};"""
 
 
 def serial_boom():
@@ -409,6 +410,26 @@ def render(name, isa_config_name=None):
             chosen_properties=chosen_properties("spike"),
             bootargs="console=ttyS0,115200 earlycon=uart8250,mmio,0x10000000")
         gen.add_device(serial_boom())
+    elif name == "boom-fpga-mem2g":
+        gen = DTSGen(
+            compatible="freechips,rocketchip-unknown",
+            model="freechips,rocketchip-unknown",
+            cpu_compatibles=["riscv"],
+            isa_extensions=DTSGen.sort_isa_extensions(
+                "i m a f d c zicsr zifencei zba zbb zbs".split()),
+            legacy_isa="rv64imafdc_zba_zbb_zbs",
+            mmu_type="riscv,sv39",
+            timebase_freq=1000000,
+            nr_harts=1,
+            clint_addr=0x02000000,
+            plic_addr=0x0c000000,
+            plic_ndev=31,
+            memories=[(DRAM_BASE, 2 << 30)],
+            reserved_memories=[],
+            uartlite_addr=None,
+            chosen_properties=chosen_properties("spike"),
+            bootargs="console=ttyS0,115200 earlycon=uart8250,mmio,0x310b0000")
+        gen.add_device(serial16550("serial0"))
     elif name.startswith("spike"):
         nr_harts = 2 if name == "spike-2core" else 1
         gen = DTSGen(compatible="ucbbar,spike-bare-dev", model="ucbbar,spike-bare",
