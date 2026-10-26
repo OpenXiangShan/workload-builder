@@ -5,3 +5,12 @@ config BR2_PACKAGE_NEMU_EXEC
 	  NEMU workload shim.
 
 	  https://github.com/scratch-er/nemu-workloads
+
+config BR2_PACKAGE_NEMU_EXEC_PROFILE
+	bool "emit startup profiling markers"
+	depends on BR2_PACKAGE_NEMU_EXEC
+	default y
+	help
+	  Emit trap codes 0x100 and 0x101 before starting the workload.
+	  Disable on BOOM, where every trap terminates the simulation.
+	  The final waitpid status is always reported, including 0x100.

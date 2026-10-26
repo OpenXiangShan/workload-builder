@@ -1,6 +1,10 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+#ifndef NEMU_EXEC_PROFILE
+#define NEMU_EXEC_PROFILE 1
+#endif
+
 #define DISABLE_TIME_INTR 0x100
 #define NOTIFY_PROFILER 0x101
 #define GOOD_TRAP 0
@@ -21,8 +25,10 @@ int main(int argc, char *argv[]) {
         trap(BAD_TRAP);
     } else if (pid == 0) {
         // child process, enable profiling and run workload
-        trap(DISABLE_TIME_INTR);
-        trap(NOTIFY_PROFILER);
+        if (NEMU_EXEC_PROFILE) {
+            trap(DISABLE_TIME_INTR);
+            trap(NOTIFY_PROFILER);
+        }
         execvp(argv[1], argv+1);
         // should not reach here
         trap(BAD_TRAP);
@@ -39,8 +45,4 @@ int main(int argc, char *argv[]) {
 
     // should not reach here
     return 0;
-}
-
-void trap(int code) {
-    asm volatile("mv a0, %0; .word 0x0005006b" : :"r"(code));
 }
