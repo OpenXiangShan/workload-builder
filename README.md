@@ -131,6 +131,30 @@ See the
 [SPEC2006 configuration](workloads/linux/spec2006/README.md#configuration)
 section for `riscv_gcc16_rv64imac_lp64.cfg`.
 
+## BOOM FPGA profile
+
+Use `DEFAULT_DTB=boom-mem2g` for the single-hart 2 GiB BOOM board:
+
+```sh
+make linux/coremark DEFAULT_DTB=boom-mem2g
+make linux/spec2006 BENCH=mcf INPUT=ref DEFAULT_DTB=boom-mem2g \
+  SPEC2006_CFG=workloads/linux/spec2006/configs/gcc16-linux-riscv64-rv64gc_zba_zbb_zbs.cfg \
+  SPEC2006_ISO=/path/to/cpu2006.iso
+```
+
+This selects `boom_defconfig`: RV64GC userspace, a kernel without V/H,
+no startup profiling traps, and the existing BOOM DTS with
+`rv64gc_zba_zbb_zbs`. SPEC2006 also selects the shown cfg by default for this
+DTS. Set the SPEC compiler and jemalloc inputs as described in its README.
+GCPT, OpenSBI, the kernel and initramfs use the existing firmware flow and
+DTS-derived addresses; no private boot stub or PMP/time workaround is applied.
+This is a build profile, not evidence of a completed Linux or board run.
+
+`BR2_PACKAGE_NEMU_EXEC_PROFILE` defaults to enabled for existing profiles.
+BOOM disables only the two startup traps; the final raw `waitpid` status is
+preserved (`exit 1` reports `0x100`). Run `python3 scripts/test-nemu-exec.py`
+for a native launcher regression that replaces only the hardware trap.
+
 ## Build Requirements
 
 Any modern Linux distributions should be okay. The build system of this project is using the toolchain provided by buildroot, so you do not have to set up the toolchains manually to build most workloads. Some workloads require additional toolchians not provided by buildroot. Please refer to the README file of each workload (`README.md` in the workload directory) for details.

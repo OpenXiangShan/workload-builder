@@ -47,8 +47,8 @@ endif
 # from it through the print-buildroot-version target, so a bump here is enough.
 BUILDROOT_VERSION := 2026.08
 BUILDROOT_DIR := build/buildroot
-# DEFAULT_DTB=nutshell or nutshell-* -> nutshell_defconfig; otherwise xiangshan_defconfig.
-BUILDROOT_DEFCONFIG := $(if $(filter nutshell nutshell-%,$(DEFAULT_DTB)),nutshell_defconfig,xiangshan_defconfig)
+# Select a matching userspace, kernel, and workload-launch protocol.
+BUILDROOT_DEFCONFIG := $(if $(filter boom-mem2g boom-fpga-mem2g,$(DEFAULT_DTB)),boom_defconfig,$(if $(filter nutshell nutshell-%,$(DEFAULT_DTB)),nutshell_defconfig,xiangshan_defconfig))
 BUILDROOT_CONFIG_STAMP := build/buildroot-config/$(BUILDROOT_DEFCONFIG)
 $(BUILDROOT_DIR)/Makefile:
 	mkdir -p build
@@ -68,12 +68,13 @@ $(BUILDROOT_CONFIG_STAMP): br2-external/configs/$(BUILDROOT_DEFCONFIG) $(BUILDRO
 TOOLCHAIN_WRAPPER := $(BUILDROOT_DIR)/output/host/bin/toolchain-wrapper
 $(TOOLCHAIN_WRAPPER): $(BUILDROOT_CONFIG_STAMP)
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) $(BUILDROOT_DEFCONFIG)
+	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) nemu-exec-dirclean
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) prepare-sdk
 	touch $(TOOLCHAIN_WRAPPER)
 
 # Build Linux kernel
 LINUX_IMAGE := $(BUILDROOT_DIR)/output/images/Image
-$(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) $(BUILDROOT_CONFIG_STAMP) br2-external/board/openxiangshan/nemu/linux.config $(if $(filter nutshell_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-nutshell.fragment)
+$(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) $(BUILDROOT_CONFIG_STAMP) br2-external/board/openxiangshan/nemu/linux.config $(if $(filter nutshell_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-nutshell.fragment) $(if $(filter boom_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-boom.fragment)
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) $(BUILDROOT_DEFCONFIG)
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external)
 
