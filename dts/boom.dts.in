@@ -1,0 +1,78 @@
+/dts-v1/;
+
+/ {
+  #address-cells = <2>;
+  #size-cells = <2>;
+  compatible = "freechips,rocketchip-boom";
+  model = "boom-v4-difftest";
+
+  chosen {
+    stdout-path = &SERIAL0;
+    bootargs = "console=ttyS0 earlycon=sbi";
+    linux,initrd-start = <INITRAMFS_BEGIN_HI INITRAMFS_BEGIN_LO>;
+    linux,initrd-end = <INITRAMFS_END_HI INITRAMFS_END_LO>;
+    rng-seed = /bits/ 8 <0x42 0x4f 0x4f 0x4d 0x5f 0x44 0x49 0x46 0x46 0x54 0x45 0x53 0x54>;
+  };
+
+  cpus {
+    #address-cells = <1>;
+    #size-cells = <0>;
+    timebase-frequency = <1000000>;
+    CPU0: cpu@0 {
+      device_type = "cpu";
+      reg = <0>;
+      status = "okay";
+      compatible = "riscv";
+      riscv,isa = "rv64imafdcb_zicsr_zifencei_zicntr_zihpm";
+      riscv,isa-base = "rv64i";
+      riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "b", "zba", "zbb", "zbs", "zicsr", "zifencei", "zicntr", "zihpm";
+      mmu-type = "riscv,sv39";
+      riscv,pmpregions = <8>;
+      riscv,pmpgranularity = <4>;
+      clock-frequency = <1000000000>;
+      CPU0_INTC: interrupt-controller {
+        #address-cells = <2>;
+        #interrupt-cells = <1>;
+        interrupt-controller;
+        compatible = "riscv,cpu-intc";
+      };
+    };
+  };
+
+  memory@80000000 {
+    device_type = "memory";
+    reg = <0x0 0x80000000 0x0 0x10000000>;
+  };
+
+  soc {
+    #address-cells = <2>;
+    #size-cells = <2>;
+    compatible = "freechips,rocketchip-boom-soc", "simple-bus";
+    ranges;
+    clint@2000000 {
+      compatible = "riscv,clint0";
+      interrupts-extended = <&CPU0_INTC 3 &CPU0_INTC 7>;
+      reg = <0x0 0x02000000 0x0 0x10000>;
+    };
+    PLIC: interrupt-controller@c000000 {
+      compatible = "riscv,plic0";
+      #address-cells = <2>;
+      #interrupt-cells = <1>;
+      interrupt-controller;
+      interrupts-extended = <&CPU0_INTC 11 &CPU0_INTC 9>;
+      reg = <0x0 0x0c000000 0x0 0x04000000>;
+      riscv,ndev = <32>;
+      riscv,max-priority = <7>;
+    };
+    SERIAL0: ns16550@10000000 {
+      compatible = "ns16550a";
+      clock-frequency = <10000000>;
+      current-speed = <115200>;
+      interrupt-parent = <&PLIC>;
+      interrupts = <1>;
+      reg = <0x0 0x10000000 0x0 0x100>;
+      reg-shift = <0>;
+      reg-io-width = <1>;
+    };
+  };
+};

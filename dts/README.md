@@ -41,6 +41,13 @@ profiles, FPGA noAIA names, and QEMU `nemu` names of the form
 custom template passed through `--custom-template-dir`; otherwise generation
 fails with an `unsupported DTS basename` error.
 
+The bundled `boom.dts.in` custom template describes the single-hart BOOM v4
+DiffTest platform: RV64IMAFDC with Zba/Zbb/Zbs, Sv39, eight PMP regions at
+four-byte granularity, and 256 MiB DRAM at `0x80000000`. It uses CLINT at
+`0x02000000`, PLIC at `0x0c000000`, and an ns16550 UART at `0x10000000`.
+Select it with `make linux/hello DEFAULT_DTB=boom`; it uses the default
+`xiangshan_defconfig` Buildroot tree with floating-point support.
+
 Linux images with `DEFAULT_DTB=nutshell` or `nutshell-*` use
 `nutshell_defconfig` (RV64IMAC/LP64) instead of `xiangshan_defconfig`.
 
