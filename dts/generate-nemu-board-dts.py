@@ -428,7 +428,7 @@ def render(name, isa_config_name=None):
             reserved_memories=[],
             uartlite_addr=None,
             chosen_properties=chosen_properties("spike"),
-            bootargs="console=ttyS0,115200 earlycon=uart8250,mmio,0x310b0000")
+            bootargs="console=ttyS0,115200 earlycon=uart8250,mmio32,0x310b0000")
         gen.add_device(serial16550("serial0"))
     elif name.startswith("spike"):
         nr_harts = 2 if name == "spike-2core" else 1
