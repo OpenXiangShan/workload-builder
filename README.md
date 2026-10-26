@@ -143,6 +143,17 @@ make linux/hello DEFAULT_DTB=boom-fpga-mem2g
 `boom-fpga-mem2g` uses the FPGA UART16550 at `0x310b0000` with 32-bit
 accesses and `reg-shift=2`. Both describe one hart and 2 GiB of DRAM.
 The existing 256 MiB `boom` template also selects `boom_defconfig`.
+Use a clean Buildroot output when switching board profiles so packages and
+the kernel are rebuilt with the selected configuration.
+
+SPEC2006 defaults to the GCC 16 RV64GC Zba/Zbb/Zbs config for BOOM.
+For FPGA, disable startup profiling markers with `SPEC2006_PROFILING=0`
+(the workload-specific form of `PROFILING=0`):
+
+```sh
+make linux/spec2006 BENCH=mcf DEFAULT_DTB=boom-fpga-mem2g \
+  SPEC2006_PROFILING=0 SPEC2006_ISO=/path/to/cpu2006.iso -jN
+```
 
 ## Build Requirements
 

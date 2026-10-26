@@ -114,6 +114,17 @@ PROFILING=0 make linux/spec2006 BENCH=mcf INPUT=ref \
 
 The final `nemu-trap <status>` is always emitted for single-hart images.
 
+For BOOM FPGA, use its UART map and disable profiling markers:
+
+```sh
+make linux/spec2006 BENCH=mcf DEFAULT_DTB=boom-fpga-mem2g \
+  SPEC2006_PROFILING=0 SPEC2006_ISO=/path/to/cpu2006.iso -jN
+```
+
+`SPEC2006_PROFILING=0` is the workload-specific form of `PROFILING=0`;
+it also avoids passing a generic `PROFILING` Make variable into the kernel
+build. `boom-mem2g` selects the simulated UART for emulation instead.
+
 ## Build a multi-hart workload
 
 Add `MULTIHART=1 HARTS=<count>`, where `<count>` matches the QEMU checkpoint
@@ -233,6 +244,15 @@ The default SPEC cfg is the GCC 16 RVA23U64 no-vector configuration:
 ```text
 workloads/linux/spec2006/configs/gcc16-linux-riscv64-rva23u64_novec.cfg
 ```
+
+For BOOM (`DEFAULT_DTB=boom` or `boom-*`), the default is the GCC 16
+RV64GC with Zba/Zbb/Zbs configuration:
+
+```text
+workloads/linux/spec2006/configs/gcc16-linux-riscv64-rv64gc_zba_zbb_zbs.cfg
+```
+
+It emits RV64GC/LP64D code with Zba, Zbb, and Zbs, without Zbc or V.
 
 For GCC 15, select:
 
