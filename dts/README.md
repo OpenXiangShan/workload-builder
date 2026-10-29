@@ -45,11 +45,21 @@ The bundled `boom.dts.in` custom template describes the single-hart BOOM v4
 DiffTest platform: RV64IMAFDC with Zba/Zbb/Zbs, Sv39, eight PMP regions at
 four-byte granularity, and 256 MiB DRAM at `0x80000000`. It uses CLINT at
 `0x02000000`, PLIC at `0x0c000000`, and an ns16550 UART at `0x10000000`.
-Select it with `make linux/hello DEFAULT_DTB=boom`; it uses the default
-`xiangshan_defconfig` Buildroot tree with floating-point support.
+Select it with `make linux/hello DEFAULT_DTB=boom`; it uses the
+`boom_defconfig` Buildroot tree with floating-point support.
 
 Linux images with `DEFAULT_DTB=nutshell` or `nutshell-*` use
 `nutshell_defconfig` (RV64IMAC/LP64) instead of `xiangshan_defconfig`.
+
+BOOM also has two generated 2 GiB profiles: `boom-mem2g` uses the simulated
+ns16550 at `0x10000000`; `boom-fpga-mem2g` uses the FPGA UART16550 at
+`0x310b0000`, with a 50 MHz UART clock, `reg-shift=2`, and 32-bit accesses
+(`earlycon=uart8250,mmio32,0x310b0000`). Both use Sv39, CLINT at
+`0x02000000`, PLIC at `0x0c000000`, and eight PMP regions at four-byte
+granularity. Neither UART declares an interrupt connection.
+
+Linux images with `DEFAULT_DTB=boom` or `boom-*` use `boom_defconfig`
+(RV64GC/LP64D userspace, V and KVM disabled in the kernel).
 
 `nutshell` is the 128 MiB machine description used by NEMU's
 `riscv64-nutshell_defconfig`: uartlite at `0x40600000`, no PLIC.

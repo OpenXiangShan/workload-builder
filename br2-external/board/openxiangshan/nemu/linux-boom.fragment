@@ -1,0 +1,4 @@
+# BOOM implements RV64GC with Zba/Zbb/Zbs, without V or H.
+# CONFIG_RISCV_ISA_V is not set
+# CONFIG_VIRTUALIZATION is not set
+# CONFIG_KVM is not set
