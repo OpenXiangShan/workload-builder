@@ -79,7 +79,7 @@ CONFIG_NR_CPUS=1
 # CONFIG_RUNTIME_TESTING_MENU is not set
 
 # --- quiet boot --------------------------------------------------
-CONFIG_CMDLINE="quiet loglevel=0 mem=1G"
+CONFIG_CMDLINE="quiet loglevel=0 mem=64M"
 CONFIG_CMDLINE_EXTEND=y
 
 # --- initramfs comes from the DT, not from the kernel image ------
