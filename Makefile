@@ -6,9 +6,9 @@ HARTS ?= 2
 QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu-mem2g
 DTS_ISA_CONFIG ?= kunminghu-v3
 # MINIMAL=1 builds the trimmed NHv3a boot image: the nhv3a_minimal_defconfig
-# Buildroot tree (no BusyBox/userland, kernel built with
-# linux-nhv3a-minimal.fragment, initramfs passed through the DT) and the
-# minimal OpenSBI configuration without boot prints.
+# Buildroot tree (no BusyBox/userland, tiny 7.1 kernel from
+# linux-nhv3a-tiny.config, initramfs passed through the DT) and the
+# minimal OpenSBI configuration without console or boot prints.
 MINIMAL ?= 0
 DTS_DIR := build/generated-dts
 export DTS_ISA_CONFIG
@@ -79,7 +79,7 @@ $(TOOLCHAIN_WRAPPER): $(BUILDROOT_CONFIG_STAMP)
 
 # Build Linux kernel
 LINUX_IMAGE := $(BUILDROOT_DIR)/output/images/Image
-$(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) $(BUILDROOT_CONFIG_STAMP) br2-external/board/openxiangshan/nemu/linux.config $(if $(filter nutshell_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-nutshell.fragment) $(if $(filter boom_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-boom.fragment) $(if $(filter nhv3a_minimal_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-nhv3a-minimal.fragment)
+$(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) $(BUILDROOT_CONFIG_STAMP) br2-external/board/openxiangshan/nemu/linux.config $(if $(filter nutshell_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-nutshell.fragment) $(if $(filter boom_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-boom.fragment) $(if $(filter nhv3a_minimal_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-nhv3a-tiny.config)
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) $(BUILDROOT_DEFCONFIG)
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external)
 
