@@ -1,0 +1,23 @@
+# NHv3a minimal boot image: no BusyBox, no target rootfs, no built-in
+# initramfs.  The hello workload cpio is passed through the device tree and
+# unpacked by CONFIG_BLK_DEV_INITRD, so Buildroot only has to provide the
+# kernel and the external toolchain.
+BR2_riscv=y
+BR2_RISCV_ISA_RVC=y
+BR2_TOOLCHAIN_EXTERNAL=y
+BR2_TARGET_GENERIC_HOSTNAME="nhv3a"
+BR2_TARGET_GENERIC_ISSUE="NHv3a minimal boot image"
+# No init system and no userland: /init comes from the workload cpio.
+# BR2_INIT_BUSYBOX is not set
+BR2_INIT_NONE=y
+# BR2_PACKAGE_BUSYBOX is not set
+# BR2_PACKAGE_NEMU_TRAP is not set
+# BR2_PACKAGE_NEMU_EXEC is not set
+
+BR2_LINUX_KERNEL=y
+BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
+BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="${BR2_EXTERNAL}/board/openxiangshan/nemu/linux.config"
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="${BR2_EXTERNAL}/board/openxiangshan/nemu/linux-nhv3a-minimal.fragment"
+
+# BR2_TARGET_ROOTFS_INITRAMFS is not set
+# BR2_TARGET_ROOTFS_TAR is not set

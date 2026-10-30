@@ -6,6 +6,8 @@ SBI_BUILD_DIR="$(realpath "$2")"
 BUILD_DIR="$(dirname "$SBI_BUILD_DIR")"
 source "$(dirname "${BASH_SOURCE[0]}")/dts-config.sh"
 
+SBI_CONFIG="${SBI_CONFIG:-opensbi.config}"
+FW_OPTIONS="${FW_OPTIONS:-}"
 MEGABYTE=$((1024 * 1024))
 if [ "${MULTIHART:-0}" = 1 ]; then
     FW_TEXT_START=0x80100000
@@ -28,10 +30,14 @@ fi
 mkdir -p "$BUILD_DIR"
 rm -rf "$SBI_BUILD_DIR"
 cp -r "$SBI_SOURCE_DIR" "$SBI_BUILD_DIR"
-cp "$SBI_SOURCE_DIR/../opensbi.config" "$SBI_BUILD_DIR/platform/generic/configs/defconfig"
+cp "$SBI_SOURCE_DIR/../$SBI_CONFIG" "$SBI_BUILD_DIR/platform/generic/configs/defconfig"
 
 # Build OpenSBI
 cd "$SBI_BUILD_DIR"
 patch -p1 < "$SBI_SOURCE_DIR/../opensbi.patch"
 # OpenSBI treats any nonempty DEBUG value as an unoptimized debug build.
-make DEBUG= PLATFORM=generic FW_JUMP=y FW_TEXT_START="$(printf '0x%x' "$FW_TEXT_START")" FW_JUMP_ADDR="$(printf '0x%x' "$FW_JUMP_ADDR")" FW_JUMP_FDT_ADDR="$(printf '0x%x' "$FW_JUMP_FDT_ADDR")"
+make DEBUG= PLATFORM=generic FW_JUMP=y \
+    FW_TEXT_START="$(printf '0x%x' "$FW_TEXT_START")" \
+    FW_JUMP_ADDR="$(printf '0x%x' "$FW_JUMP_ADDR")" \
+    FW_JUMP_FDT_ADDR="$(printf '0x%x' "$FW_JUMP_FDT_ADDR")" \
+    ${FW_OPTIONS:+FW_OPTIONS=$FW_OPTIONS}

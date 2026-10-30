@@ -5,6 +5,11 @@ PLATFORM ?= $(if $(filter 1,$(MULTIHART)),qemu,nemu)
 HARTS ?= 2
 QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu-mem2g
 DTS_ISA_CONFIG ?= kunminghu-v3
+# MINIMAL=1 builds the trimmed NHv3a boot image: the nhv3a_minimal_defconfig
+# Buildroot tree (no BusyBox/userland, kernel built with
+# linux-nhv3a-minimal.fragment, initramfs passed through the DT) and the
+# minimal OpenSBI configuration without boot prints.
+MINIMAL ?= 0
 DTS_DIR := build/generated-dts
 export DTS_ISA_CONFIG
 
@@ -29,7 +34,8 @@ LINUX_FIRMWARE_BUILD_VARS_HASH := $(shell printf '%s\n' \
 	'multihart=$(if $(filter 1,$(MULTIHART)),1,0)' \
 	'harts=$(if $(filter 1,$(MULTIHART)),$(HARTS),1)' \
 	'default_dtb=$(if $(LINUX_DEFAULT_DTB),$(LINUX_DEFAULT_DTB),xiangshan)' \
-	'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
+	'dts_isa_config=$(DTS_ISA_CONFIG)' \
+	'minimal=$(if $(filter 1,$(MINIMAL)),1,0)' | sha256sum | cut -d ' ' -f 1)
 
 MULTIHART_SUPPORTED_HARTS = $(shell seq 2 128)
 ifeq ($(filter 1,$(MULTIHART)),1)
@@ -48,7 +54,7 @@ endif
 BUILDROOT_VERSION := 2026.08
 BUILDROOT_DIR := build/buildroot
 # Select the board's userspace and kernel configuration.
-BUILDROOT_DEFCONFIG := $(if $(filter boom boom-%,$(DEFAULT_DTB)),boom_defconfig,$(if $(filter nutshell nutshell-%,$(DEFAULT_DTB)),nutshell_defconfig,xiangshan_defconfig))
+BUILDROOT_DEFCONFIG := $(if $(filter 1,$(MINIMAL)),nhv3a_minimal_defconfig,$(if $(filter boom boom-%,$(DEFAULT_DTB)),boom_defconfig,$(if $(filter nutshell nutshell-%,$(DEFAULT_DTB)),nutshell_defconfig,xiangshan_defconfig)))
 BUILDROOT_CONFIG_STAMP := build/buildroot-config/$(BUILDROOT_DEFCONFIG)
 $(BUILDROOT_DIR)/Makefile:
 	mkdir -p build
@@ -73,7 +79,7 @@ $(TOOLCHAIN_WRAPPER): $(BUILDROOT_CONFIG_STAMP)
 
 # Build Linux kernel
 LINUX_IMAGE := $(BUILDROOT_DIR)/output/images/Image
-$(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) $(BUILDROOT_CONFIG_STAMP) br2-external/board/openxiangshan/nemu/linux.config $(if $(filter nutshell_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-nutshell.fragment) $(if $(filter boom_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-boom.fragment)
+$(LINUX_IMAGE): $(TOOLCHAIN_WRAPPER) $(BUILDROOT_CONFIG_STAMP) br2-external/board/openxiangshan/nemu/linux.config $(if $(filter nutshell_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-nutshell.fragment) $(if $(filter boom_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-boom.fragment) $(if $(filter nhv3a_minimal_defconfig,$(BUILDROOT_DEFCONFIG)),br2-external/board/openxiangshan/nemu/linux-nhv3a-minimal.fragment)
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external) $(BUILDROOT_DEFCONFIG)
 	$(MAKE) -C $(BUILDROOT_DIR) BR2_EXTERNAL=$(abspath br2-external)
 
@@ -110,16 +116,20 @@ $(GCPT_BIN): scripts/build-gcpt.sh scripts/dts-config.sh $(TOOLCHAIN_WRAPPER) $(
 	bash scripts/build-gcpt.sh $(GCPT_SOURCE_DIR) $(GCPT_BUILD_DIR)
 
 # Build OpenSBI
-SBI_CONFIG_STAMP := $(SBI_BUILD_DIR)-config/$(if $(filter 1,$(MULTIHART)),multihart-fixed,dtb.$(GCPT_DTB_CONFIG_HASH))
+SBI_CONFIG := $(if $(filter 1,$(MINIMAL)),opensbi-nhv3a-minimal.config,opensbi.config)
+SBI_FW_OPTIONS := $(if $(filter 1,$(MINIMAL)),1,)
+SBI_CONFIG_STAMP := $(SBI_BUILD_DIR)-config/$(if $(filter 1,$(MULTIHART)),multihart-fixed,$(if $(filter 1,$(MINIMAL)),minimal-,dtb.$(GCPT_DTB_CONFIG_HASH)))
 $(SBI_CONFIG_STAMP):
 	mkdir -p "$(@D)"
-	rm -f "$(@D)"/dtb.* "$(@D)"/multihart-fixed
+	rm -f "$(@D)"/dtb.* "$(@D)"/multihart-fixed "$(@D)"/minimal-*
 	touch "$@"
-$(SBI_BIN): scripts/build-sbi.sh scripts/dts-config.sh $(GCPT_DTS_SOURCES) bootloader/opensbi.config $(TOOLCHAIN_WRAPPER) $(SBI_CONFIG_STAMP)
+$(SBI_BIN): scripts/build-sbi.sh scripts/dts-config.sh $(GCPT_DTS_SOURCES) bootloader/opensbi.config bootloader/opensbi-nhv3a-minimal.config $(TOOLCHAIN_WRAPPER) $(SBI_CONFIG_STAMP)
 	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	MULTIHART="$(MULTIHART)" \
 	DEFAULT_DTB="$(GCPT_DEFAULT_DTB)" \
 	DTS_TEMPLATE_DIR="$(abspath $(DTS_DIR))" \
+	SBI_CONFIG="$(SBI_CONFIG)" \
+	FW_OPTIONS="$(SBI_FW_OPTIONS)" \
 	bash scripts/build-sbi.sh bootloader/opensbi $(SBI_BUILD_DIR)
 
 define add_workload_linux

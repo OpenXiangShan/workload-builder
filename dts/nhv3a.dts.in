@@ -1,0 +1,152 @@
+/*
+ * NHv3a (Nanhu v3a) SoC device tree for the NEMU standalone machine.
+ *
+ * Address spaces are taken from the NHv3a SoC RTL and from
+ * NHV3A_SoC_Address_Map.xlsx:
+ *
+ *   Boot ROM     0x0000_0000  8 KiB implemented (256 KiB window)
+ *   UART0        0x0005_0000  64 KiB  DesignWare APB UART (16550-compatible)
+ *   UART1        0x0006_0000  64 KiB  DesignWare APB UART
+ *   CLINT        0x3800_0000  64 KiB  mtime/mtimecmp + MSIP
+ *   PLIC         0x3C00_0000  64 MiB  256 external interrupt sources
+ *   DDR4         0x8000_0000  32 GiB
+ *
+ * Notes for silicon:
+ *   - The NHv3a XSTop instantiates two harts (bosc_XSTop: core_with_l2 and
+ *     core_with_l2_1).  NEMU's standalone machine models a single hart, so
+ *     this tree describes cpu@0 only.  For the real SoC add cpu@1 (reg = <1>)
+ *     and a second pair of interrupts-extended entries in the CLINT and PLIC
+ *     nodes (M-mode 3/7/11 and S-mode 7/9 contexts).
+ *   - rtc_clock of the XSTop is osc_clock = 24 MHz and bosc_CLINT ticks on
+ *     every rtc_clock edge, so silicon uses timebase-frequency = <24000000>.
+ *     NEMU implements a fixed 1 MHz timebase, which is what is described
+ *     here; change it to 24000000 for a hardware boot.
+ *   - UART sclk = pll4 (1 GHz) / uart0_div; uart0_div resets to 12, so the
+ *     baud reference clock is 83.333 MHz.  NEMU ignores clock-frequency.
+ */
+
+/dts-v1/;
+
+/ {
+    #address-cells = <2>;
+    #size-cells = <2>;
+    compatible = "openxiangshan,nhv3a", "freechips,rocketchip-unknown-dev";
+    model = "openxiangshan,NHv3a";
+
+    chosen {
+        bootargs = "console=ttyS0 earlycon=uart8250,mmio32,0x50000";
+        /* ASCII: "NHV3A_SOC_BOARD_RANDOM_SEED" */
+        rng-seed = /bits/ 8 <0x4e 0x48 0x56 0x33 0x41 0x5f 0x53 0x4f 0x43 0x5f 0x42 0x4f 0x41 0x52 0x44 0x5f 0x52 0x41 0x4e 0x44 0x4f 0x4d 0x5f 0x53 0x45 0x45 0x44>;
+        linux,initrd-start = <INITRAMFS_BEGIN_HI INITRAMFS_BEGIN_LO>;
+        linux,initrd-end = <INITRAMFS_END_HI INITRAMFS_END_LO>;
+        stdout-path = "serial0:115200n8";
+        opensbi-config {
+            compatible = "opensbi,config";
+            cold-boot-harts = <&cpu0>;
+        };
+    };
+
+    memory@80000000 {
+        device_type = "memory";
+        reg = <0x0 0x80000000 0x8 0x0>;
+    };
+
+    cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        timebase-frequency = <1000000>;
+
+        cpu0: cpu@0 {
+            compatible = "ICT,xiangshan", "riscv";
+            device_type = "cpu";
+            mmu-type = "riscv,sv48";
+            reg = <0>;
+            riscv,isa = "rv64imafdch_smstateen_sscofpmf_zicntr_zihpm_svpbmt_sdtrig_smcsrind_sscsrind_svade";
+            riscv,isa-base = "rv64i";
+            riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "h", "sdtrig", "sha", "shcounterenw", "shgatpa", "shlcofideleg", "shtvala", "shvsatpa", "shvstvala", "shvstvecd", "smcsrind", "smdbltrp", "smmpm", "smnpm", "smstateen", "ss1p13", "sspm", "ssccptr", "sscofpmf", "sscounterenw", "sscsrind", "ssdbltrp", "ssnpm", "ssstateen", "ssstrict", "sstvala", "sstvecd", "ssu64xl", "supm", "sv39", "sv48", "svpbmt", "svade", "svbare", "svinval", "svnapot", "za64rs", "zacas", "zawrs", "zba", "zbb", "zbc", "zbkb", "zbkc", "zbkx", "zbs", "zca", "zcb", "zcmop", "zfa", "zfh", "zfhmin", "zic64b", "ziccamoa", "ziccif", "zicclsm", "ziccrse", "zicntr", "zicond", "zicsr", "zifencei", "zihpm", "zihintpause", "zihintntl", "zimop", "zkn", "zknd", "zkne", "zknh", "zksed", "zksh", "zkt";
+            status = "okay";
+            clock-frequency = <0>;
+            tlb-split;
+            i-cache-block-size = <64>;
+            i-cache-sets = <256>;
+            i-cache-size = <65536>;
+            i-tlb-sets = <1>;
+            i-tlb-size = <48>;
+            d-cache-block-size = <64>;
+            d-cache-sets = <256>;
+            d-cache-size = <65536>;
+            d-tlb-sets = <1>;
+            d-tlb-size = <48>;
+
+            cpu0_intc: interrupt-controller {
+                #address-cells = <0>;
+                #interrupt-cells = <1>;
+                compatible = "riscv,cpu-intc";
+                interrupt-controller;
+            };
+        };
+    };
+
+    clint: clint@38000000 {
+        compatible = "riscv,clint0";
+        reg = <0x0 0x38000000 0x0 0x10000>;
+        interrupts-extended = <&cpu0_intc 3>, <&cpu0_intc 7>;
+    };
+
+    plic: plic@3c000000 {
+        compatible = "riscv,plic0";
+        reg = <0x0 0x3c000000 0x0 0x4000000>;
+        #address-cells = <0>;
+        #interrupt-cells = <1>;
+        interrupt-controller;
+        interrupts-extended = <&cpu0_intc 11>, <&cpu0_intc 9>;
+        riscv,max-priority = <7>;
+        riscv,ndev = <256>;
+    };
+
+    /*
+     * The workload image keeps its checkpoint restorer at the DRAM base, so
+     * the first 1 MiB must not be handed out by the kernel.
+     */
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        ranges;
+        gcpt@80000000 {
+            reg = <0x0 0x80000000 0x0 0x100000>;
+            no-map;
+        };
+    };
+
+    soc {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        compatible = "simple-bus";
+        ranges;
+
+        uart0: serial@50000 {
+            compatible = "ns16550a";
+            reg = <0x0 0x50000 0x0 0x10000>;
+            reg-shift = <2>;
+            reg-io-width = <4>;
+            clock-frequency = <83333333>;
+            current-speed = <115200>;
+            status = "okay";
+        };
+
+        uart1: serial@60000 {
+            compatible = "ns16550a";
+            reg = <0x0 0x60000 0x0 0x10000>;
+            reg-shift = <2>;
+            reg-io-width = <4>;
+            clock-frequency = <83333333>;
+            current-speed = <115200>;
+            status = "disabled";
+        };
+    };
+
+    aliases {
+        serial0 = &uart0;
+        serial1 = &uart1;
+    };
+};
