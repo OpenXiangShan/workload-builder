@@ -1,0 +1,19 @@
+Subject: [PATCH] mm: zero freed init memory for sparse checkpoints
+
+The 0xcc fill in freed initramfs memory is preserved in checkpoints and
+causes high host memory usage during simulation.
+
+This patch fills freed init memory with zero so emulators can use
+sparse allocation for these pages.
+
+--- a/include/linux/poison.h
++++ b/include/linux/poison.h
+@@ -47,7 +47,7 @@
+ #define	POISON_END	0xa5	/* end-byte of poisoning */
+ 
+ /********** arch/$ARCH/mm/init.c **********/
+-#define POISON_FREE_INITMEM	0xcc
++#define POISON_FREE_INITMEM	0x00
+ 
+ /********** fs/jbd/journal.c **********/
+ #define JBD_POISON_FREE		0x5b

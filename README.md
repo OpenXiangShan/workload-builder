@@ -235,6 +235,8 @@ The Linux kernel is built using buildroot for Linux workloads. The `br2-external
 - `/bin/nemu-trap` for sending a debug call to NEMU
 - `/bin/nemu-exec` as a workload launcher.
 
+`xiangshan_defconfig` applies local kernel patches to optimize our checkpoint generation and simulation workflows, see `br2-external/board/openxiangshan/nemu/patches/linux`. These patches should not be used in production.
+
 When called without arguments, `/bin/nemu-trap` stops NEMU with exit code 0. When called with arguments, it sends debug signal to NEMU using the code from the first argument, which must be a decimal integer.
 
 `/bin/nemu-exec` should be called with arguments specifying the workload. It disables NEMU timer interrupt, makes NEMU to enter simpoint profiling mode, starts the workload, and stops NEMU with the exit code of the workload. `nemu-exec cmd arg1 arg2` is roughly equivalent with:
