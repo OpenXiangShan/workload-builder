@@ -87,6 +87,28 @@ make linux/coremark \
 default. For QEMU `nemu`, V2 uses the intersection of the QEMU and Kunminghu
 V2 ISA declarations. The `-novec` suffix still controls vector advertisement.
 
+## NHv3a SoC Templates
+
+Two custom templates describe the Nanhu v3a (NHv3a) SoC; they are selected by
+the complete basename and are copied from this directory by the build:
+
+* `nhv3a.dts.in` - full SoC description for a real boot: 32 GiB of DDR at
+  `0x80000000`, DesignWare APB UART0 at `0x0005_0000` (`reg-shift = 2`,
+  32-bit registers), CLINT at `0x3800_0000`, PLIC at `0x3C00_0000`, one
+  hart (NEMU standalone; the XSTop RTL instantiates two).
+* `nhv3a-minimal.dts.in` - boot-flow test profile used by the trimmed
+  `linux/hello` image: 16 MiB of DDR, no PLIC node (the test has no
+  external interrupts), a single UART.  This is what makes the memmap and
+  the Linux PLIC probe disappear from the instruction count.
+
+```sh
+# full SoC machine
+make linux/hello DEFAULT_DTB=nhv3a
+
+# smallest modern boot: tiny 7.1 kernel + no-console OpenSBI
+make linux/hello DEFAULT_DTB=nhv3a-minimal MINIMAL=1
+```
+
 ## Direct DTSGen CLI
 
 `DTSGen.py` remains available for low-level generation:
