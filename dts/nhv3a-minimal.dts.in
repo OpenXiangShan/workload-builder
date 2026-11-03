@@ -2,13 +2,19 @@
  * NHv3a minimal boot-flow test profile.
  *
  * Same CPU/CLINT/UART0 address map as nhv3a.dts.in, but reduced to what the
- * Linux/hello smoke test actually uses:
+ * Linux/hello smoke test actually uses.  Every node and property here costs
+ * instructions: OpenSBI and Linux both walk the flattened tree several times
+ * at boot (libfdt lookups are O(tree size)), so this file is kept as small as
+ * the kernel accepts:
+ *
  *   - 8 MiB of DRAM instead of the full 32 GiB window (the kernel memmap for
  *     32 GiB alone costs ~750M instructions on NEMU)
  *   - no PLIC node: the test has no external interrupts, and probing the
  *     64 MiB PLIC window costs ~0.4M instructions in the Linux PLIC driver
- *   - a single UART (UART1 omitted)
- *   - no cache/opensbi-config extras
+ *   - a single UART, directly under the root node (no simple-bus wrapper)
+ *   - no model/compatible/stdout-path/aliases/cache properties
+ *   - only the ISA extensions this CPU actually advertises
+ *
  * For a real boot use nhv3a.dts.in, which describes the whole SoC.
  */
 
@@ -17,8 +23,6 @@
 / {
     #address-cells = <2>;
     #size-cells = <2>;
-    compatible = "openxiangshan,nhv3a", "freechips,rocketchip-unknown-dev";
-    model = "openxiangshan,NHv3a-minimal";
 
     chosen {
         bootargs = "console=ttyS0 earlycon=uart8250,mmio32,0x50000";
@@ -26,7 +30,6 @@
         rng-seed = /bits/ 8 <0x4e 0x48 0x56 0x33 0x41 0x5f 0x53 0x4f 0x43 0x5f 0x42 0x4f 0x41 0x52 0x44 0x5f 0x52 0x41 0x4e 0x44 0x4f 0x4d 0x5f 0x53 0x45 0x45 0x44>;
         linux,initrd-start = <INITRAMFS_BEGIN_HI INITRAMFS_BEGIN_LO>;
         linux,initrd-end = <INITRAMFS_END_HI INITRAMFS_END_LO>;
-        stdout-path = "serial0:115200n8";
     };
 
     memory@80000000 {
@@ -44,12 +47,8 @@
             device_type = "cpu";
             mmu-type = "riscv,sv48";
             reg = <0>;
-            riscv,isa = "rv64imafdc";
             riscv,isa-base = "rv64i";
             riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "zicsr", "zifencei", "zicntr", "sv39", "sv48", "svade", "svbare";
-            status = "okay";
-            clock-frequency = <0>;
-            tlb-split;
 
             cpu0_intc: interrupt-controller {
                 #address-cells = <0>;
@@ -77,22 +76,11 @@
         };
     };
 
-    soc {
-        #address-cells = <2>;
-        #size-cells = <2>;
-        compatible = "simple-bus";
-        ranges;
-
-        uart0: serial@50000 {
-            compatible = "ns16550a";
-            reg = <0x0 0x50000 0x0 0x10000>;
-            reg-shift = <2>;
-            reg-io-width = <4>;
-            clock-frequency = <83333333>;
-            current-speed = <115200>;
-            status = "okay";
-        };
+    uart0: serial@50000 {
+        compatible = "ns16550a";
+        reg = <0x0 0x50000 0x0 0x10000>;
+        reg-shift = <2>;
+        reg-io-width = <4>;
+        clock-frequency = <83333333>;
     };
-
-    aliases { serial0 = &uart0; };
 };
