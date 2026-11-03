@@ -3,9 +3,9 @@ Subject: [PATCH] generic: trim the NHv3a minimal-profile fixups
 
 Three changes for the single-hart, no-irqchip, no-PMU boot-flow profile:
 
-* do not select FDT_DOMAIN: the minimal device tree has no domain
-  configuration, and populating domains from the FDT costs ~0.3M
-  instructions on NEMU;
+* do not select FDT_DOMAIN/FDT_PMU: the minimal device tree has no
+  domain configuration and no PMU node, and both drivers cost ~0.38M
+  instructions on NEMU together;
 * in generic_final_init() do not call fdt_fixups(): it scans the whole
   tree for APLIC/IMSIC/PLIC/PMU nodes that do not exist in this tree
   (~0.48M instructions).  fdt_reserved_memory_fixup() is kept so the
@@ -17,13 +17,15 @@ Three changes for the single-hart, no-irqchip, no-PMU boot-flow profile:
 diff --git a/platform/generic/Kconfig b/platform/generic/Kconfig
 --- a/platform/generic/Kconfig	2026-11-03 23:11:27.746498056 +0800
 +++ b/platform/generic/Kconfig	2026-11-03 23:11:27.749498068 +0800
-@@ -3,7 +3,6 @@
+@@ -3,8 +3,6 @@
  config PLATFORM_GENERIC
  	bool
  	select FDT
 -	select FDT_DOMAIN
- 	select FDT_PMU
+-	select FDT_PMU
  	default y
+ 
+ if PLATFORM_GENERIC
  
 diff --git a/platform/generic/platform.c b/platform/generic/platform.c
 --- a/platform/generic/platform.c	2026-11-03 23:11:27.748498064 +0800
