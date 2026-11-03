@@ -59,10 +59,17 @@
         };
     };
 
-    clint: clint@38000000 {
+    /*
+     * Disabled CLINT: the kernel gets its timer from stimecmp (sstc) and
+     * OpenSBI's SBI TIME extension is disabled, so neither side needs
+     * the machine timer.  The node stays only because the build scripts
+     * derive the CLINT address from it; "disabled" keeps the kernel from
+     * creating a platform device that never probes.
+     */
+    clint@38000000 {
         compatible = "riscv,clint0";
         reg = <0x0 0x38000000 0x0 0x10000>;
-        interrupts-extended = <&cpu0_intc 3>, <&cpu0_intc 7>;
+        status = "disabled";
     };
 
     /* The image keeps GCPT + OpenSBI at the start of DRAM. */
