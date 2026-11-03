@@ -50,7 +50,6 @@
             riscv,isa = "rv64imafdch_sdtrig_sha_shcounterenw_shgatpa_shlcofideleg_shtvala_shvsatpa_shvstvala_shvstvecd_smcsrind_smdbltrp_smmpm_smnpm_smstateen_ss1p13_sspm_ssccptr_sscofpmf_sscounterenw_sscsrind_ssdbltrp_ssnpm_ssstateen_ssstrict_sstvala_sstvecd_ssu64xl_supm_sv39_sv48_svpbmt_svade_svbare_svinval_svnapot_za64rs_zacas_zawrs_zba_zbb_zbc_zbkb_zbkc_zbkx_zbs_zca_zcb_zcmop_zfa_zfh_zfhmin_zic64b_ziccamoa_ziccif_zicclsm_ziccrse_zicntr_zicond_zicsr_zifencei_zihpm_zihintpause_zihintntl_zimop_zkn_zknd_zkne_zknh_zksed_zksh_zkt_sstc";
 
             cpu0_intc: interrupt-controller {
-                #address-cells = <0>;
                 #interrupt-cells = <1>;
                 compatible = "riscv,cpu-intc";
                 interrupt-controller;
