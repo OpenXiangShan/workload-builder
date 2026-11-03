@@ -70,16 +70,14 @@
         status = "disabled";
     };
 
-    /* The image keeps GCPT + OpenSBI at the start of DRAM. */
-    reserved-memory {
-        #address-cells = <2>;
-        #size-cells = <2>;
-        ranges;
-        gcpt@80000000 {
-            reg = <0x0 0x80000000 0x0 0x100000>;
-            no-map;
-        };
-    };
+    /*
+     * No reserved-memory node: OpenSBI's fdt_reserved_memory_fixup()
+     * recreates /reserved-memory with the "mmode_resv" entries for its own
+     * firmware regions, so the firmware is protected.  The GCPT area at
+     * the start of DRAM has already done its job by the time Linux runs
+     * and can be reused; leaving it no-map used to force 4 KiB pages in
+     * the linear map.
+     */
 
     uart0: serial@50000 {
         compatible = "ns16550a";
