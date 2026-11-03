@@ -35,11 +35,6 @@ cp "$SBI_SOURCE_DIR/../$SBI_CONFIG" "$SBI_BUILD_DIR/platform/generic/configs/def
 # Build OpenSBI
 cd "$SBI_BUILD_DIR"
 patch -p1 < "$SBI_SOURCE_DIR/../opensbi.patch"
-# Optional machine-specific patch (e.g. drop FDT domain support for the
-# minimal NHv3a profile).
-if [ -n "${SBI_EXTRA_PATCH:-}" ]; then
-    patch -p1 < "$SBI_SOURCE_DIR/../$SBI_EXTRA_PATCH"
-fi
 # OpenSBI treats any nonempty DEBUG value as an unoptimized debug build.
 make DEBUG= PLATFORM=generic FW_JUMP=y \
     FW_TEXT_START="$(printf '0x%x' "$FW_TEXT_START")" \

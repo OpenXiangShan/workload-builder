@@ -22,8 +22,6 @@ BR2_LINUX_KERNEL_USE_CUSTOM_CONFIG=y
 # tinyconfig-derived 7.1 config: 1.1 MB Image, no PRINTK/VT/INPUT/EFI/BLOCK,
 # only TTY+8250, BLK_DEV_INITRD, RISCV_TIMER/INTC/OF and RISCV_ISA_C.
 BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="${BR2_EXTERNAL}/board/openxiangshan/nemu/linux-nhv3a-tiny.config"
-# Drop the ARCH_RISCV selects for PLIC/APLIC/IMSIC/COMMON_CLK (unused here).
-BR2_LINUX_KERNEL_PATCH="${BR2_EXTERNAL}/board/openxiangshan/nemu/linux-nhv3a-tiny.patch"
 
 # BR2_TARGET_ROOTFS_INITRAMFS is not set
 # BR2_TARGET_ROOTFS_TAR is not set
