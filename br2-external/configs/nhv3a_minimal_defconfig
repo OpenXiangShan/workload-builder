@@ -25,3 +25,6 @@ BR2_LINUX_KERNEL_CUSTOM_CONFIG_FILE="${BR2_EXTERNAL}/board/openxiangshan/nemu/li
 
 # BR2_TARGET_ROOTFS_INITRAMFS is not set
 # BR2_TARGET_ROOTFS_TAR is not set
+
+# Reproducible kernel UTS_VERSION (stable instruction count across rebuilds).
+BR2_REPRODUCIBLE=y
