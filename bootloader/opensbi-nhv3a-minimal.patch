@@ -1,0 +1,41 @@
+From: NHv3a bring-up <nhv3a@example.invalid>
+Subject: [PATCH] generic: trim the NHv3a minimal-profile fixups
+
+Two changes for the single-hart, no-irqchip, no-PMU boot-flow profile:
+
+* do not select FDT_DOMAIN: the minimal device tree has no domain
+  configuration, and populating domains from the FDT costs ~0.3M
+  instructions on NEMU;
+* in generic_final_init() do not call fdt_fixups(): it scans the whole
+  tree for APLIC/IMSIC/PLIC/PMU nodes that do not exist in this tree
+  (~0.48M instructions).  fdt_reserved_memory_fixup() is kept so the
+  kernel still learns about the firmware's reserved regions.
+
+diff --git a/platform/generic/Kconfig b/platform/generic/Kconfig
+--- a/platform/generic/Kconfig
++++ b/platform/generic/Kconfig
+@@ -3,7 +3,6 @@
+ config PLATFORM_GENERIC
+ 	bool
+ 	select FDT
+-	select FDT_DOMAIN
+ 	select FDT_PMU
+ 	default y
+ 
+diff --git a/platform/generic/platform.c b/platform/generic/platform.c
+--- a/platform/generic/platform.c
++++ b/platform/generic/platform.c
+@@ -242,7 +242,12 @@
+ 		return 0;
+ 
+ 	fdt_cpu_fixup(fdt);
+-	fdt_fixups(fdt);
++	/*
++	 * NHv3a minimal profile: the device tree has no APLIC/IMSIC/PLIC/PMU
++	 * nodes, so skip the generic fixup scans (they walk the whole tree
++	 * several times and find nothing).  Keep reserved-memory/config.
++	 */
++	fdt_reserved_memory_fixup(fdt);
+ 	fdt_domain_fixup(fdt);
+ 
+ 	/* Set the empty space in FDT based on kconfig option */

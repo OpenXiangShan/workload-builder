@@ -118,13 +118,13 @@ $(GCPT_BIN): scripts/build-gcpt.sh scripts/dts-config.sh $(TOOLCHAIN_WRAPPER) $(
 # Build OpenSBI
 SBI_CONFIG := $(if $(filter 1,$(MINIMAL)),opensbi-nhv3a-minimal.config,opensbi.config)
 SBI_FW_OPTIONS := $(if $(filter 1,$(MINIMAL)),1,)
-SBI_EXTRA_PATCH := $(if $(filter 1,$(MINIMAL)),opensbi-nhv3a-no-domain.patch,)
+SBI_EXTRA_PATCH := $(if $(filter 1,$(MINIMAL)),opensbi-nhv3a-minimal.patch,)
 SBI_CONFIG_STAMP := $(SBI_BUILD_DIR)-config/$(if $(filter 1,$(MULTIHART)),multihart-fixed,$(if $(filter 1,$(MINIMAL)),minimal-,dtb.$(GCPT_DTB_CONFIG_HASH)))
 $(SBI_CONFIG_STAMP):
 	mkdir -p "$(@D)"
 	rm -f "$(@D)"/dtb.* "$(@D)"/multihart-fixed "$(@D)"/minimal-*
 	touch "$@"
-$(SBI_BIN): scripts/build-sbi.sh scripts/dts-config.sh $(GCPT_DTS_SOURCES) bootloader/opensbi.config bootloader/opensbi-nhv3a-minimal.config bootloader/opensbi-nhv3a-no-domain.patch $(TOOLCHAIN_WRAPPER) $(SBI_CONFIG_STAMP)
+$(SBI_BIN): scripts/build-sbi.sh scripts/dts-config.sh $(GCPT_DTS_SOURCES) bootloader/opensbi.config bootloader/opensbi-nhv3a-minimal.config bootloader/opensbi-nhv3a-minimal.patch $(TOOLCHAIN_WRAPPER) $(SBI_CONFIG_STAMP)
 	CROSS_COMPILE="$(abspath $(BUILDROOT_DIR)/output/host/bin)/riscv64-linux-" \
 	MULTIHART="$(MULTIHART)" \
 	DEFAULT_DTB="$(GCPT_DEFAULT_DTB)" \
