@@ -13,3 +13,15 @@ The workload builds multiple vector-optimized benchmarks from source. It uses an
 1. Executes the run.sh script which runs all benchmark executables sequentially
 2. Each benchmark is executed and checked for successful completion
 3. System is halted with nemu-trap after all benchmarks complete
+
+## Virtualization
+
+Build RVV-Bench as a nested KVM guest and run the Host firmware with QEMU:
+
+```sh
+make linux/rvv-bench PLATFORM=qemu -jN
+make virt bin=build/linux-workloads/rvv-bench/fw_payload.qemu.bin
+QEMU_BIN=/path/to/qemu-system-riscv64 QEMU_MEMORY=16G \
+  bash scripts/run-qemu.sh \
+  build/virt/rvv-bench/host/fw_payload.qemu.bin
+```
