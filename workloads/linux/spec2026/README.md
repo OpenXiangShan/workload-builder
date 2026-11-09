@@ -102,11 +102,11 @@ workloads/linux/spec2026/configs/riscv_gcc16_rva23u64_novec.cfg
 Override it with `SPEC2026_CFG=/path/to/config.cfg`.
 
 GCC 15 and GCC 16 RVA23U64 vector configurations are available for LMUL 1,
-2, 4, and 8:
+2, 4, 8, and dynamic:
 
 ```text
-workloads/linux/spec2026/configs/riscv_gcc15_rva23u64_lmul{1,2,4,8}.cfg
-workloads/linux/spec2026/configs/riscv_gcc16_rva23u64_lmul{1,2,4,8}.cfg
+workloads/linux/spec2026/configs/riscv_gcc15_rva23u64_lmul{1,2,4,8,dyn}.cfg
+workloads/linux/spec2026/configs/riscv_gcc16_rva23u64_lmul{1,2,4,8,dyn}.cfg
 ```
 
 Select one with `SPEC2026_CFG` and use the matching cross compiler (set
@@ -120,7 +120,8 @@ make linux/spec2026 BENCH=706.stockfish_r \
 ```
 
 These configurations enable auto-vectorization with `-mrvv-max-lmul=mN`
-and `-mrvv-vector-bits=zvl`. Selecting one of them also selects the vector
+for fixed limits or `-mrvv-max-lmul=dynamic` to let GCC choose LMUL for each
+loop. Both use `-mrvv-vector-bits=zvl`. Selecting one also selects the vector
 `xiangshan-fpga-noAIA` DTB by default, with the usual 8 GiB or 64 GiB memory
 profile. If `DEFAULT_DTB` is set explicitly, use a DTB that advertises V.
 
