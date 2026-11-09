@@ -9,6 +9,7 @@ SPEC2017_BUILD_DIR ?= $(SPEC2017_REPO_ROOT)/build/linux-workloads/spec2017
 SPEC2017_EXPLICIT_CFG := $(if $(filter undefined,$(origin SPEC2017_CFG)),,1)
 SPEC2017_RATE_CFG ?= $(SPEC2017_WORKLOAD_DIR)/configs/riscv-gcc16-rva23u64-novec.cfg
 SPEC2017_SPEED_CFG ?= $(SPEC2017_WORKLOAD_DIR)/configs/riscv-gcc16-rva23u64-novec.cfg
+SPEC2017_VECTOR_CFG := $(filter %lmul1.cfg %lmul2.cfg %lmul4.cfg %lmul8.cfg,$(notdir $(if $(SPEC2017_EXPLICIT_CFG),$(SPEC2017_CFG),$(SPEC2017_RATE_CFG) $(SPEC2017_SPEED_CFG))))
 SPEC2017_HELPER := $(SPEC2017_WORKLOAD_DIR)/spec2017-package.py
 SPEC2017_IMAGE_DIR ?= $(SPEC2017_REPO_ROOT)/build/images/$(if $(filter rate,$(SPEC2017_IMAGE_MODE)),spec2017rate,$(if $(filter speed,$(SPEC2017_IMAGE_MODE)),spec2017speed,spec2017))
 SPEC2017_SOURCE_SPEC_ISO := $(SPEC2017_ISO)
@@ -34,7 +35,7 @@ endif
 QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu-mem2g
 SPEC2017_QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu
 SPEC2017_EXPLICIT_DEFAULT_DTB := $(if $(DEFAULT_DTB),1,$(if $(filter undefined,$(origin SPEC2017_DEFAULT_DTB)),,1))
-SPEC2017_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(SPEC2017_MULTIHART)),,$(if $(filter qemu,$(PLATFORM)),$(SPEC2017_QEMU_DEFAULT_DTB),xiangshan-fpga-noAIA-novec)))
+SPEC2017_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(SPEC2017_MULTIHART)),,$(if $(filter qemu,$(PLATFORM)),$(SPEC2017_QEMU_DEFAULT_DTB),$(if $(SPEC2017_VECTOR_CFG),xiangshan-fpga-noAIA,xiangshan-fpga-noAIA-novec))))
 SPEC2017_GCPT_DEFAULT_DTB := $(if $(and $(filter qemu,$(PLATFORM)),$(filter-out 1,$(SPEC2017_MULTIHART))),$(QEMU_DEFAULT_DTB),$(SPEC2017_DEFAULT_DTB))
 SPEC2017_FIRMWARE_FILENAME := $(if $(filter qemu,$(PLATFORM)),fw_payload.qemu.bin,fw_payload.bin)
 ifeq ($(filter 1,$(SPEC2017_MULTIHART)),1)

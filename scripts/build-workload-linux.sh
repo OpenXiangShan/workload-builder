@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 export WORKLOAD_DIR
 export WORKLOAD_BUILD_DIR
@@ -30,9 +30,20 @@ populate-src-dir() {
 pack-cpio() {
     local root_dir="$1"
     local cpio_file="$2"
+    local temp_file
     rm -f "$cpio_file"
-    cd "$root_dir"
-    find . | fakeroot cpio -o -H newc > "$cpio_file" 2>/dev/null
+    temp_file="$(mktemp "${cpio_file}.tmp.XXXXXX")"
+    if ! (cd "$root_dir" && find . -print0 | fakeroot cpio --null -o -H newc > "$temp_file" 2>/dev/null); then
+        rm -f "$temp_file"
+        echo "Failed to create initramfs: $cpio_file" >&2
+        return 1
+    fi
+    if [ ! -s "$temp_file" ] || ! cpio -it < "$temp_file" >/dev/null 2>&1; then
+        rm -f "$temp_file"
+        echo "Generated initramfs is empty or invalid: $cpio_file" >&2
+        return 1
+    fi
+    mv "$temp_file" "$cpio_file"
 }
 
 apply-multihart-package() {

@@ -241,6 +241,19 @@ workloads/linux/spec2017/configs/riscv-gcc16-rva23u64-novec.cfg
 Override both modes with `SPEC2017_CFG=/path/to/config.cfg`, or override the
 mode-specific defaults with `SPEC2017_RATE_CFG` and `SPEC2017_SPEED_CFG`.
 
+GCC 15 and GCC 16 RVA23U64 vector configurations are available for LMUL 1,
+2, 4, and 8:
+
+```text
+workloads/linux/spec2017/configs/riscv-gcc15-rva23u64-lmul{1,2,4,8}.cfg
+workloads/linux/spec2017/configs/riscv-gcc16-rva23u64-lmul{1,2,4,8}.cfg
+```
+
+Select one with `SPEC2017_CFG` and use the matching cross compiler. These
+configs enable RVV auto-vectorization with `-mrvv-max-lmul=mN` and
+`-mrvv-vector-bits=zvl`; selecting one also chooses the vector-capable
+`xiangshan-fpga-noAIA` DTB by default.
+
 `spec2017-prepare` only checks `SPEC2017_ISO` and prepares the local workspace;
 it does not depend on benchmark cfg selection. Installation staging uses a
 temporary local filesystem; override `SPEC2017_PREPARE_TMPDIR` if `/tmp` is not
