@@ -101,9 +101,39 @@ workloads/linux/spec2026/configs/riscv_gcc16_rva23u64_novec.cfg
 
 Override it with `SPEC2026_CFG=/path/to/config.cfg`.
 
-The repository provides static `xiangshan-fpga-noAIA-novec` DTS templates for
-the SPEC2026 memory profiles used by default. The embedded DTB is selected per
-case:
+GCC 15 and GCC 16 RVA23U64 vector configurations are available for LMUL 1,
+2, 4, 8, and dynamic:
+
+```text
+workloads/linux/spec2026/configs/riscv_gcc15_rva23u64_lmul{1,2,4,8,dyn}.cfg
+workloads/linux/spec2026/configs/riscv_gcc16_rva23u64_lmul{1,2,4,8,dyn}.cfg
+```
+
+Select one with `SPEC2026_CFG` and use the matching cross compiler (set
+`SPEC2026_CROSS_COMPILE` when the desired compiler is not on `PATH`). For example:
+
+```sh
+make linux/spec2026 BENCH=706.stockfish_r \
+  SPEC2026_ISO=/path/to/cpu2026-1.0.1.iso \
+  SPEC2026_CFG=workloads/linux/spec2026/configs/riscv_gcc16_rva23u64_lmul4.cfg \
+  -jN
+```
+
+These configurations enable auto-vectorization with `-mrvv-max-lmul=mN`
+for fixed limits or `-mrvv-max-lmul=dynamic` to let GCC choose LMUL for each
+loop. Both use `-mrvv-vector-bits=zvl`. Selecting one also selects the vector
+`xiangshan-fpga-noAIA` DTB by default, with the usual 8 GiB or 64 GiB memory
+profile. If `DEFAULT_DTB` is set explicitly, use a DTB that advertises V.
+
+The RVA23U64 configurations use `-g -O3`. The no-vector configuration
+disables auto-vectorization, while the LMUL configurations enable RVV
+auto-vectorization. They retain CPU2026's C18, C++17, and Fortran 2018
+language modes and benchmark-specific portability flags. They link
+`libjemalloc.a` explicitly; this does not make the entire executable static.
+
+The no-vector configuration uses `xiangshan-fpga-noAIA-novec` DTS templates;
+the vector configurations use `xiangshan-fpga-noAIA` templates. The embedded
+DTB memory profile is selected per case:
 
 ```text
 rate  -> 8g
