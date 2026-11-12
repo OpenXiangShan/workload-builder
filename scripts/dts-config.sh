@@ -4,6 +4,8 @@
 dts_generate_template() {
     local dts_dir="$1"
     local default_dtb="$2"
+    local hart_ids="${3:-}"
+    local harts="${4:-}"
     local generator="$(dirname "${BASH_SOURCE[0]}")/../dts/generate-nemu-board-dts.py"
     local custom_dir="$(dirname "${BASH_SOURCE[0]}")/../dts"
     local output="$dts_dir/$default_dtb.dts.in"
@@ -13,6 +15,9 @@ dts_generate_template() {
     if [[ "$default_dtb" == xiangshan-fpga-noAIA* ||
           "$default_dtb" == xiangshan-qemu-nemu* ]]; then
         args+=(--isa-config "${DTS_ISA_CONFIG:-kunminghu-v3}")
+    fi
+    if [ -n "$hart_ids" ]; then
+        args+=(--hart-ids "$hart_ids" --harts "$harts")
     fi
     python3 "$generator" "${args[@]}"
 }

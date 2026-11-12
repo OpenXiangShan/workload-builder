@@ -59,10 +59,10 @@ SPEC2006_SELECTED_CASES := $(shell python3 $(SPEC2006_HELPER) --cases-config $(S
 SPEC2006_IMAGE_CASES := $(if $(BENCH),$(SPEC2006_CASE),$(SPEC2006_SELECTED_CASES))
 SPEC2006_ELF_TARGETS := $(foreach case,$(SPEC2006_SELECTED_CASES),$(SPEC2006_BUILD_DIR)/$(case)/elf/$(case).elf)
 SPEC2006_DTS_SOURCES := $(SPEC2006_REPO_ROOT)/dts/generate-nemu-board-dts.py $(SPEC2006_REPO_ROOT)/dts/generate-workload-builder-dts.py \
-	$(SPEC2006_REPO_ROOT)/dts/DTSGen.py $(SPEC2006_REPO_ROOT)/dts/workload-builder-profiles.json \
+	$(SPEC2006_REPO_ROOT)/dts/DTSGen.py $(SPEC2006_REPO_ROOT)/dts/hart_ids.py $(SPEC2006_REPO_ROOT)/dts/workload-builder-profiles.json \
 	$(wildcard $(SPEC2006_REPO_ROOT)/dts/$(SPEC2006_DEFAULT_DTB).dts.in)
 SPEC2006_CFG_HASH := $(shell if [ -f "$(abspath $(SPEC2006_CFG))" ]; then sha256sum "$(abspath $(SPEC2006_CFG))" | cut -d ' ' -f 1; else printf 'missing'; fi)
-SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$(SPEC2006_DEFAULT_DTB)" "$(DTS_ISA_CONFIG)" | sha256sum | cut -d ' ' -f 1)
+SPEC2006_DEFAULT_DTB_STAMP := $(SPEC2006_BUILD_DIR)/dtb.$(shell printf '%s\n' "$(SPEC2006_DEFAULT_DTB)" "$(DTS_ISA_CONFIG)" "$(HART_IDS)" | sha256sum | cut -d ' ' -f 1)
 SPEC2006_BUILD_VARS_HASH := $(shell printf '%s\n' '$(SPEC2006_PROFILING)' '$(SPEC2006_INPUT)' '$(SPEC2006_TUNE)' '$(SPEC2006_JOBS)' '$(SPEC2006_CROSS_COMPILE)' 'multihart=$(SPEC2006_MULTIHART)' 'harts=$(SPEC2006_HARTS)' | sha256sum | cut -d ' ' -f 1)
 spec2006_case_image_stamp = $(SPEC2006_IMAGE_DIR)/stamps/$(1).images.stamp
 
@@ -176,6 +176,7 @@ $(SPEC2006_BUILD_DIR)/$(1)/$(SPEC2006_FIRMWARE_FILENAME): $$(SPEC2006_DTS_SOURCE
 	FIRMWARE_OUTPUT="$$(abspath $$@)" \
 	MULTIHART="$$(SPEC2006_MULTIHART)" \
 	HARTS="$$(SPEC2006_HARTS)" \
+	HART_IDS="$$(HART_IDS)" \
 	SPEC2006_PROGRESS_K="$$(SPEC2006_PROGRESS_K)" \
 	SPEC2006_PROGRESS_N="$$(SPEC2006_PROGRESS_N)" \
 	bash "$$(SPEC2006_SCRIPTS_DIR)/build-firmware-linux.sh" "$$(SPEC2006_GCPT_BIN)" "$$(SPEC2006_SBI_BUILD_DIR)" "$$(SPEC2006_DTS_DIR)" "$$(SPEC2006_LINUX_IMAGE)" "$(SPEC2006_BUILD_DIR)/$(1)"

@@ -8,6 +8,7 @@ GCPT_IMPLEMENTATION="${GCPT_IMPLEMENTATION:-alpha}"
 GCPT_CONFIGURE_MODE="${GCPT_CONFIGURE_MODE:-normal}"
 GCPT_PAYLOAD_PATH="${GCPT_PAYLOAD_PATH:-${3:-}}"
 GCPT_SERIAL_PORT="${GCPT_SERIAL_PORT:-}"
+SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 source "$(dirname "${BASH_SOURCE[0]}")/dts-config.sh"
 
@@ -47,6 +48,11 @@ case "$GCPT_IMPLEMENTATION" in
                 exit 1
                 ;;
         esac
+        if [ -n "${HART_IDS:-}" ]; then
+            normalized_ids="$(python3 "$SCRIPTS_DIR/../dts/hart_ids.py" \
+                --ids "$HART_IDS" --harts "$HARTS")"
+            export CFLAGS="${CFLAGS:-} -DGCPT_HART_IDS=$normalized_ids"
+        fi
         (
             cd "$GCPT_BUILD_DIR"
             configure_args=("--mode=$GCPT_CONFIGURE_MODE")

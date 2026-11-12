@@ -111,6 +111,23 @@ window `[0x80300000, 0x88600000)` and load Linux at `0x88600000`. Multi-hart
 builds default `GCPT_SERIAL_PORT` to the QEMU 16550A TX register at
 `0x310b0000`; the build passes it to LibCheckpoint as `CONFIG_SERIAL_PORT`.
 
+Set `HART_IDS` to configure physical hart IDs:
+
+```shell
+make linux/coremark MULTIHART=1 HARTS=3 HART_IDS=0,0x100,0x101 \
+  DEFAULT_DTB=xiangshan-qemu-nemu-3hart-mem8g
+```
+
+The list must contain exactly `HARTS` unique IDs, include 0, and stay within
+`0..4094`, matching the NEMU CLINT register layout. Decimal and hexadecimal
+values are accepted. Hart 0 is normalized to the first CPU slot; remaining IDs
+keep their listed order. For generated DTS profiles, the hart count in
+`DEFAULT_DTB` must match `HARTS`; custom templates must contain that many CPU
+nodes. CPU interrupt labels stay in dense order while the CPU `reg` values use
+the selected physical IDs. Workload affinity continues to use Linux logical
+CPU numbers `0..HARTS-1`. QEMU and LibCheckpoint must use the same physical IDs
+in the same order; checkpoint state slots remain densely indexed by CPU order.
+
 ## Workload Compatibility
 
 Not all workloads can run on all NEMU or QEMU configurations. QEMU support is

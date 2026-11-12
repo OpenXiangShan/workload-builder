@@ -57,7 +57,7 @@ resolve_default_dtb_base() {
 
 DEFAULT_DTB_BASE="$(resolve_default_dtb_base "$DEFAULT_DTB" "$DTB_MEMORY_PROFILE")"
 DEFAULT_DTB_TEMPLATE="$DTS_TEMPLATE_DIR/$DEFAULT_DTB_BASE.dts.in"
-dts_generate_template "$DTS_TEMPLATE_DIR" "$DEFAULT_DTB_BASE"
+dts_generate_template "$DTS_TEMPLATE_DIR" "$DEFAULT_DTB_BASE" "$HART_IDS" "$HARTS"
 DTS_CONFIG="$(dts_extract_config "$DEFAULT_DTB_TEMPLATE")"
 read -r MEM_BEGIN MEM_SIZE CLINT_MMIO <<< "$DTS_CONFIG"
 if [ "${MULTIHART:-0}" = 1 ] && {

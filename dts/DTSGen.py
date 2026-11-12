@@ -36,6 +36,7 @@ class DTSGen:
         self.mmu_type = mmu_type
         self.timebase_freq = timebase_freq
         self.nr_harts = nr_harts
+        self.hart_ids = list(range(nr_harts))
         self.clint_addr = clint_addr
         self.plic_addr = plic_addr
         self.memories = memories
@@ -120,11 +121,11 @@ riscv,isa-base = "rv64i";
 riscv,isa-extensions = {", ".join(f'"{ext}"' for ext in isa)};
 """.strip()
 
-    def __gen_cpu_node(self, hart_id, isa):
+    def __gen_cpu_node(self, cpu_index, hart_id, isa):
         # Reference: https://github.com/torvalds/linux/blob/master/Documentation/devicetree/bindings/riscv/cpus.yaml
         compatible_list = ", ".join(f'"{compatible}"' for compatible in self.cpu_compatibles)
         return f"""
-cpu{hart_id}: cpu@{hart_id:x} {{
+cpu{cpu_index}: cpu@{hart_id:x} {{
     compatible = {compatible_list};
     device_type = "cpu";
     mmu-type = "{self.mmu_type}";
@@ -132,7 +133,7 @@ cpu{hart_id}: cpu@{hart_id:x} {{
 {DTSGen.indent(self.__gen_isa_string(isa))}
 {DTSGen.indent(self.cpu_properties)}
 
-    cpu{hart_id}_intc: interrupt-controller {{
+    cpu{cpu_index}_intc: interrupt-controller {{
         #interrupt-cells = <1>;
         compatible = "riscv,cpu-intc";
         interrupt-controller;
@@ -142,8 +143,8 @@ cpu{hart_id}: cpu@{hart_id:x} {{
 
     def __gen_cpus(self):
         cpu_nodes = "\n".join(
-            self.__gen_cpu_node(hart_id, self.isa_extensions) + "\n"
-            for hart_id in range(self.nr_harts)
+            self.__gen_cpu_node(cpu_index, hart_id, self.isa_extensions) + "\n"
+            for cpu_index, hart_id in enumerate(self.hart_ids)
         )
         return f"""
 cpus {{

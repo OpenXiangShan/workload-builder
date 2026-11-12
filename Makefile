@@ -3,6 +3,7 @@ all: workloads
 MULTIHART ?= 0
 PLATFORM ?= $(if $(filter 1,$(MULTIHART)),qemu,nemu)
 HARTS ?= 2
+HART_IDS ?=
 QEMU_DEFAULT_DTB ?= xiangshan-qemu-nemu-mem2g
 DTS_ISA_CONFIG ?= kunminghu-v3
 DTS_DIR := build/generated-dts
@@ -19,6 +20,11 @@ ifneq ($(PLATFORM),qemu)
 $(error MULTIHART=1 requires PLATFORM=qemu)
 endif
 endif
+ifneq ($(strip $(HART_IDS)),)
+ifneq ($(filter 1,$(MULTIHART)),1)
+$(error HART_IDS requires MULTIHART=1)
+endif
+endif
 
 LINUX_DEFAULT_DTB := $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter 1,$(MULTIHART)),,$(if $(filter qemu,$(PLATFORM)),$(QEMU_DEFAULT_DTB),)))
 LINUX_FIRMWARE_FILENAME := $(if $(filter qemu,$(PLATFORM)),fw_payload.qemu.bin,fw_payload.bin)
@@ -28,6 +34,7 @@ LINUX_ROOTFS_BUILD_VARS_HASH := $(shell printf '%s\n' \
 LINUX_FIRMWARE_BUILD_VARS_HASH := $(shell printf '%s\n' \
 	'multihart=$(if $(filter 1,$(MULTIHART)),1,0)' \
 	'harts=$(if $(filter 1,$(MULTIHART)),$(HARTS),1)' \
+	'hart_ids=$(if $(filter 1,$(MULTIHART)),$(HART_IDS),)' \
 	'default_dtb=$(if $(LINUX_DEFAULT_DTB),$(LINUX_DEFAULT_DTB),xiangshan)' \
 	'dts_isa_config=$(DTS_ISA_CONFIG)' | sha256sum | cut -d ' ' -f 1)
 
@@ -90,10 +97,10 @@ GCPT_DEFAULT_DTB ?= $(if $(DEFAULT_DTB),$(DEFAULT_DTB),$(if $(filter qemu,$(PLAT
 GCPT_CONFIGURE_MODE := $(if $(filter 1,$(MULTIHART)),dual_core,normal)
 GCPT_SERIAL_PORT ?= $(if $(filter 1,$(MULTIHART)),0x310b0000,)
 GCPT_DTB_CONFIG_HASH := $(shell printf '%s\n' "$(GCPT_DEFAULT_DTB)" | sha256sum | cut -d ' ' -f 1)
-GCPT_CONFIG_STAMP := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.$(GCPT_CONFIGURE_MODE).serial-port.$(GCPT_SERIAL_PORT),build/LibCheckpointAlpha-config/dtb.$(GCPT_DTB_CONFIG_HASH))
+GCPT_CONFIG_STAMP := $(if $(filter 1,$(MULTIHART)),build/LibCheckpoint-config/mode.$(GCPT_CONFIGURE_MODE).serial-port.$(GCPT_SERIAL_PORT).hart-ids.$(shell printf '%s\n' "$(HART_IDS)" | sha256sum | cut -d ' ' -f 1),build/LibCheckpointAlpha-config/dtb.$(GCPT_DTB_CONFIG_HASH))
 GCPT_SOURCES := $(if $(filter 1,$(MULTIHART)),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -path '*/tests' -prune -o -type f -print 2>/dev/null),$(shell find $(GCPT_SOURCE_DIR) -path '*/.git' -prune -o -type f -print 2>/dev/null))
 GCPT_DTS_SOURCES := dts/generate-nemu-board-dts.py dts/generate-workload-builder-dts.py \
-	dts/DTSGen.py dts/workload-builder-profiles.json \
+	dts/DTSGen.py dts/hart_ids.py dts/workload-builder-profiles.json \
 	$(wildcard dts/$(GCPT_DEFAULT_DTB).dts.in)
 $(GCPT_CONFIG_STAMP):
 	mkdir -p "$(@D)"
@@ -104,6 +111,7 @@ $(GCPT_BIN): scripts/build-gcpt.sh scripts/dts-config.sh $(TOOLCHAIN_WRAPPER) $(
 	GCPT_IMPLEMENTATION="$(GCPT_IMPLEMENTATION)" \
 	GCPT_CONFIGURE_MODE="$(GCPT_CONFIGURE_MODE)" \
 	GCPT_PAYLOAD_PATH="$(if $(filter 1,$(MULTIHART)),$(abspath $(SBI_BIN)),)" \
+	HARTS="$(HARTS)" HART_IDS="$(HART_IDS)" \
 	GCPT_SERIAL_PORT="$(GCPT_SERIAL_PORT)" \
 	DEFAULT_DTB="$(GCPT_DEFAULT_DTB)" \
 	DTS_TEMPLATE_DIR="$(abspath $(DTS_DIR))" \
@@ -155,6 +163,7 @@ build/linux-workloads/$(1)/$(LINUX_FIRMWARE_FILENAME): $(GCPT_DTS_SOURCES) $(GCP
 	FIRMWARE_OUTPUT="$$(abspath $$@)" \
 	MULTIHART="$$(MULTIHART)" \
 	HARTS="$$(HARTS)" \
+	HART_IDS="$$(HART_IDS)" \
 	bash scripts/build-firmware-linux.sh $(GCPT_BIN) $(SBI_BUILD_DIR) $(DTS_DIR) $(LINUX_IMAGE) build/linux-workloads/$(1)
 
 linux/$(1): build/linux-workloads/$(1)/$(LINUX_FIRMWARE_FILENAME)

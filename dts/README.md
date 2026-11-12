@@ -41,6 +41,21 @@ profiles, FPGA noAIA names, and QEMU `nemu` names of the form
 custom template passed through `--custom-template-dir`; otherwise generation
 fails with an `unsupported DTS basename` error.
 
+For QEMU multi-hart workloads, `HART_IDS` selects physical IDs while `HARTS`
+continues to select the CPU count. IDs must be unique, include 0, and be in
+`0..4094`; the list is normalized with hart 0 first. For example:
+
+```sh
+make linux/coremark MULTIHART=1 HARTS=3 HART_IDS=0,0x100,0x101 \
+  DEFAULT_DTB=xiangshan-qemu-nemu-3hart-mem8g
+```
+
+Generated profile names encode the CPU count, which must match `HARTS`. CPU
+labels and interrupt references keep their dense device-tree order, while CPU
+unit addresses and `reg` values carry the physical IDs. Custom DTS templates
+are remapped during image generation and must contain exactly `HARTS` CPU nodes.
+The QEMU machine and LibCheckpoint build must use the same ID list.
+
 The bundled `boom.dts.in` custom template describes the single-hart BOOM v4
 DiffTest platform: RV64IMAFDC with Zba/Zbb/Zbs, Sv39, eight PMP regions at
 four-byte granularity, and 256 MiB DRAM at `0x80000000`. It uses CLINT at
